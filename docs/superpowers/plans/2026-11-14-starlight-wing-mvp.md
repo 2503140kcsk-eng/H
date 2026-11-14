@@ -91,7 +91,7 @@ Files: src/game/Game.ts, src/main.ts, tests/e2e/app.spec.ts.
 
 ## Verified scope boundary (2026-11-14)
 
-CI success is not physical iPhone certification. Safari / Brave on iOS, real GPU context loss/recovery, sustained frame rate, heat, PWA installation, and device-to-device backup restoration still require manual testing. The current game has three selectable and permanently unlockable procedural ships (Lumen-01, Aqua-Comet and Rose-Bastion), three selectable and permanently unlockable pilot profiles (Lumi, Noa and Rin), two permanent stat-upgrade tracks, nine regular enemy archetypes and one phased boss. Multiple pilots, ship skins, weapon collections, ten-plus weapon families, authored campaign content, adaptive music and long-session progression remain roadmap items.
+CI success is not physical iPhone certification. Safari / Brave on iOS, real GPU context loss/recovery, sustained frame rate, heat, PWA installation, and device-to-device backup restoration still require manual testing. The current game has three selectable and permanently unlockable procedural ships (Lumen-01, Aqua-Comet and Rose-Bastion), three selectable and permanently unlockable pilot profiles (Lumi, Noa and Rin), two permanent stat-upgrade tracks, nine regular enemy archetypes and one phased boss. Pilot-specific story episodes / voice lines / dedicated skill trees, ship skins, weapon collections, ten-plus weapon families, authored campaign content, adaptive music and a fully tuned long-session economy remain roadmap items.
 
 
 ### Task 7: Permanent ship roster
@@ -140,3 +140,20 @@ Files: src/game/pilots.ts, src/game/core.ts, src/game/Game.ts, src/main.ts, src/
 | Rin | 650 shards | 1.16× | 0.92× | 1.12× | +0 | 0.88× | 0.92× |
 
 The existing global pilot XP/level field remains intact. It is not yet a per-pilot progression tree.
+
+
+### Task 9: Per-pilot leveling and save migration
+
+Files: src/game/pilots.ts, src/game/core.ts, src/game/Game.ts, src/main.ts, tests/pilots.test.ts.
+
+- [x] Store a separate level / XP record for each unlocked pilot.
+- [x] Award run XP only to the pilot selected for that sortie.
+- [x] Restore the selected pilot's own level when switching pilots; newly unlocked pilots start at level 1.
+- [x] Apply level growth in combat: +1% attack per level up to +20%, and +1 hull at every 10 levels after level 1.
+- [x] Show each pilot's level in the hangar and selected-pilot card.
+- [x] Keep legacy `pilotLevel` / `pilotXp` as selected-pilot mirrors for older code / backup compatibility.
+- [x] Migrate old shared XP to the currently selected pilot; if no pilot selection exists, migrate to Lumi.
+- [x] Drop unknown pilot IDs from the progress map and clamp levels / XP at the save boundary.
+- [x] Test new backup round trips, pre-pilot backups, intermediate shared-XP saves, independent pilot growth and malformed progress keys.
+
+**Growth rule (gameplay design constants):** attack multiplier = (1 + 0.01 \times \min(20, Lv-1)); hull bonus = (lfloor (Lv-1)/10 \rfloor). Level is capped at 100. These are tuning values, not measured balance results.
