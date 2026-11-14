@@ -91,7 +91,7 @@ Files: src/game/Game.ts, src/main.ts, tests/e2e/app.spec.ts.
 
 ## Verified scope boundary (2026-11-14)
 
-CI success is not physical iPhone certification. Safari / Brave on iOS, real GPU context loss/recovery, sustained frame rate, heat, PWA installation, and device-to-device backup restoration still require manual testing. The current game has three selectable and permanently unlockable procedural ships (Lumen-01, Aqua-Comet and Rose-Bastion), one pilot profile, two permanent stat-upgrade tracks, nine regular enemy archetypes and one phased boss. Multiple pilots, ship skins, weapon collections, ten-plus weapon families, authored campaign content, adaptive music and long-session progression remain roadmap items.
+CI success is not physical iPhone certification. Safari / Brave on iOS, real GPU context loss/recovery, sustained frame rate, heat, PWA installation, and device-to-device backup restoration still require manual testing. The current game has three selectable and permanently unlockable procedural ships (Lumen-01, Aqua-Comet and Rose-Bastion), three selectable and permanently unlockable pilot profiles (Lumi, Noa and Rin), two permanent stat-upgrade tracks, nine regular enemy archetypes and one phased boss. Multiple pilots, ship skins, weapon collections, ten-plus weapon families, authored campaign content, adaptive music and long-session progression remain roadmap items.
 
 
 ### Task 7: Permanent ship roster
@@ -114,3 +114,29 @@ Files: src/game/ships.ts, src/game/core.ts, src/game/Game.ts, src/main.ts, src/s
 | Lumen-01 | Free | 1.00× | 1.00× | 1.00× | +0 | 1.00× |
 | Aqua-Comet | 350 shards | 0.88× | 0.78× | 1.24× | +0 | 0.88× |
 | Rose-Bastion | 750 shards | 1.32× | 1.16× | 0.80× | +2 | 1.30× |
+
+
+### Task 8: Permanent pilot roster and legacy-save migration
+
+Files: src/game/pilots.ts, src/game/core.ts, src/game/Game.ts, src/main.ts, src/style.css, tests/pilots.test.ts, tests/e2e/app.spec.ts.
+
+- [x] Define three original pilots: Lumi (balanced), Noa (support/defense), Rin (assault/mobility).
+- [x] Add pilot selection and shard-based permanent unlocks to the hangar.
+- [x] Apply pilot-specific attack, fire interval, movement response, hull, shield regeneration and special-attack multipliers in the game loop.
+- [x] Reflect pilot identity in the selected-pilot card, combat HUD and cockpit accent material.
+- [x] Persist unlocked/selected pilots in local IndexedDB and new JSON backups.
+- [x] Keep save format version 1 and give old backups without pilot fields a safe default pilot.
+- [x] Reject unknown or locked pilot identifiers during save sanitization.
+- [x] Add unit tests for role trade-offs, invalid identifiers, new backup round trips and an old version 1 backup fixture.
+- [x] Add browser tests for the three-pilot hangar and in-combat HUD.
+- [ ] Add pilot-specific level/XP trees, voice lines and personal story episodes.
+
+**Initial pilot tuning constants (design values, not measured balance):**
+
+| Pilot | Unlock cost | Attack | Fire interval | Movement response | Hull bonus | Shield recharge | Special damage |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Lumi | Free | 1.00× | 1.00× | 1.00× | +0 | 1.00× | 1.00× |
+| Noa | 420 shards | 0.94× | 1.06× | 0.96× | +1 | 1.40× | 1.25× |
+| Rin | 650 shards | 1.16× | 0.92× | 1.12× | +0 | 0.88× | 0.92× |
+
+The existing global pilot XP/level field remains intact. It is not yet a per-pilot progression tree.
