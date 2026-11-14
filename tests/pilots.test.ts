@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createBackup, createDefaultSave, sanitizeSaveData, verifyBackup } from "../src/game/core";
 import {
+  getPilotGrowthStats,
   getPilotProfile,
   normalizeSelectedPilotId,
   normalizeUnlockedPilotIds
@@ -44,9 +45,13 @@ describe("pilot roster and backward-compatible save integration", () => {
     const save = createDefaultSave();
     save.unlockedPilots.push("noa-celeste");
     save.selectedPilot = "noa-celeste";
+    save.pilotProgress["noa-celeste"] = { level: 5, xp: 25 };
     const restored = verifyBackup(createBackup(save));
     expect(restored?.unlockedPilots).toContain("noa-celeste");
     expect(restored?.selectedPilot).toBe("noa-celeste");
+    expect(restored?.pilotProgress["noa-celeste"]).toEqual({ level: 5, xp: 25 });
+    expect(restored?.pilotLevel).toBe(5);
+    expect(restored?.pilotXp).toBe(25);
   });
 
   it("loads a pre-pilot version 1 backup without dropping existing progress", () => {
@@ -70,6 +75,7 @@ describe("pilot roster and backward-compatible save integration", () => {
     };
     delete legacy.unlockedPilots;
     delete legacy.selectedPilot;
+    delete legacy.pilotProgress;
 
     const restored = sanitizeSaveData(legacy);
     expect(restored.shards).toBe(120);
@@ -78,6 +84,30 @@ describe("pilot roster and backward-compatible save integration", () => {
     expect(restored.pilotXp).toBe(25);
     expect(restored.unlockedPilots).toEqual(["lumi-asteria"]);
     expect(restored.selectedPilot).toBe("lumi-asteria");
+  });
+
+  it("migrates shared XP from an intermediate save to its selected pilot", () => {
+    const legacy: Record<string, unknown> = {
+      ...createDefaultSave(),
+      unlockedPilots: ["lumi-asteria", "noa-celeste"],
+      selectedPilot: "noa-celeste",
+      pilotLevel: 4,
+      pilotXp: 25
+    };
+    delete legacy.pilotProgress;
+
+    const restored = sanitizeSaveData(legacy);
+    expect(restored.pilotProgress["noa-celeste"]).toEqual({ level: 4, xp: 25 });
+    expect(restored.pilotProgress["lumi-asteria"]).toEqual({ level: 1, xp: 0 });
+    expect(restored.pilotLevel).toBe(4);
+    expect(restored.pilotXp).toBe(25);
+  });
+
+  it("caps level growth at +20% attack and grants one hull per ten levels", () => {
+    expect(getPilotGrowthStats(1)).toEqual({ level: 1, attackMultiplier: 1, hullBonus: 0 });
+    expect(getPilotGrowthStats(11)).toEqual({ level: 11, attackMultiplier: 1.1, hullBonus: 1 });
+    expect(getPilotGrowthStats(100)).toEqual({ level: 100, attackMultiplier: 1.2, hullBonus: 9 });
+    expect(getPilotGrowthStats(Number.NaN)).toEqual({ level: 1, attackMultiplier: 1, hullBonus: 0 });
   });
 
   it("sanitizes forged pilot identifiers in local and imported save data", () => {
