@@ -66,10 +66,10 @@ Files: index.html, vite.config.ts, public/*, playwright.config.ts, tests/e2e/*, 
 
 Interfaces: menu/mode selection, pause/restart, audio controls, backup transfer UI, app install instructions.
 
-- [ ] Add a landscape-first responsive HUD, safe-area CSS, portrait rotate notice, and readable fallbacks.
-- [ ] Configure the PWA manifest and service worker precache for application assets.
-- [ ] Add Playwright shell smoke tests; run unit tests and production build in CI.
-- [ ] Document iPhone install steps and the remaining manual-device checks.
+- [x] Add a landscape-first responsive HUD, safe-area CSS, portrait rotate notice, and readable fallbacks.
+- [x] Configure the PWA manifest and service worker precache for application assets.
+- [x] Add Playwright shell smoke tests; run unit tests and production build in CI.
+- [x] Document iPhone install steps and the remaining manual-device checks.
 
 ### Task 5: Review and deploy preview
 
@@ -80,6 +80,15 @@ Files: GitHub branch and Vercel preview configuration.
 - [x] Document a StackBlitz development-preview route for the public branch.
 - [ ] Deploy to a stable static HTTPS host. Vercel Hobby project creation returned HTTP 403 for the connected team; no production URL is claimed.
 
+### Task 6: GPU context lifecycle and mobile resilience
+
+Files: src/game/Game.ts, src/main.ts, tests/e2e/app.spec.ts.
+
+- [x] Pause the active run when the browser reports WebGL context loss.
+- [x] Tell the player when the context is restored and require an explicit resume.
+- [x] Add a Playwright regression test for loss → pause → restore → resume.
+- [ ] Verify actual context loss/recovery and thermal behavior on physical iPhone Safari and Brave.
+
 ## Verified scope boundary (2026-11-14)
 
-CI success is not physical iPhone certification. Safari / Brave on iOS, sustained frame rate, heat, PWA installation, and device-to-device backup restoration still require manual testing. The current game has one procedural ship and one pilot profile, two permanent upgrades, nine regular enemy archetypes, and one phased boss. Full character/ship collection, ten-plus weapons, campaign content, authored adaptive music, and long-session progression remain roadmap items.
+CI success is not physical iPhone certification. Safari / Brave on iOS, real GPU context loss/recovery, sustained frame rate, heat, PWA installation, and device-to-device backup restoration still require manual testing. The current game has one procedural ship and one pilot profile, two permanent upgrades, nine regular enemy archetypes, and one phased boss. Full character/ship collection, ten-plus weapons, campaign content, authored adaptive music, and long-session progression remain roadmap items.
