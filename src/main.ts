@@ -3,6 +3,7 @@ import { Game, type GameMode, type HudState, type RunResult } from "./game/Game"
 import { createDefaultSave, upgradeCost, type SaveData } from "./game/core";
 import { exportBackup, importBackup } from "./persistence/backup";
 import { getSavePersistenceStatus, loadSave, saveProgress } from "./persistence/database";
+import { ALL_PILOT_IDS, PILOT_PROFILES, getPilotProfile, isPilotId } from "./game/pilots";
 import { ALL_SHIP_IDS, SHIP_PROFILES, isShipId } from "./game/ships";
 import "./style.css";
 
@@ -27,8 +28,8 @@ uiRoot.innerHTML = `
       <h1>STARLIGHT <span>WING</span></h1>
       <p class="subtitle">星の翼 — かわいさ × 本格SFシューティング</p>
       <div class="pilot-card">
-        <div class="pilot-avatar" aria-hidden="true">✧</div>
-        <div><strong>ルミ・アステリア</strong><small>パイロット / Lumen-01</small></div>
+        <div id="pilot-avatar" class="pilot-avatar" aria-hidden="true">✦</div>
+        <div><strong id="pilot-name">ルミ・アステリア</strong><small id="pilot-role">オールラウンダー / Lv.1</small></div>
         <span class="pilot-status">READY</span>
       </div>
       <div class="mode-grid">
@@ -49,6 +50,10 @@ uiRoot.innerHTML = `
         <div class="ship-dock">
           <div class="ship-dock-heading"><strong>機体セレクト</strong><span>解放した機体は永久使用OK</span></div>
           <div id="ship-list" class="ship-options" aria-label="宇宙船選択"></div>
+          <div class="pilot-dock">
+            <div class="pilot-dock-heading"><strong>パイロット選択</strong><span>個性ごとに戦闘能力が変化</span></div>
+            <div id="pilot-list" class="pilot-options" aria-label="パイロット選択"></div>
+          </div>
         </div>
       </div>
       <div class="menu-footer">
@@ -76,7 +81,7 @@ uiRoot.innerHTML = `
       <button id="pause-button" class="icon-button" aria-label="一時停止">Ⅱ</button>
     </header>
     <div class="hud-left">
-      <div class="pilot-mini"><span>✧</span><div><strong>LUMI</strong><small id="ship-label">LUMEN-01</small></div></div>
+      <div class="pilot-mini"><span id="pilot-hud-avatar">✦</span><div><strong id="pilot-label">LUMI</strong><small id="ship-label">LUMEN-01</small></div></div>
       <div class="meter-label"><span>HULL</span><b id="hp-text">3 / 3</b></div>
       <div class="meter"><i id="hp-fill" class="hp-fill"></i></div>
       <div class="meter-label"><span>SHIELD</span><b id="shield-text">100%</b></div>
@@ -213,7 +218,28 @@ function renderShipChoices(): void {
   }).join("");
 }
 
+function renderPilotChoices(): void {
+  const list = byId<HTMLDivElement>("pilot-list");
+  list.innerHTML = ALL_PILOT_IDS.map((id) => {
+    const pilot = PILOT_PROFILES[id];
+    const unlocked = save.unlockedPilots.includes(id);
+    const selected = save.selectedPilot === id;
+    const disabled = !unlocked && save.shards < pilot.unlockCost;
+    const action = unlocked ? (selected ? "選択中" : "選択") : `解放 ${pilot.unlockCost.toLocaleString("ja-JP")} ✦`;
+    return `<button type="button" class="pilot-option ${selected ? "selected" : ""} ${unlocked ? "unlocked" : "locked"}"
+      data-pilot-id="${pilot.id}" ${disabled ? "disabled" : ""} aria-pressed="${selected}" title="${pilot.biography}">
+      <span class="pilot-option-avatar" style="--pilot-accent:#${pilot.accentColor.toString(16).padStart(6, "0")}">${pilot.avatar}</span>
+      <span class="pilot-option-copy"><b>${pilot.name}</b><small>${pilot.className}</small></span>
+      <span class="pilot-option-action">${action}</span>
+    </button>`;
+  }).join("");
+}
+
 function refreshMenu(): void {
+  const selectedPilot = getPilotProfile(save.selectedPilot);
+  byId("pilot-name").textContent = selectedPilot.name;
+  byId("pilot-role").textContent = selectedPilot.className + " · Lv." + save.pilotLevel;
+  byId("pilot-avatar").textContent = selectedPilot.avatar;
   byId("currency").textContent = save.shards.toLocaleString("en-US") + " ✦";
   byId("attack-level").textContent = "Lv. " + save.upgrades.attack;
   byId("hull-level").textContent = "Lv. " + save.upgrades.hull;
@@ -226,6 +252,7 @@ function refreshMenu(): void {
   attackButton.disabled = attackCost === null || save.shards < attackCost;
   hullButton.disabled = hullCost === null || save.shards < hullCost;
   renderShipChoices();
+  renderPilotChoices();
   sensitivityInput.value = String(save.settings.sensitivity);
   volumeInput.value = String(save.settings.volume);
   const status = byId<HTMLParagraphElement>("save-status");
@@ -249,6 +276,7 @@ function makeGame(): Game {
     sensitivity: save.settings.sensitivity,
     upgrades: save.upgrades,
     shipId: save.selectedShip,
+    pilotId: save.selectedPilot,
     onHudUpdate: updateHud,
     onRunEnd: (result) => { void handleRunEnd(result); },
     onGraphicsContextLost: () => {
@@ -274,6 +302,8 @@ function startRun(mode: GameMode): void {
     runActive = true;
     paused = false;
     byId("mode-label").textContent = mode.toUpperCase();
+    byId("pilot-label").textContent = getPilotProfile(save.selectedPilot).callSign;
+    byId("pilot-hud-avatar").textContent = getPilotProfile(save.selectedPilot).avatar;
     byId("ship-label").textContent = save.selectedShip;
     playTone(660, 0.16);
   } catch (error) {
@@ -382,6 +412,33 @@ document.querySelectorAll<HTMLButtonElement>("[data-mode]").forEach((button) => 
 });
 byId("upgrade-attack").addEventListener("click", () => { void buyUpgrade("attack"); });
 byId("upgrade-hull").addEventListener("click", () => { void buyUpgrade("hull"); });
+byId("pilot-list").addEventListener("click", async (event) => {
+  if (!(event.target instanceof Element)) return;
+  const button = event.target.closest<HTMLButtonElement>("[data-pilot-id]");
+  const pilotId = button?.dataset.pilotId;
+  if (!pilotId || !isPilotId(pilotId)) return;
+  const pilot = PILOT_PROFILES[pilotId];
+
+  if (save.unlockedPilots.includes(pilotId)) {
+    if (save.selectedPilot === pilotId) return;
+    save.selectedPilot = pilotId;
+    await persist();
+    showToast(pilot.name + "を選択したよ！");
+    playTone(760, 0.12);
+    return;
+  }
+
+  if (save.shards < pilot.unlockCost) {
+    showToast("シャードが足りないよ！");
+    return;
+  }
+  save.shards -= pilot.unlockCost;
+  save.unlockedPilots.push(pilotId);
+  save.selectedPilot = pilotId;
+  await persist();
+  showToast(pilot.name + "が仲間になったよ！");
+  playTone(980, 0.16);
+});
 byId("ship-list").addEventListener("click", async (event) => {
   if (!(event.target instanceof Element)) return;
   const button = event.target.closest<HTMLButtonElement>("[data-ship-id]");
