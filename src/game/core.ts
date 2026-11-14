@@ -30,8 +30,8 @@ const SaveSchema = z.object({
   version: z.literal(1).catch(1),
   shards: z.number().int().min(0).max(100_000_000).catch(0),
   upgrades: z.object({
-    attack: z.number().int().min(0).max(20).catch(0),
-    hull: z.number().int().min(0).max(20).catch(0)
+    attack: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).catch(0),
+    hull: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).catch(0)
   }).catch({ attack: 0, hull: 0 }),
   bestScores: z.record(z.string(), z.number().int().min(0).max(1_000_000_000_000)).catch({}),
   settings: z.object({
