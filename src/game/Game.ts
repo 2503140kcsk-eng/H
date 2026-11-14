@@ -3,6 +3,7 @@ import { clamp } from "./core";
 import { absorbGuardianShield, ENEMY_PROFILES, selectEnemyKind, type EnemyKind } from "./enemies";
 import { TouchInput } from "./input";
 import { getPilotGrowthStats, getPilotProfile, type PilotProfile } from "./pilots";
+import { PICKUP_EFFECTS, selectPickupKind, type PickupKind } from "./pickups";
 import { getShipProfile, type ShipProfile } from "./ships";
 
 export type GameMode = "story" | "stage" | "endless";
@@ -31,7 +32,6 @@ export type HudState = {
   combo: number;
 };
 
-type PickupKind = "shard" | "repair" | "overdrive";
 type BulletOwner = "player" | "enemy";
 type Projectile = {
   mesh: THREE.Mesh;
@@ -124,6 +124,10 @@ export class Game {
     shard: new THREE.MeshStandardMaterial({ color: 0x7deeff, emissive: 0x176c91, metalness: 0.25 }),
     repair: new THREE.MeshStandardMaterial({ color: 0xffa2c8, emissive: 0x8e2758 }),
     overdrive: new THREE.MeshStandardMaterial({ color: 0xc6a3ff, emissive: 0x5b28a0 }),
+    multishot: new THREE.MeshStandardMaterial({ color: 0xffe78b, emissive: 0x93631c }),
+    shieldPickup: new THREE.MeshStandardMaterial({ color: 0x78eaff, emissive: 0x1b7297 }),
+    speedPickup: new THREE.MeshStandardMaterial({ color: 0x8dffa9, emissive: 0x287c45 }),
+    specialPickup: new THREE.MeshStandardMaterial({ color: 0xffa5eb, emissive: 0x86346f }),
     particle: new THREE.MeshBasicMaterial({ color: 0xffb4e2 })
   };
   private playerTarget = new THREE.Vector2(0, -5.8);
@@ -139,6 +143,8 @@ export class Game {
   private damageCooldown = 0;
   private shieldTimer = 0;
   private overdriveTimer = 0;
+  private multishotTimer = 0;
+  private speedBoostTimer = 0;
   private bossTimer = 28;
   private boss: Boss | null = null;
   private bossTelegraph: THREE.Mesh;
@@ -283,6 +289,8 @@ export class Game {
     this.damageCooldown = 0;
     this.shieldTimer = 0;
     this.overdriveTimer = 0;
+    this.multishotTimer = 0;
+    this.speedBoostTimer = 0;
     this.bossTimer = mode === "stage" ? 30 : 38;
     this.player.position.set(0, -5.8, 0.6);
     this.playerTarget.set(0, -5.8);
@@ -428,14 +436,17 @@ export class Game {
     if (this.comboTimer <= 0) this.combo = 0;
     this.shieldTimer = Math.max(0, this.shieldTimer - dt);
     this.overdriveTimer = Math.max(0, this.overdriveTimer - dt);
+    this.multishotTimer = Math.max(0, this.multishotTimer - dt);
+    this.speedBoostTimer = Math.max(0, this.speedBoostTimer - dt);
     this.shield = Math.min(100, this.shield + dt * 2.5 *
       this.shipProfile.shieldRechargeMultiplier * this.pilotProfile.shieldRechargeMultiplier);
     this.special = Math.min(100, this.special + dt * 1.1);
 
     const dx = this.playerTarget.x - this.player.position.x;
     const dy = this.playerTarget.y - this.player.position.y;
+    const speedBoost = this.speedBoostTimer > 0 ? 1.32 : 1;
     const smoothing = 1 - Math.exp(-13 * this.shipProfile.movementMultiplier *
-      this.pilotProfile.movementMultiplier * dt);
+      this.pilotProfile.movementMultiplier * speedBoost * dt);
     this.playerVelocity.set(dx * smoothing, dy * smoothing);
     this.player.position.x += this.playerVelocity.x;
     this.player.position.y += this.playerVelocity.y;
@@ -643,7 +654,8 @@ export class Game {
     const direction = target
       ? new THREE.Vector2(target.x - origin.x, target.y - origin.y).normalize()
       : new THREE.Vector2(0, 1);
-    const count = Math.min(5, 1 + Math.floor(this.pilotUpgrades.attack / 4));
+    const count = Math.min(5, 1 + Math.floor(this.pilotUpgrades.attack / 4) +
+      (this.multishotTimer > 0 ? 2 : 0));
     for (let index = 0; index < count; index += 1) {
       const spread = (index - (count - 1) / 2) * 0.105;
       const velocity = direction.clone().rotateAround(new THREE.Vector2(), spread).multiplyScalar(15.5);
@@ -814,9 +826,18 @@ export class Game {
 
   private spawnPickup(position: THREE.Vector3): void {
     const roll = Math.random();
-    const kind: PickupKind = roll < 0.48 ? "shard" : roll < 0.74 ? "repair" : "overdrive";
+    const kind = selectPickupKind(roll);
     const mesh = new THREE.Group();
-    const material = kind === "shard" ? this.materials.shard : kind === "repair" ? this.materials.repair : this.materials.overdrive;
+    const materialByKind: Record<PickupKind, THREE.Material> = {
+      shard: this.materials.shard,
+      repair: this.materials.repair,
+      overdrive: this.materials.overdrive,
+      multishot: this.materials.multishot,
+      shield: this.materials.shieldPickup,
+      speed: this.materials.speedPickup,
+      special: this.materials.specialPickup
+    };
+    const material = materialByKind[kind];
     const gem = new THREE.Mesh(this.shared.shardGeometry, material);
     const ring = new THREE.Mesh(this.shared.ringGeometry, material);
     ring.rotation.x = Math.PI / 2;
@@ -835,16 +856,41 @@ export class Game {
       pickup.mesh.rotation.y += dt * 1.8;
       pickup.mesh.rotation.z += dt;
       if (pickup.mesh.position.distanceTo(this.player.position) < 0.86) {
-        if (pickup.kind === "shard") {
-          this.shards += 4;
-          this.score += 60;
-        } else if (pickup.kind === "repair") {
-          this.hp = Math.min(this.maxHp, this.hp + 1);
-        } else {
-          this.overdriveTimer = Math.max(this.overdriveTimer, 7);
-          this.special = Math.min(100, this.special + 22);
+        switch (pickup.kind) {
+          case "shard":
+            this.shards += PICKUP_EFFECTS.shardReward;
+            this.score += 60;
+            break;
+          case "repair":
+            this.hp = Math.min(this.maxHp, this.hp + 1);
+            break;
+          case "overdrive":
+            this.overdriveTimer = Math.max(this.overdriveTimer, PICKUP_EFFECTS.overdriveSeconds);
+            this.special = Math.min(100, this.special + 22);
+            break;
+          case "multishot":
+            this.multishotTimer = Math.max(this.multishotTimer, PICKUP_EFFECTS.multishotSeconds);
+            break;
+          case "shield":
+            this.shield = Math.min(100, this.shield + PICKUP_EFFECTS.shieldRestore);
+            break;
+          case "speed":
+            this.speedBoostTimer = Math.max(this.speedBoostTimer, PICKUP_EFFECTS.speedSeconds);
+            break;
+          case "special":
+            this.special = Math.min(100, this.special + PICKUP_EFFECTS.specialRestore);
+            break;
         }
-        this.spawnBurst(pickup.mesh.position, pickup.kind === "shard" ? 0x71edff : pickup.kind === "repair" ? 0xff9ec9 : 0xb89aff, 8);
+        const pickupColors: Record<PickupKind, number> = {
+          shard: 0x71edff,
+          repair: 0xff9ec9,
+          overdrive: 0xb89aff,
+          multishot: 0xffe78b,
+          shield: 0x78eaff,
+          speed: 0x8dffa9,
+          special: 0xffa5eb
+        };
+        this.spawnBurst(pickup.mesh.position, pickupColors[pickup.kind], 8);
         this.removePickup(index);
       } else if (pickup.mesh.position.y < -WORLD_HEIGHT / 2 - 1 || pickup.age > 12) {
         this.removePickup(index);
