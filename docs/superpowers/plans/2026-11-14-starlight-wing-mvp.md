@@ -36,8 +36,8 @@ Interfaces: clamp, resolveDamage, upgradeCost, createDefaultSave, sanitizeSaveDa
 
 - [x] Write the failing test first.
 - [x] Verify RED in GitHub Actions before implementation.
-- [ ] Implement the minimal pure functions and pass all tests.
-- [ ] Add boundary tests for negative values and checksum tampering.
+- [x] Implement the pure combat, upgrade and save-validation functions.
+- [x] Add boundary tests for hostile values and checksum tampering.
 
 ### Task 2: 3D play loop and touch input
 
@@ -45,10 +45,10 @@ Files: src/game/Game.ts, src/game/input.ts, src/main.ts, src/style.css
 
 Interfaces: Game.start(mode), Game.pause(), Game.resume(), Game.dispose(), Game.onHudUpdate, and TouchInput.
 
-- [ ] Build the capped-resolution Three.js scene and procedural ship/enemy models.
-- [ ] Implement pointer capture, target clamping, smoothed movement, and auto-fire.
-- [ ] Add three enemy archetypes, projectile handling, simple hit tests, and a boss state machine.
-- [ ] Add bounded explosions, a layered starfield, and low-cost pickup effects.
+- [x] Build the capped-resolution Three.js scene and procedural ship/enemy models.
+- [x] Implement pointer capture, target clamping, smoothed movement, and auto-fire.
+- [x] Add nine non-boss enemy archetypes (ten combat roles including the phased boss), progressive unlocks, distinct movement/attacks, projectile handling, simple hit tests, and guardian shielding.
+- [x] Add bounded explosions, a layered starfield, and low-cost pickup effects.
 
 ### Task 3: Persistence, progression and backup
 
@@ -56,9 +56,9 @@ Files: src/persistence/database.ts, src/persistence/backup.ts, src/ui/Hud.ts
 
 Interfaces: loadSave, saveProgress, exportSave, and importSave.
 
-- [ ] Persist currency, upgrades, best scores, settings, and unlocked collections in Dexie.
-- [ ] Create a versioned checksum-protected JSON backup and validate the complete payload before transaction.
-- [ ] Add permanent attack/hull upgrades and local result history.
+- [x] Persist currency, upgrades, mode high scores, and settings in Dexie.
+- [x] Create a versioned checksum-protected JSON backup and validate the complete payload before transaction.
+- [x] Add permanent attack/hull upgrades; show an explicit memory-only warning when IndexedDB is unavailable.
 
 ### Task 4: PWA, UI polish and end-to-end validation
 
@@ -75,6 +75,11 @@ Interfaces: menu/mode selection, pause/restart, audio controls, backup transfer 
 
 Files: GitHub branch and Vercel preview configuration.
 
-- [ ] Review the full change set and fix critical/important findings.
-- [ ] Verify CI status and deployment build logs.
-- [ ] Publish a preview URL only after the tested branch builds successfully.
+- [x] Review the current MVP change set and fix the storage-status and enemy-geometry-allocation findings.
+- [x] Verify CI at the current branch head: unit tests, production build, and iPhone-sized Chromium Playwright smoke tests all pass.
+- [x] Document a StackBlitz development-preview route for the public branch.
+- [ ] Deploy to a stable static HTTPS host. Vercel Hobby project creation returned HTTP 403 for the connected team; no production URL is claimed.
+
+## Verified scope boundary (2026-11-14)
+
+CI success is not physical iPhone certification. Safari / Brave on iOS, sustained frame rate, heat, PWA installation, and device-to-device backup restoration still require manual testing. The current game has one procedural ship and one pilot profile, two permanent upgrades, nine regular enemy archetypes, and one phased boss. Full character/ship collection, ten-plus weapons, campaign content, authored adaptive music, and long-session progression remain roadmap items.
