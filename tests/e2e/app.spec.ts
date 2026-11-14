@@ -16,6 +16,7 @@ test("starts a 3D run and supports pause and resume", async ({ page }) => {
   await page.goto("/");
   await page.locator('[data-mode="story"]').click();
   await expect(page.locator("#game-hud")).toBeVisible();
+  await expect(page.locator("#pilot-label")).toHaveText("LUMI");
   await expect(page.locator("#ship-label")).toHaveText("Lumen-01");
   await page.locator("#pause-button").click();
   await expect(page.locator("#pause-modal")).toBeVisible();
@@ -87,5 +88,9 @@ test("hangar shows three distinct ships and locks unaffordable ships", async ({ 
   await expect(page.locator('[data-ship-id="Lumen-01"]')).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator('[data-ship-id="Aqua-Comet"]')).toBeDisabled();
   await expect(page.locator('[data-ship-id="Rose-Bastion"]')).toBeDisabled();
+  await expect(page.locator("#pilot-list [data-pilot-id]")).toHaveCount(3);
+  await expect(page.locator('[data-pilot-id="lumi-asteria"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-pilot-id="noa-celeste"]')).toBeDisabled();
+  await expect(page.locator('[data-pilot-id="rin-vega"]')).toBeDisabled();
   await expect(page.locator("#save-status")).toContainText("端末内保存");
 });
