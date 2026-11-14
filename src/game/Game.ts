@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { clamp } from "./core";
 import { absorbGuardianShield, ENEMY_PROFILES, selectEnemyKind, type EnemyKind } from "./enemies";
 import { TouchInput } from "./input";
-import { getPilotProfile, type PilotProfile } from "./pilots";
+import { getPilotGrowthStats, getPilotProfile, type PilotProfile } from "./pilots";
 import { getShipProfile, type ShipProfile } from "./ships";
 
 export type GameMode = "story" | "stage" | "endless";
@@ -145,6 +145,7 @@ export class Game {
   private readonly pilotUpgrades: { attack: number; hull: number };
   private readonly shipProfile: ShipProfile;
   private readonly pilotProfile: PilotProfile;
+  private readonly pilotGrowth: ReturnType<typeof getPilotGrowthStats>;
   private readonly pilotCockpitMaterial: THREE.MeshStandardMaterial;
   private sensitivityValue: number;
   private mode: GameMode = "story";
@@ -181,6 +182,7 @@ export class Game {
     upgrades?: { attack: number; hull: number };
     shipId?: string;
     pilotId?: string;
+    pilotLevel?: number;
     onHudUpdate: (state: HudState) => void;
     onRunEnd: (result: RunResult) => void;
     onGraphicsContextLost: () => void;
@@ -196,6 +198,7 @@ export class Game {
     this.sensitivityValue = options.sensitivity ?? 1;
     this.shipProfile = getShipProfile(options.shipId ?? "Lumen-01");
     this.pilotProfile = getPilotProfile(options.pilotId ?? "lumi-asteria");
+    this.pilotGrowth = getPilotGrowthStats(options.pilotLevel ?? 1);
     this.pilotCockpitMaterial = new THREE.MeshStandardMaterial({
       color: this.pilotProfile.accentColor,
       metalness: 0.2,
@@ -265,7 +268,8 @@ export class Game {
     this.clearRunObjects();
     this.mode = mode;
     this.elapsed = 0;
-    this.hp = 3 + this.pilotUpgrades.hull + this.shipProfile.hullBonus + this.pilotProfile.hullBonus;
+    this.hp = 3 + this.pilotUpgrades.hull + this.shipProfile.hullBonus +
+      this.pilotProfile.hullBonus + this.pilotGrowth.hullBonus;
     this.maxHp = this.hp;
     this.shield = 100;
     this.special = 60;
@@ -315,7 +319,8 @@ export class Game {
       if (bullet.owner === "enemy") this.removeProjectile(index);
     }
     const shipDamage = this.shipProfile.attackMultiplier *
-      this.pilotProfile.attackMultiplier * this.pilotProfile.specialMultiplier;
+      this.pilotProfile.attackMultiplier * this.pilotProfile.specialMultiplier *
+      this.pilotGrowth.attackMultiplier;
     for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
       this.damageEnemy(index, (5 + this.pilotUpgrades.attack) * shipDamage);
     }
@@ -651,7 +656,8 @@ export class Game {
         owner: "player",
         damage: Math.max(0.1,
           ((this.overdriveTimer > 0 ? 2 : 1) + Math.floor(this.pilotUpgrades.attack / 3)) *
-          this.shipProfile.attackMultiplier * this.pilotProfile.attackMultiplier
+          this.shipProfile.attackMultiplier * this.pilotProfile.attackMultiplier *
+          this.pilotGrowth.attackMultiplier
         ),
         radius: 0.14
       });
