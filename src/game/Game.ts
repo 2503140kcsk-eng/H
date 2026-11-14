@@ -81,6 +81,7 @@ const TAU = Math.PI * 2;
 
 export class Game {
   readonly world = { width: 24, height: WORLD_HEIGHT };
+  private readonly canvas: HTMLCanvasElement;
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.OrthographicCamera(-12, 12, 8, -8, 0.1, 80);
@@ -154,6 +155,19 @@ export class Game {
   private readonly callbacks: {
     onHudUpdate: (state: HudState) => void;
     onRunEnd: (result: RunResult) => void;
+    onGraphicsContextLost: () => void;
+    onGraphicsContextRestored: () => void;
+  };
+  private readonly handleWebGLContextLost = (event: Event): void => {
+    // Three.js also listens for this event and restores its renderer when the browser does.
+    event.preventDefault();
+    if (this.disposed || !this.running) return;
+    this.running = false;
+    this.callbacks.onGraphicsContextLost();
+  };
+  private readonly handleWebGLContextRestored = (): void => {
+    if (this.disposed) return;
+    this.callbacks.onGraphicsContextRestored();
   };
 
   constructor(options: {
@@ -162,8 +176,16 @@ export class Game {
     upgrades?: { attack: number; hull: number };
     onHudUpdate: (state: HudState) => void;
     onRunEnd: (result: RunResult) => void;
+    onGraphicsContextLost: () => void;
+    onGraphicsContextRestored: () => void;
   }) {
-    this.callbacks = { onHudUpdate: options.onHudUpdate, onRunEnd: options.onRunEnd };
+    this.canvas = options.canvas;
+    this.callbacks = {
+      onHudUpdate: options.onHudUpdate,
+      onRunEnd: options.onRunEnd,
+      onGraphicsContextLost: options.onGraphicsContextLost,
+      onGraphicsContextRestored: options.onGraphicsContextRestored
+    };
     this.sensitivityValue = options.sensitivity ?? 1;
     this.pilotUpgrades = {
       attack: clamp(options.upgrades?.attack ?? 0, 0, 20),
@@ -177,6 +199,8 @@ export class Game {
       powerPreference: "high-performance",
       depth: true
     });
+    this.canvas.addEventListener("webglcontextlost", this.handleWebGLContextLost, false);
+    this.canvas.addEventListener("webglcontextrestored", this.handleWebGLContextRestored, false);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
     this.renderer.setClearColor(0x05091f, 1);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -982,6 +1006,8 @@ export class Game {
     this.running = false;
     cancelAnimationFrame(this.animationFrame);
     window.removeEventListener("resize", this.resize);
+    this.canvas.removeEventListener("webglcontextlost", this.handleWebGLContextLost, false);
+    this.canvas.removeEventListener("webglcontextrestored", this.handleWebGLContextRestored, false);
     this.input.dispose();
     this.clearRunObjects();
     this.scene.traverse((object) => {
