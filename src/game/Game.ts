@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { clamp } from "./core";
+import { absorbGuardianShield, ENEMY_PROFILES, selectEnemyKind, type EnemyKind } from "./enemies";
 import { TouchInput } from "./input";
 
 export type GameMode = "story" | "stage" | "endless";
@@ -28,7 +29,6 @@ export type HudState = {
   combo: number;
 };
 
-type EnemyKind = "scout" | "interceptor" | "heavy";
 type PickupKind = "shard" | "repair" | "overdrive";
 type BulletOwner = "player" | "enemy";
 type Projectile = {
@@ -37,6 +37,7 @@ type Projectile = {
   owner: BulletOwner;
   damage: number;
   radius: number;
+  homing?: boolean;
 };
 type Enemy = {
   mesh: THREE.Group;
@@ -47,6 +48,9 @@ type Enemy = {
   fireTimer: number;
   age: number;
   radius: number;
+  shield: number;
+  score: number;
+  shards: number;
 };
 type Pickup = {
   mesh: THREE.Group;
@@ -103,6 +107,13 @@ export class Game {
     enemyScout: new THREE.MeshStandardMaterial({ color: 0xff87a9, metalness: 0.25, roughness: 0.45, emissive: 0x591326 }),
     enemyFast: new THREE.MeshStandardMaterial({ color: 0xb894ff, metalness: 0.35, roughness: 0.35, emissive: 0x33205e }),
     enemyHeavy: new THREE.MeshStandardMaterial({ color: 0xffc078, metalness: 0.6, roughness: 0.42, emissive: 0x663719 }),
+    enemySniper: new THREE.MeshStandardMaterial({ color: 0x77dfff, metalness: 0.45, roughness: 0.3, emissive: 0x164b71 }),
+    enemyBomber: new THREE.MeshStandardMaterial({ color: 0xff72bb, metalness: 0.38, roughness: 0.34, emissive: 0x641b46 }),
+    enemyMissile: new THREE.MeshStandardMaterial({ color: 0xff796f, metalness: 0.42, roughness: 0.32, emissive: 0x68231f }),
+    enemyGuardian: new THREE.MeshStandardMaterial({ color: 0x7ceee0, metalness: 0.55, roughness: 0.25, emissive: 0x16594f }),
+    enemySwarm: new THREE.MeshStandardMaterial({ color: 0xffe48c, metalness: 0.3, roughness: 0.38, emissive: 0x70501c }),
+    enemyElite: new THREE.MeshStandardMaterial({ color: 0xffadf2, metalness: 0.6, roughness: 0.28, emissive: 0x6e246a }),
+    guardianShield: new THREE.MeshBasicMaterial({ color: 0x79ecff, transparent: true, opacity: 0.58 }),
     boss: new THREE.MeshStandardMaterial({ color: 0x8c7bff, metalness: 0.68, roughness: 0.25, emissive: 0x38267f }),
     bossCore: new THREE.MeshStandardMaterial({ color: 0xff83dc, metalness: 0.15, roughness: 0.2, emissive: 0xb20a71 }),
     playerBullet: new THREE.MeshBasicMaterial({ color: 0x8cf5ff }),
@@ -413,52 +424,139 @@ export class Game {
   }
 
   private spawnEnemy(): void {
-    const roll = Math.random();
-    const kind: EnemyKind = roll < 0.58 ? "scout" : roll < 0.84 ? "interceptor" : "heavy";
+    const kind = selectEnemyKind(this.elapsed, Math.random());
+    const xLimit = Math.max(1, this.world.width / 2 - 1);
+    const x = (Math.random() * 2 - 1) * xLimit;
+    if (kind === "swarm") {
+      const count = Math.min(3, MAX_ENEMIES - this.enemies.length);
+      for (let index = 0; index < count; index += 1) {
+        this.createEnemy("swarm", x + (index - (count - 1) / 2) * 0.8, WORLD_HEIGHT / 2 + 1 - Math.abs(index - 1) * 0.22);
+      }
+      return;
+    }
+    this.createEnemy(kind, x, WORLD_HEIGHT / 2 + 1);
+  }
+
+  private createEnemy(kind: EnemyKind, x: number, y: number): void {
+    if (this.enemies.length >= MAX_ENEMIES) return;
+    const profile = ENEMY_PROFILES[kind];
     const group = new THREE.Group();
-    const bodyGeometry = kind === "scout"
-      ? new THREE.ConeGeometry(0.42, 1.05, 5)
-      : kind === "interceptor"
-        ? new THREE.OctahedronGeometry(0.52, 0)
-        : new THREE.BoxGeometry(1.2, 0.88, 0.7);
-    const material = kind === "scout" ? this.materials.enemyScout : kind === "interceptor" ? this.materials.enemyFast : this.materials.enemyHeavy;
+    const bodyGeometry: THREE.BufferGeometry = {
+      cone: new THREE.ConeGeometry(0.42, 1.05, 5),
+      octahedron: new THREE.OctahedronGeometry(0.52, 0),
+      box: new THREE.BoxGeometry(1.2, 0.88, 0.7),
+      needle: new THREE.ConeGeometry(0.3, 1.4, 5),
+      bomber: new THREE.BoxGeometry(1.35, 0.9, 0.7),
+      dart: new THREE.ConeGeometry(0.26, 1.25, 5),
+      orb: new THREE.OctahedronGeometry(0.58, 1),
+      swarm: new THREE.ConeGeometry(0.22, 0.55, 4),
+      elite: new THREE.DodecahedronGeometry(0.68, 0)
+    }[profile.shape];
+    const material = {
+      scout: this.materials.enemyScout,
+      interceptor: this.materials.enemyFast,
+      heavy: this.materials.enemyHeavy,
+      sniper: this.materials.enemySniper,
+      bomber: this.materials.enemyBomber,
+      missile: this.materials.enemyMissile,
+      guardian: this.materials.enemyGuardian,
+      swarm: this.materials.enemySwarm,
+      elite: this.materials.enemyElite
+    }[kind];
     const body = new THREE.Mesh(bodyGeometry, material);
     body.rotation.z = Math.PI;
     group.add(body);
-    if (kind === "heavy") {
-      const core = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), this.materials.bossCore);
+
+    if (kind === "heavy" || kind === "elite") {
+      const core = new THREE.Mesh(new THREE.SphereGeometry(kind === "elite" ? 0.28 : 0.2, 10, 8), this.materials.bossCore);
       core.position.z = 0.42;
       group.add(core);
     }
-    const xLimit = Math.max(1, this.world.width / 2 - 1);
-    const x = (Math.random() * 2 - 1) * xLimit;
-    group.position.set(x, WORLD_HEIGHT / 2 + 1, 0.25);
+    if (kind === "bomber" || kind === "elite") {
+      const wingGeometry = new THREE.BoxGeometry(0.72, 0.18, 0.16);
+      const left = new THREE.Mesh(wingGeometry, this.materials.enemyHeavy);
+      left.position.set(-0.66, -0.12, -0.04);
+      left.rotation.z = -0.16;
+      const right = left.clone();
+      right.position.x = 0.66;
+      right.rotation.z = 0.16;
+      group.add(left, right);
+    }
+    if (kind === "sniper") {
+      const barrel = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.85, 0.12), this.materials.glow);
+      barrel.position.set(0, -0.7, 0.24);
+      group.add(barrel);
+    }
+    if (kind === "missile") {
+      const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.18, 0.4, 5), this.materials.bossCore);
+      tail.position.set(0, 0.66, 0);
+      group.add(tail);
+    }
+    if (kind === "guardian" || profile.shield > 0) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.76, 0.05, 6, 20), this.materials.guardianShield);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.z = 0.3;
+      ring.name = "guardRing";
+      group.add(ring);
+    }
+
+    group.position.set(x, y, 0.25);
     this.scene.add(group);
-    const health = kind === "heavy" ? 7 : kind === "interceptor" ? 2 : 3;
     this.enemies.push({
       mesh: group,
       kind,
-      hp: health,
-      maxHp: health,
-      speed: kind === "heavy" ? 1.65 : kind === "interceptor" ? 4.4 : 2.8,
-      fireTimer: 1.1 + Math.random() * 1.5,
+      hp: profile.health,
+      maxHp: profile.health,
+      speed: profile.speed,
+      fireTimer: 0.65 + Math.random() * profile.fireInterval * 0.45,
       age: 0,
-      radius: kind === "heavy" ? 0.72 : 0.48
+      radius: profile.radius,
+      shield: profile.shield,
+      score: profile.score,
+      shards: profile.shards
     });
   }
 
   private updateEnemies(dt: number): void {
     for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
       const enemy = this.enemies[index];
+      const profile = ENEMY_PROFILES[enemy.kind];
       enemy.age += dt;
-      const sway = enemy.kind === "interceptor" ? 1.1 : 0.42;
-      enemy.mesh.position.x += Math.sin(enemy.age * (enemy.kind === "interceptor" ? 4.5 : 2.2)) * sway * dt;
-      enemy.mesh.position.y -= enemy.speed * (1 + this.elapsed / 220) * dt;
-      enemy.mesh.rotation.z = Math.PI + Math.sin(enemy.age * 3) * 0.14;
+      const sway = profile.movement === "zigzag" ? 1.1
+        : profile.movement === "strafe" ? 0.9
+          : profile.movement === "steady" ? 0.2 : 0.42;
+      const frequency = profile.movement === "zigzag" ? 4.5
+        : profile.movement === "sniper" ? 1.3
+          : profile.movement === "strafe" ? 3.2 : 2.2;
+      enemy.mesh.position.x += Math.sin(enemy.age * frequency) * sway * dt;
+      if (profile.movement === "sniper") {
+        if (enemy.age > 9 || enemy.mesh.position.y > 5.6) {
+          enemy.mesh.position.y -= enemy.speed * dt;
+        }
+      } else {
+        enemy.mesh.position.y -= enemy.speed * (1 + this.elapsed / 220) * dt;
+      }
+      enemy.mesh.rotation.z = Math.PI + Math.sin(enemy.age * 3) * (profile.movement === "strafe" ? 0.24 : 0.14);
+
+      const guardRing = enemy.mesh.getObjectByName("guardRing");
+      if (guardRing) {
+        guardRing.rotation.z += dt * 1.5;
+        guardRing.scale.setScalar(0.95 + Math.sin(enemy.age * 3.5) * 0.06);
+        guardRing.visible = enemy.shield > 0;
+      }
+      if (profile.movement === "sniper" && enemy.fireTimer < 0.45) {
+        enemy.mesh.scale.setScalar(1.04 + Math.sin(enemy.age * 18) * 0.035);
+      } else {
+        enemy.mesh.scale.setScalar(1);
+      }
+
       enemy.fireTimer -= dt;
-      if (enemy.fireTimer <= 0 && enemy.mesh.position.y < WORLD_HEIGHT / 2 - 1) {
-        this.fireEnemyShot(enemy.mesh.position.x, enemy.mesh.position.y);
-        enemy.fireTimer = enemy.kind === "heavy" ? 1.15 : enemy.kind === "interceptor" ? 2.15 : 1.65;
+      if (enemy.fireTimer <= 0 && enemy.mesh.position.y < WORLD_HEIGHT / 2 - 1 && profile.attack !== "none") {
+        if (profile.attack === "spread") this.fireEnemySpread(enemy.mesh.position.x, enemy.mesh.position.y, 5, 0.28, 5.1);
+        else if (profile.attack === "homing") this.fireEnemyHomingShot(enemy.mesh.position.x, enemy.mesh.position.y);
+        else if (profile.attack === "triple") this.fireEnemySpread(enemy.mesh.position.x, enemy.mesh.position.y, 3, 0.18, 6.2);
+        else this.fireEnemyShot(enemy.mesh.position.x, enemy.mesh.position.y, profile.movement === "sniper" ? 8 : 5.4);
+        enemy.fireTimer = profile.fireInterval;
       }
       if (enemy.mesh.position.distanceTo(this.player.position) < enemy.radius + 0.4) {
         this.damagePlayer(1);
@@ -510,25 +608,48 @@ export class Game {
     return selected;
   }
 
-  private fireEnemyShot(x: number, y: number): void {
+  private fireEnemyShot(x: number, y: number, speed = 5.4): void {
     const direction = new THREE.Vector2(this.player.position.x - x, this.player.position.y - y).normalize();
-    this.addProjectile(x, y, direction.multiplyScalar(5.4), "enemy", 1);
+    this.addProjectile(x, y, direction.multiplyScalar(speed), "enemy", 1);
   }
 
-  private addProjectile(x: number, y: number, velocity: THREE.Vector2, owner: BulletOwner, damage: number): void {
+  private fireEnemySpread(x: number, y: number, count: number, spread: number, speed: number): void {
+    const direction = new THREE.Vector2(this.player.position.x - x, this.player.position.y - y).normalize();
+    const origin = new THREE.Vector2();
+    for (let index = 0; index < count; index += 1) {
+      const angle = (index - (count - 1) / 2) * spread;
+      this.addProjectile(x, y, direction.clone().rotateAround(origin, angle).multiplyScalar(speed), "enemy", 1);
+    }
+  }
+
+  private fireEnemyHomingShot(x: number, y: number): void {
+    const direction = new THREE.Vector2(this.player.position.x - x, this.player.position.y - y).normalize();
+    this.addProjectile(x, y, direction.multiplyScalar(4.4), "enemy", 1, true);
+  }
+
+  private addProjectile(x: number, y: number, velocity: THREE.Vector2, owner: BulletOwner, damage: number, homing = false): void {
     const mesh = new THREE.Mesh(
       owner === "player" ? this.shared.bulletGeometry : this.shared.enemyBulletGeometry,
       owner === "player" ? this.materials.playerBullet : this.materials.enemyBullet
     );
     mesh.position.set(x, y, owner === "player" ? 0.55 : 0.4);
     this.scene.add(mesh);
-    this.projectiles.push({ mesh, velocity, owner, damage, radius: owner === "player" ? 0.14 : 0.19 });
+    this.projectiles.push({ mesh, velocity, owner, damage, radius: owner === "player" ? 0.14 : 0.19, homing });
     if (this.projectiles.length > MAX_PROJECTILES) this.removeProjectile(0);
   }
 
   private updateProjectiles(dt: number): void {
     for (let index = this.projectiles.length - 1; index >= 0; index -= 1) {
       const bullet = this.projectiles[index];
+      if (bullet.homing && bullet.owner === "enemy") {
+        const speed = bullet.velocity.length();
+        const desired = new THREE.Vector2(
+          this.player.position.x - bullet.mesh.position.x,
+          this.player.position.y - bullet.mesh.position.y
+        ).normalize().multiplyScalar(speed);
+        bullet.velocity.lerp(desired, Math.min(1, dt * 1.4));
+        if (bullet.velocity.lengthSq() > 0) bullet.velocity.setLength(speed);
+      }
       bullet.mesh.position.x += bullet.velocity.x * dt;
       bullet.mesh.position.y += bullet.velocity.y * dt;
       if (bullet.mesh.position.y > WORLD_HEIGHT / 2 + 2 || bullet.mesh.position.y < -WORLD_HEIGHT / 2 - 2 ||
@@ -561,8 +682,28 @@ export class Game {
   private damageEnemy(index: number, damage: number): void {
     const enemy = this.enemies[index];
     if (!enemy) return;
-    enemy.hp -= Math.max(0, damage);
+    let remainingDamage = Math.max(0, damage);
+    if (enemy.shield > 0) {
+      remainingDamage = this.drainEnemyShield(enemy, remainingDamage);
+    } else if (enemy.kind !== "guardian") {
+      const guardian = this.enemies.find((candidate) =>
+        candidate !== enemy &&
+        candidate.kind === "guardian" &&
+        candidate.shield > 0 &&
+        candidate.mesh.position.distanceTo(enemy.mesh.position) < 3.2
+      );
+      if (guardian) remainingDamage = this.drainEnemyShield(guardian, remainingDamage);
+    }
+    enemy.hp -= remainingDamage;
     if (enemy.hp <= 0) this.removeEnemy(index, true);
+  }
+
+  private drainEnemyShield(enemy: Enemy, damage: number): number {
+    const result = absorbGuardianShield(enemy.shield, damage);
+    enemy.shield = result.remainingShield;
+    const ring = enemy.mesh.getObjectByName("guardRing");
+    if (ring && enemy.shield <= 0) ring.visible = false;
+    return result.remainingDamage;
   }
 
   private removeSceneObject(root: THREE.Object3D): void {
@@ -587,8 +728,12 @@ export class Game {
       this.kills += 1;
       this.combo += 1;
       this.comboTimer = 2.2;
-      this.score += (enemy.kind === "heavy" ? 240 : enemy.kind === "interceptor" ? 140 : 100) * Math.min(5, 1 + this.combo * 0.08);
-      this.spawnBurst(enemy.mesh.position, enemy.kind === "heavy" ? 0xffca82 : 0xff91c9, 9);
+      this.score += enemy.score * Math.min(5, 1 + this.combo * 0.08);
+      this.shards += enemy.shards;
+      const burstColor = enemy.kind === "guardian" ? 0x79ecff
+        : enemy.kind === "elite" ? 0xffa5e9
+          : enemy.kind === "heavy" || enemy.kind === "bomber" ? 0xffca82 : 0xff91c9;
+      this.spawnBurst(enemy.mesh.position, burstColor, enemy.kind === "elite" ? 15 : 9);
       if (Math.random() < 0.24) this.spawnPickup(enemy.mesh.position);
     }
   }
