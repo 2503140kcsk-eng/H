@@ -157,3 +157,19 @@ Files: src/game/pilots.ts, src/game/core.ts, src/game/Game.ts, src/main.ts, test
 - [x] Test new backup round trips, pre-pilot backups, intermediate shared-XP saves, independent pilot growth and malformed progress keys.
 
 **Growth rule (gameplay design constants):** attack multiplier = 1 + 1% × min(20, Lv − 1); hull bonus = floor((Lv − 1) / 10). Level is capped at 100. These are tuning values, not measured balance results.
+
+
+### Task 10: Expanded combat pickups
+
+Files: src/game/pickups.ts, src/game/Game.ts, tests/pickups.test.ts.
+
+- [x] Keep shard and repair drops.
+- [x] Keep overdrive for temporary higher damage / faster fire.
+- [x] Add temporary multishot (up to two additional projectiles for 9 seconds).
+- [x] Add temporary movement-response boost (1.32× for 8 seconds).
+- [x] Add instant shield restoration (+35, capped at 100).
+- [x] Add instant special-energy restoration (+35, capped at 100).
+- [x] Keep all effects bounded and reset them when starting a new run.
+- [x] Add deterministic weighted drop selection and unit tests for every probability boundary / invalid random input.
+
+**Drop weights:** shard 34%, repair 14%, overdrive 16%, multishot 12%, shield 12%, speed 6%, special 6%. Probabilities are initial design values and should be tuned from play data.
