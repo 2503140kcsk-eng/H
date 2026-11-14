@@ -103,6 +103,28 @@ describe("pilot roster and backward-compatible save integration", () => {
     expect(restored.pilotXp).toBe(25);
   });
 
+  it("keeps progress independent per unlocked pilot and drops forged pilot keys", () => {
+    const save = createDefaultSave();
+    save.unlockedPilots.push("noa-celeste");
+    const clean = sanitizeSaveData({
+      ...save,
+      selectedPilot: "noa-celeste",
+      pilotLevel: 7,
+      pilotXp: 55,
+      pilotProgress: {
+        "lumi-asteria": { level: 3, xp: 20 },
+        "noa-celeste": { level: 7, xp: 55 },
+        "forged-pilot": { level: 99, xp: 999999 }
+      }
+    });
+    expect(clean.pilotProgress).toEqual({
+      "lumi-asteria": { level: 3, xp: 20 },
+      "noa-celeste": { level: 7, xp: 55 }
+    });
+    expect(clean.pilotLevel).toBe(7);
+    expect(clean.pilotXp).toBe(55);
+  });
+
   it("caps level growth at +20% attack and grants one hull per ten levels", () => {
     expect(getPilotGrowthStats(1)).toEqual({ level: 1, attackMultiplier: 1, hullBonus: 0 });
     expect(getPilotGrowthStats(11)).toEqual({ level: 11, attackMultiplier: 1.1, hullBonus: 1 });
