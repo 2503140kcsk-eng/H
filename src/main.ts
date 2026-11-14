@@ -3,6 +3,7 @@ import { Game, type GameMode, type HudState, type RunResult } from "./game/Game"
 import { createDefaultSave, upgradeCost, type SaveData } from "./game/core";
 import { exportBackup, importBackup } from "./persistence/backup";
 import { getSavePersistenceStatus, loadSave, saveProgress } from "./persistence/database";
+import { ALL_SHIP_IDS, SHIP_PROFILES, isShipId } from "./game/ships";
 import "./style.css";
 
 registerSW({ immediate: true });
@@ -44,6 +45,10 @@ uiRoot.innerHTML = `
         <div class="upgrade-row">
           <div><strong>ナノ装甲</strong><small>最大HP +1 / レベル</small><span id="hull-level" class="level">Lv. 0</span></div>
           <button id="upgrade-hull" class="upgrade-button">強化 <b id="hull-cost">90</b> ✦</button>
+        </div>
+        <div class="ship-dock">
+          <div class="ship-dock-heading"><strong>機体セレクト</strong><span>解放した機体は永久使用OK</span></div>
+          <div id="ship-list" class="ship-options" aria-label="宇宙船選択"></div>
         </div>
       </div>
       <div class="menu-footer">
@@ -190,6 +195,24 @@ function showMenu(): void {
   refreshMenu();
 }
 
+function renderShipChoices(): void {
+  const list = byId<HTMLDivElement>("ship-list");
+  list.innerHTML = ALL_SHIP_IDS.map((id) => {
+    const ship = SHIP_PROFILES[id];
+    const unlocked = save.unlockedShips.includes(id);
+    const selected = save.selectedShip === id;
+    const disabled = !unlocked && save.shards < ship.unlockCost;
+    const action = unlocked ? (selected ? "装備中" : "選択") : `解放 ${ship.unlockCost.toLocaleString("ja-JP")} ✦`;
+    return `<button type="button" class="ship-option ${selected ? "selected" : ""} ${unlocked ? "unlocked" : "locked"}"
+      data-ship-id="${ship.id}" ${disabled ? "disabled" : ""} aria-pressed="${selected}">
+      <span class="ship-option-name">${ship.name}</span>
+      <span class="ship-option-class">${ship.className}</span>
+      <span class="ship-option-description">${ship.description}</span>
+      <b class="ship-option-action">${action}</b>
+    </button>`;
+  }).join("");
+}
+
 function refreshMenu(): void {
   byId("currency").textContent = save.shards.toLocaleString("en-US") + " ✦";
   byId("attack-level").textContent = "Lv. " + save.upgrades.attack;
@@ -202,6 +225,7 @@ function refreshMenu(): void {
   const hullButton = byId<HTMLButtonElement>("upgrade-hull");
   attackButton.disabled = attackCost === null || save.shards < attackCost;
   hullButton.disabled = hullCost === null || save.shards < hullCost;
+  renderShipChoices();
   sensitivityInput.value = String(save.settings.sensitivity);
   volumeInput.value = String(save.settings.volume);
   const status = byId<HTMLParagraphElement>("save-status");
@@ -224,6 +248,7 @@ function makeGame(): Game {
     canvas: gameCanvas,
     sensitivity: save.settings.sensitivity,
     upgrades: save.upgrades,
+    shipId: save.selectedShip,
     onHudUpdate: updateHud,
     onRunEnd: (result) => { void handleRunEnd(result); },
     onGraphicsContextLost: () => {
@@ -356,6 +381,33 @@ document.querySelectorAll<HTMLButtonElement>("[data-mode]").forEach((button) => 
 });
 byId("upgrade-attack").addEventListener("click", () => { void buyUpgrade("attack"); });
 byId("upgrade-hull").addEventListener("click", () => { void buyUpgrade("hull"); });
+byId("ship-list").addEventListener("click", async (event) => {
+  if (!(event.target instanceof Element)) return;
+  const button = event.target.closest<HTMLButtonElement>("[data-ship-id]");
+  const shipId = button?.dataset.shipId;
+  if (!shipId || !isShipId(shipId)) return;
+  const ship = SHIP_PROFILES[shipId];
+
+  if (save.unlockedShips.includes(shipId)) {
+    if (save.selectedShip === shipId) return;
+    save.selectedShip = shipId;
+    await persist();
+    showToast(ship.name + "を装備したよ！");
+    playTone(720, 0.11);
+    return;
+  }
+
+  if (save.shards < ship.unlockCost) {
+    showToast("シャードが足りないよ！");
+    return;
+  }
+  save.shards -= ship.unlockCost;
+  save.unlockedShips.push(shipId);
+  save.selectedShip = shipId;
+  await persist();
+  showToast(ship.name + "を解放して装備したよ！");
+  playTone(920, 0.16);
+});
 byId("pause-button").addEventListener("click", pauseGame);
 byId("resume-button").addEventListener("click", resumeGame);
 byId("pause-menu-button").addEventListener("click", showMenu);
