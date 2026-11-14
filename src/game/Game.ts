@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { clamp } from "./core";
 import { absorbGuardianShield, ENEMY_PROFILES, selectEnemyKind, type EnemyKind } from "./enemies";
 import { TouchInput } from "./input";
+import { getShipProfile, type ShipProfile } from "./ships";
 
 export type GameMode = "story" | "stage" | "endless";
 export type RunResult = {
@@ -141,6 +142,7 @@ export class Game {
   private boss: Boss | null = null;
   private bossTelegraph: THREE.Mesh;
   private readonly pilotUpgrades: { attack: number; hull: number };
+  private readonly shipProfile: ShipProfile;
   private sensitivityValue: number;
   private mode: GameMode = "story";
   private hp = 3;
@@ -174,6 +176,7 @@ export class Game {
     canvas: HTMLCanvasElement;
     sensitivity?: number;
     upgrades?: { attack: number; hull: number };
+    shipId?: string;
     onHudUpdate: (state: HudState) => void;
     onRunEnd: (result: RunResult) => void;
     onGraphicsContextLost: () => void;
@@ -187,6 +190,7 @@ export class Game {
       onGraphicsContextRestored: options.onGraphicsContextRestored
     };
     this.sensitivityValue = options.sensitivity ?? 1;
+    this.shipProfile = getShipProfile(options.shipId ?? "Lumen-01");
     this.pilotUpgrades = {
       attack: clamp(options.upgrades?.attack ?? 0, 0, 20),
       hull: clamp(options.upgrades?.hull ?? 0, 0, 20)
@@ -249,7 +253,7 @@ export class Game {
     this.clearRunObjects();
     this.mode = mode;
     this.elapsed = 0;
-    this.hp = 3 + this.pilotUpgrades.hull;
+    this.hp = 3 + this.pilotUpgrades.hull + this.shipProfile.hullBonus;
     this.maxHp = this.hp;
     this.shield = 100;
     this.special = 60;
@@ -298,30 +302,47 @@ export class Game {
       const bullet = this.projectiles[index];
       if (bullet.owner === "enemy") this.removeProjectile(index);
     }
+    const shipDamage = this.shipProfile.attackMultiplier;
     for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
-      this.damageEnemy(index, 5 + this.pilotUpgrades.attack);
+      this.damageEnemy(index, Math.round((5 + this.pilotUpgrades.attack) * shipDamage));
     }
-    if (this.boss) this.damageBoss(10 + this.pilotUpgrades.attack * 2);
+    if (this.boss) this.damageBoss(Math.round((10 + this.pilotUpgrades.attack * 2) * shipDamage));
   }
 
   private createPlayer(): void {
-    const body = new THREE.Mesh(new THREE.ConeGeometry(0.47, 1.65, 5), this.materials.player);
+    const visual = this.shipProfile.visual;
+    const bodyWidth = visual === "speed" ? 0.35 : visual === "heavy" ? 0.58 : 0.47;
+    const bodyLength = visual === "speed" ? 1.9 : visual === "heavy" ? 1.5 : 1.65;
+    const bodyMaterial = visual === "speed" ? this.materials.wing
+      : visual === "heavy" ? this.materials.pink : this.materials.player;
+    const body = new THREE.Mesh(new THREE.ConeGeometry(bodyWidth, bodyLength, visual === "heavy" ? 6 : 5), bodyMaterial);
     body.position.y = 0.05;
-    const cockpit = new THREE.Mesh(new THREE.SphereGeometry(0.25, 12, 10), this.materials.pink);
+    const cockpit = new THREE.Mesh(new THREE.SphereGeometry(visual === "heavy" ? 0.29 : 0.25, 12, 10), this.materials.pink);
     cockpit.scale.set(0.78, 1.45, 0.58);
     cockpit.position.set(0, 0.12, 0.42);
-    const wingGeometry = new THREE.BoxGeometry(0.78, 0.28, 0.18);
+    const wingSpan = visual === "heavy" ? 1.02 : visual === "speed" ? 0.92 : 0.78;
+    const wingOffset = visual === "heavy" ? 0.72 : visual === "speed" ? 0.58 : 0.54;
+    const wingGeometry = new THREE.BoxGeometry(wingSpan, visual === "heavy" ? 0.36 : 0.24, 0.18);
     const leftWing = new THREE.Mesh(wingGeometry, this.materials.wing);
-    leftWing.position.set(-0.54, -0.28, 0.02);
-    leftWing.rotation.z = -0.24;
+    leftWing.position.set(-wingOffset, -0.28, 0.02);
+    leftWing.rotation.z = visual === "speed" ? -0.36 : -0.24;
     const rightWing = new THREE.Mesh(wingGeometry, this.materials.wing);
-    rightWing.position.set(0.54, -0.28, 0.02);
-    rightWing.rotation.z = 0.24;
-    const engineGeometry = new THREE.CylinderGeometry(0.12, 0.2, 0.5, 8);
+    rightWing.position.set(wingOffset, -0.28, 0.02);
+    rightWing.rotation.z = visual === "speed" ? 0.36 : 0.24;
+    const engineGeometry = new THREE.CylinderGeometry(visual === "heavy" ? 0.16 : 0.12, 0.2, visual === "speed" ? 0.66 : 0.5, 8);
+    const engineOffset = visual === "heavy" ? 0.38 : 0.27;
     const engineLeft = new THREE.Mesh(engineGeometry, this.materials.glow);
-    engineLeft.position.set(-0.27, -0.8, 0.04);
+    engineLeft.position.set(-engineOffset, -0.8, 0.04);
     const engineRight = engineLeft.clone();
-    engineRight.position.x = 0.27;
+    engineRight.position.x = engineOffset;
+    if (visual === "heavy") {
+      const armorGeometry = new THREE.BoxGeometry(0.28, 0.62, 0.24);
+      const armorLeft = new THREE.Mesh(armorGeometry, this.materials.player);
+      armorLeft.position.set(-0.9, -0.32, 0.08);
+      const armorRight = armorLeft.clone();
+      armorRight.position.x = 0.9;
+      this.player.add(armorLeft, armorRight);
+    }
     const aura = new THREE.Mesh(new THREE.TorusGeometry(0.66, 0.035, 6, 24), this.materials.glow);
     aura.rotation.x = Math.PI / 2;
     aura.position.z = -0.1;
@@ -389,12 +410,12 @@ export class Game {
     if (this.comboTimer <= 0) this.combo = 0;
     this.shieldTimer = Math.max(0, this.shieldTimer - dt);
     this.overdriveTimer = Math.max(0, this.overdriveTimer - dt);
-    this.shield = Math.min(100, this.shield + dt * 2.5);
+    this.shield = Math.min(100, this.shield + dt * 2.5 * this.shipProfile.shieldRechargeMultiplier);
     this.special = Math.min(100, this.special + dt * 1.1);
 
     const dx = this.playerTarget.x - this.player.position.x;
     const dy = this.playerTarget.y - this.player.position.y;
-    const smoothing = 1 - Math.exp(-13 * dt);
+    const smoothing = 1 - Math.exp(-13 * this.shipProfile.movementMultiplier * dt);
     this.playerVelocity.set(dx * smoothing, dy * smoothing);
     this.player.position.x += this.playerVelocity.x;
     this.player.position.y += this.playerVelocity.y;
@@ -407,7 +428,9 @@ export class Game {
     this.fireTimer -= dt;
     if (this.fireTimer <= 0) {
       this.firePlayerShots();
-      this.fireTimer = this.overdriveTimer > 0 ? 0.095 : Math.max(0.12, 0.23 - this.pilotUpgrades.attack * 0.004);
+      this.fireTimer = this.overdriveTimer > 0
+        ? 0.095 * this.shipProfile.fireIntervalMultiplier
+        : Math.max(0.12, 0.23 - this.pilotUpgrades.attack * 0.004) * this.shipProfile.fireIntervalMultiplier;
     }
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0 && this.enemies.length < MAX_ENEMIES && !this.boss) {
@@ -610,7 +633,10 @@ export class Game {
         mesh,
         velocity,
         owner: "player",
-        damage: (this.overdriveTimer > 0 ? 2 : 1) + Math.floor(this.pilotUpgrades.attack / 3),
+        damage: Math.max(1, Math.round(
+          ((this.overdriveTimer > 0 ? 2 : 1) + Math.floor(this.pilotUpgrades.attack / 3)) *
+          this.shipProfile.attackMultiplier
+        )),
         radius: 0.14
       });
     }
