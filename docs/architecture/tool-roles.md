@@ -57,3 +57,11 @@ The implementation repository is authoritative. Tool usage is restricted to capa
 - Check the exact asset license, attribution terms, model/texture/audio provenance and redistribution rights.
 - Keep procedural MVP assets original and local.
 - No production code depends on a secret, paid API key, online leaderboard, or cloud database.
+
+
+## iPhone preview opened from ChatGPT
+
+- ChatGPT's conversation view is not an execution host for this GitHub Vite application; it cannot run the repository as an inline game canvas.
+- The no-project-permission preview route is the public StackBlitz import above. Open it from the ChatGPT message in iPhone Safari, start the Vite preview, then open the preview in its own tab.
+- This is an external development preview, not an App Store build or a certified PWA installation. iOS Safari / Brave input, GPU context recovery, storage persistence and sustained performance must still be checked on-device.
+- Do not describe Chromium Playwright tests as physical iPhone verification.
