@@ -91,3 +91,19 @@ export function normalizeUnlockedPilotIds(values: readonly string[]): PilotId[] 
 export function normalizeSelectedPilotId(value: string, unlocked: readonly PilotId[]): PilotId {
   return isPilotId(value) && unlocked.includes(value) ? value : DEFAULT_PILOT_ID;
 }
+
+
+export interface PilotGrowthStats {
+  level: number;
+  attackMultiplier: number;
+  hullBonus: number;
+}
+
+export function getPilotGrowthStats(level: number): PilotGrowthStats {
+  const safeLevel = Number.isFinite(level) ? Math.max(1, Math.min(100, Math.floor(level))) : 1;
+  return {
+    level: safeLevel,
+    attackMultiplier: 1 + Math.min(20, safeLevel - 1) * 0.01,
+    hullBonus: Math.floor((safeLevel - 1) / 10)
+  };
+}
