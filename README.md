@@ -74,3 +74,8 @@ iOSブラウザが画面向きの強制固定を受け付けない場合があ�
 - [設計書](docs/superpowers/specs/2026-11-14-starlight-wing-design.md)
 - [MVP実装計画](docs/superpowers/plans/2026-11-14-starlight-wing-mvp.md)
 - [ツールとリポジトリの役割分担](docs/architecture/tool-roles.md)
+
+
+## ChatGPTからiPhoneで試遊する場合
+
+この会話の中でGitHub上のViteアプリを直接ゲームとして実行することはできません。ChatGPTから上のStackBlitzリンクを開き、iPhone SafariでViteのプレビューを起動して別タブで試遊してください。これは開発プレビューであり、iOS Safari / Braveの実機互換性やPWAインストールを保証するものではありません。
