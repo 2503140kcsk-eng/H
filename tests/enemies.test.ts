@@ -23,12 +23,13 @@ describe("enemy roster and tactics", () => {
 
   it("unlocks additional tactics progressively as a run advances", () => {
     expect(getUnlockedEnemyKinds(0)).toEqual(["scout", "interceptor", "heavy"]);
-    expect(getUnlockedEnemyKinds(30)).toHaveLength(4);
-    expect(getUnlockedEnemyKinds(45)).toHaveLength(5);
-    expect(getUnlockedEnemyKinds(60)).toHaveLength(6);
-    expect(getUnlockedEnemyKinds(75)).toHaveLength(7);
-    expect(getUnlockedEnemyKinds(90)).toHaveLength(8);
-    expect(getUnlockedEnemyKinds(110)).toHaveLength(9);
+    expect(getUnlockedEnemyKinds(5)).toHaveLength(3);
+    expect(getUnlockedEnemyKinds(6)).toHaveLength(4);
+    expect(getUnlockedEnemyKinds(12)).toHaveLength(5);
+    expect(getUnlockedEnemyKinds(18)).toHaveLength(6);
+    expect(getUnlockedEnemyKinds(24)).toHaveLength(7);
+    expect(getUnlockedEnemyKinds(30)).toHaveLength(8);
+    expect(getUnlockedEnemyKinds(36)).toHaveLength(9);
   });
 
   it("selects only unlocked enemies and bounds random inputs", () => {
