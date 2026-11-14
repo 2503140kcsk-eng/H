@@ -59,6 +59,26 @@ describe("pilot roster and backward-compatible save integration", () => {
     expect(restored?.selectedPilot).toBe("lumi-asteria");
   });
 
+  it("migrates an existing local save record with no pilot fields without losing progress", () => {
+    const legacy: Record<string, unknown> = {
+      ...createDefaultSave(),
+      shards: 120,
+      selectedShip: "Aqua-Comet",
+      pilotLevel: 4,
+      pilotXp: 25
+    };
+    delete legacy.unlockedPilots;
+    delete legacy.selectedPilot;
+
+    const restored = sanitizeSaveData(legacy);
+    expect(restored.shards).toBe(120);
+    expect(restored.selectedShip).toBe("Aqua-Comet");
+    expect(restored.pilotLevel).toBe(4);
+    expect(restored.pilotXp).toBe(25);
+    expect(restored.unlockedPilots).toEqual(["lumi-asteria"]);
+    expect(restored.selectedPilot).toBe("lumi-asteria");
+  });
+
   it("sanitizes forged pilot identifiers in local and imported save data", () => {
     const save = createDefaultSave();
     const clean = sanitizeSaveData({
