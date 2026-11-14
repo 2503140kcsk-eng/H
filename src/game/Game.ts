@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { clamp } from "./core";
 import { absorbGuardianShield, ENEMY_PROFILES, selectEnemyKind, type EnemyKind } from "./enemies";
 import { TouchInput } from "./input";
+import { getPilotProfile, type PilotProfile } from "./pilots";
 import { getShipProfile, type ShipProfile } from "./ships";
 
 export type GameMode = "story" | "stage" | "endless";
@@ -143,6 +144,8 @@ export class Game {
   private bossTelegraph: THREE.Mesh;
   private readonly pilotUpgrades: { attack: number; hull: number };
   private readonly shipProfile: ShipProfile;
+  private readonly pilotProfile: PilotProfile;
+  private readonly pilotCockpitMaterial: THREE.MeshStandardMaterial;
   private sensitivityValue: number;
   private mode: GameMode = "story";
   private hp = 3;
@@ -177,6 +180,7 @@ export class Game {
     sensitivity?: number;
     upgrades?: { attack: number; hull: number };
     shipId?: string;
+    pilotId?: string;
     onHudUpdate: (state: HudState) => void;
     onRunEnd: (result: RunResult) => void;
     onGraphicsContextLost: () => void;
@@ -191,6 +195,14 @@ export class Game {
     };
     this.sensitivityValue = options.sensitivity ?? 1;
     this.shipProfile = getShipProfile(options.shipId ?? "Lumen-01");
+    this.pilotProfile = getPilotProfile(options.pilotId ?? "lumi-asteria");
+    this.pilotCockpitMaterial = new THREE.MeshStandardMaterial({
+      color: this.pilotProfile.accentColor,
+      metalness: 0.2,
+      roughness: 0.22,
+      emissive: this.pilotProfile.accentColor,
+      emissiveIntensity: 0.22
+    });
     this.pilotUpgrades = {
       attack: clamp(options.upgrades?.attack ?? 0, 0, 20),
       hull: clamp(options.upgrades?.hull ?? 0, 0, 20)
@@ -253,7 +265,7 @@ export class Game {
     this.clearRunObjects();
     this.mode = mode;
     this.elapsed = 0;
-    this.hp = 3 + this.pilotUpgrades.hull + this.shipProfile.hullBonus;
+    this.hp = 3 + this.pilotUpgrades.hull + this.shipProfile.hullBonus + this.pilotProfile.hullBonus;
     this.maxHp = this.hp;
     this.shield = 100;
     this.special = 60;
@@ -302,7 +314,8 @@ export class Game {
       const bullet = this.projectiles[index];
       if (bullet.owner === "enemy") this.removeProjectile(index);
     }
-    const shipDamage = this.shipProfile.attackMultiplier;
+    const shipDamage = this.shipProfile.attackMultiplier *
+      this.pilotProfile.attackMultiplier * this.pilotProfile.specialMultiplier;
     for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
       this.damageEnemy(index, (5 + this.pilotUpgrades.attack) * shipDamage);
     }
@@ -317,7 +330,7 @@ export class Game {
       : visual === "heavy" ? this.materials.pink : this.materials.player;
     const body = new THREE.Mesh(new THREE.ConeGeometry(bodyWidth, bodyLength, visual === "heavy" ? 6 : 5), bodyMaterial);
     body.position.y = 0.05;
-    const cockpit = new THREE.Mesh(new THREE.SphereGeometry(visual === "heavy" ? 0.29 : 0.25, 12, 10), this.materials.pink);
+    const cockpit = new THREE.Mesh(new THREE.SphereGeometry(visual === "heavy" ? 0.29 : 0.25, 12, 10), this.pilotCockpitMaterial);
     cockpit.scale.set(0.78, 1.45, 0.58);
     cockpit.position.set(0, 0.12, 0.42);
     const wingSpan = visual === "heavy" ? 1.02 : visual === "speed" ? 0.92 : 0.78;
@@ -410,12 +423,14 @@ export class Game {
     if (this.comboTimer <= 0) this.combo = 0;
     this.shieldTimer = Math.max(0, this.shieldTimer - dt);
     this.overdriveTimer = Math.max(0, this.overdriveTimer - dt);
-    this.shield = Math.min(100, this.shield + dt * 2.5 * this.shipProfile.shieldRechargeMultiplier);
+    this.shield = Math.min(100, this.shield + dt * 2.5 *
+      this.shipProfile.shieldRechargeMultiplier * this.pilotProfile.shieldRechargeMultiplier);
     this.special = Math.min(100, this.special + dt * 1.1);
 
     const dx = this.playerTarget.x - this.player.position.x;
     const dy = this.playerTarget.y - this.player.position.y;
-    const smoothing = 1 - Math.exp(-13 * this.shipProfile.movementMultiplier * dt);
+    const smoothing = 1 - Math.exp(-13 * this.shipProfile.movementMultiplier *
+      this.pilotProfile.movementMultiplier * dt);
     this.playerVelocity.set(dx * smoothing, dy * smoothing);
     this.player.position.x += this.playerVelocity.x;
     this.player.position.y += this.playerVelocity.y;
@@ -429,8 +444,9 @@ export class Game {
     if (this.fireTimer <= 0) {
       this.firePlayerShots();
       this.fireTimer = this.overdriveTimer > 0
-        ? 0.095 * this.shipProfile.fireIntervalMultiplier
-        : Math.max(0.12, 0.23 - this.pilotUpgrades.attack * 0.004) * this.shipProfile.fireIntervalMultiplier;
+        ? 0.095 * this.shipProfile.fireIntervalMultiplier * this.pilotProfile.fireIntervalMultiplier
+        : Math.max(0.12, 0.23 - this.pilotUpgrades.attack * 0.004) *
+          this.shipProfile.fireIntervalMultiplier * this.pilotProfile.fireIntervalMultiplier;
     }
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0 && this.enemies.length < MAX_ENEMIES && !this.boss) {
@@ -635,7 +651,7 @@ export class Game {
         owner: "player",
         damage: Math.max(0.1,
           ((this.overdriveTimer > 0 ? 2 : 1) + Math.floor(this.pilotUpgrades.attack / 3)) *
-          this.shipProfile.attackMultiplier
+          this.shipProfile.attackMultiplier * this.pilotProfile.attackMultiplier
         ),
         radius: 0.14
       });
@@ -1050,6 +1066,7 @@ export class Game {
       (layer.points.material as THREE.Material).dispose();
     }
     for (const material of Object.values(this.materials)) material.dispose();
+    this.pilotCockpitMaterial.dispose();
     for (const geometry of Object.values(this.shared)) geometry.dispose();
     this.renderer.dispose();
   }
