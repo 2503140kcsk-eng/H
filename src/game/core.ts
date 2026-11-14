@@ -1,3 +1,4 @@
+import { normalizeSelectedPilotId, normalizeUnlockedPilotIds } from "./pilots";
 import { normalizeSelectedShipId, normalizeUnlockedShipIds } from "./ships";
 import { z } from "zod";
 
@@ -10,6 +11,8 @@ export interface SaveData {
   totalRuns: number;
   unlockedShips: string[];
   selectedShip: string;
+  unlockedPilots: string[];
+  selectedPilot: string;
   pilotLevel: number;
   pilotXp: number;
 }
@@ -23,6 +26,8 @@ const DEFAULT_SAVE: SaveData = {
   totalRuns: 0,
   unlockedShips: ["Lumen-01"],
   selectedShip: "Lumen-01",
+  unlockedPilots: ["lumi-asteria"],
+  selectedPilot: "lumi-asteria",
   pilotLevel: 1,
   pilotXp: 0
 };
@@ -42,6 +47,8 @@ const SaveSchema = z.object({
   totalRuns: z.number().int().min(0).max(1_000_000).catch(0),
   unlockedShips: z.array(z.string().min(1).max(48)).max(16).catch(["Lumen-01"]),
   selectedShip: z.string().min(1).max(48).catch("Lumen-01"),
+  unlockedPilots: z.array(z.string().min(1).max(48)).max(12).catch(["lumi-asteria"]),
+  selectedPilot: z.string().min(1).max(48).catch("lumi-asteria"),
   pilotLevel: z.number().int().min(1).max(100).catch(1),
   pilotXp: z.number().int().min(0).max(1_000_000_000).catch(0)
 });
@@ -61,6 +68,8 @@ const BackupPayloadSchema = z.object({
   totalRuns: z.number().int().min(0).max(1_000_000),
   unlockedShips: z.array(z.string().min(1).max(48)).min(1).max(16),
   selectedShip: z.string().min(1).max(48),
+  unlockedPilots: z.array(z.string().min(1).max(48)).min(1).max(12).optional().default(["lumi-asteria"]),
+  selectedPilot: z.string().min(1).max(48).optional().default("lumi-asteria"),
   pilotLevel: z.number().int().min(1).max(100),
   pilotXp: z.number().int().min(0).max(1_000_000_000)
 }).strict();
@@ -100,6 +109,8 @@ export function sanitizeSaveData(value: unknown): SaveData {
   const data = parsed.data;
   const ships = normalizeUnlockedShipIds(data.unlockedShips);
   const selectedShip = normalizeSelectedShipId(data.selectedShip, ships);
+  const pilots = normalizeUnlockedPilotIds(data.unlockedPilots);
+  const selectedPilot = normalizeSelectedPilotId(data.selectedPilot, pilots);
 
   return {
     ...data,
@@ -120,6 +131,8 @@ export function sanitizeSaveData(value: unknown): SaveData {
     },
     unlockedShips: ships,
     selectedShip,
+    unlockedPilots: pilots,
+    selectedPilot,
     totalRuns: clamp(data.totalRuns, 0, 1_000_000),
     pilotLevel: clamp(data.pilotLevel, 1, 100),
     pilotXp: clamp(data.pilotXp, 0, 1_000_000_000)
