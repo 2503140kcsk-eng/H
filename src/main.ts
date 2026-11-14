@@ -178,12 +178,14 @@ function formatTime(seconds: number): string {
 }
 
 function showMenu(): void {
+  runActive = false;
+  paused = false;
+  game?.dispose();
+  game = null;
   menuScreen.hidden = false;
   gameHud.hidden = true;
   pauseModal.hidden = true;
   resultModal.hidden = true;
-  runActive = false;
-  paused = false;
   refreshMenu();
 }
 
