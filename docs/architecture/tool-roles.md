@@ -25,7 +25,7 @@ The implementation repository is authoritative. Tool usage is restricted to capa
 | dimforge/rapier | Physics/collision for complex moving bodies | Defer; simple bounded hit tests first |
 | tweenjs/tween.js | UI, boss-entry and camera transitions | Introduce when animation sequencing grows |
 | gkjohnson/three-mesh-bvh | Accelerated raycasts and spatial queries | Use only when scene collision/query scale requires it |
-| pixiv/three-vrm | VRM pilot models and hangar character display | Later; require a redistributable model license |
+| pixiv/three-vrm | VRM pilot models and hangar character display | Current pilots are data-driven profiles and cockpit accents; integrate VRM only with measured mobile memory budget and a redistributable model license |
 | Hidencod/tge-assets | Candidate game asset source / reference pack | Audit repository contents and each asset license before importing |
 | shorepine/kenney | Candidate game asset pack / reference source | Audit repository identity and per-pack license before shipping |
 | KhronosGroup/glTF-Sample-Assets | glTF importer and material compatibility fixtures | Test fixtures; not automatically production art |
@@ -40,7 +40,7 @@ The implementation repository is authoritative. Tool usage is restricted to capa
 | zeux/meshoptimizer | Geometry/mesh compression and optimization | Build-time asset pipeline |
 | google/draco | Optional geometry compression decoder/encoder | Only when model size warrants it |
 | KhronosGroup/glTF-Validator | Validate exported glTF/GLB assets | Asset CI gate |
-| vitest-dev/vitest | Unit tests for deterministic game rules and save logic | Core CI |
+| vitest-dev/vitest | Unit tests for deterministic game rules, pilot/ship profiles and backward-compatible save logic | Core CI |
 | microsoft/playwright | Browser smoke tests and interaction regression tests | Core CI |
 | georgealways/lil-gui | Development-only balancing and debug controls | Dev build only; never required for players |
 | codecruzer/webgl-starfield | Starfield rendering reference / optional inspiration | Reimplement as small bounded layers unless its license and fit are verified |
