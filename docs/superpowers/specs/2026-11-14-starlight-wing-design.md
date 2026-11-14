@@ -57,5 +57,5 @@ Build a cute anime-inspired, top-down 3D space shooter that can be played on an 
 - Use the working title Starlight Wing.
 - First pilot profile: Lumi, a fictional original pilot shown in the interface; 3D character animation is a later asset milestone.
 - First ship: Lumen-01, built from lightweight procedural meshes.
-- Start with three enemy archetypes and one phase-based boss; the ten requested enemy roles are the content expansion target.
+- Implement nine non-boss archetypes plus one phase-based boss (ten combat roles total). Enemy types unlock progressively by 28 seconds so the full roster can appear before the stage-mode boss at 30 seconds. This is a procedural first pass; per-archetype animation and balance still need hands-on playtesting.
 - Use simple collision geometry rather than Rapier until dense collision/rigid-body behavior is needed.
