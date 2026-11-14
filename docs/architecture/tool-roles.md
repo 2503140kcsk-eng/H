@@ -9,7 +9,7 @@ The implementation repository is authoritative. Tool usage is restricted to capa
 | GitHub | Source of truth, branches, commits, CI, issues and review trail | Active: feature branch and CI |
 | Context7 | Verify current Three.js, PWA, Dexie and testing APIs before coding | Active: implementation references |
 | Superpowers | Process checklist for requirements decomposition, test-first workflow, debugging and review gates | Workflow represented in repo docs; no callable Superpowers connector is exposed in this session |
-| Vercel Hobby | Static preview hosting, HTTPS and branch preview; no server functions or paid add-ons | Preview deployment after the branch passes CI; keep within the Hobby quota |
+| Vercel Hobby | Optional static HTTPS hosting; no server functions or paid add-ons | Connected team is Hobby, but project creation returned 403; no Vercel deployment is claimed. Revisit only after project-creation access is granted |
 | Figma | Touch HUD layout, component states and visual design review | Connected Figma seat is `View` on Starter; review only unless editing access becomes available |
 | Canva | Optional key art, title card and store/promo graphics; never a runtime dependency | Deferred; use only clearly free templates/assets and no paid generation |
 | Adobe | Optional vector cleanup, sprite/texture editing and audio/video polish; never a runtime dependency | Deferred; Firefly credits and subscription entitlements are not assumed free |
@@ -44,6 +44,12 @@ The implementation repository is authoritative. Tool usage is restricted to capa
 | microsoft/playwright | Browser smoke tests and interaction regression tests | Core CI |
 | georgealways/lil-gui | Development-only balancing and debug controls | Dev build only; never required for players |
 | codecruzer/webgl-starfield | Starfield rendering reference / optional inspiration | Reimplement as small bounded layers unless its license and fit are verified |
+
+## Current browser-preview route
+
+- StackBlitz public GitHub import is the current no-project-permission preview path: https://stackblitz.com/github/2503140kcsk-eng/H/tree/feature/starlight-wing-mvp
+- StackBlitz WebContainers are not a substitute for physical iPhone Safari/Brave validation; iOS Safari remains beta and mobile memory is constrained.
+- Vercel project creation was attempted for the connected Hobby team and rejected with HTTP 403. No preview deployment URL was generated.
 
 ## Safety and license policy
 
