@@ -16,6 +16,7 @@ test("starts a 3D run and supports pause and resume", async ({ page }) => {
   await page.goto("/");
   await page.locator('[data-mode="story"]').click();
   await expect(page.locator("#game-hud")).toBeVisible();
+  await expect(page.locator("#ship-label")).toHaveText("Lumen-01");
   await page.locator("#pause-button").click();
   await expect(page.locator("#pause-modal")).toBeVisible();
   await page.locator("#resume-button").click();
