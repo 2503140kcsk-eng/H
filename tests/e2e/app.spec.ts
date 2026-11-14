@@ -77,3 +77,14 @@ test("pauses safely on WebGL context loss and requires explicit resume after res
   await expect(page.locator("#pause-modal")).toBeHidden();
   expect(errors).toEqual([]);
 });
+
+
+test("hangar shows three distinct ships and locks unaffordable ships", async ({ page }) => {
+  await page.goto("/");
+  const options = page.locator("#ship-list [data-ship-id]");
+  await expect(options).toHaveCount(3);
+  await expect(page.locator('[data-ship-id="Lumen-01"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-ship-id="Aqua-Comet"]')).toBeDisabled();
+  await expect(page.locator('[data-ship-id="Rose-Bastion"]')).toBeDisabled();
+  await expect(page.locator("#save-status")).toContainText("端末内保存");
+});
