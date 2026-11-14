@@ -50,3 +50,11 @@ test("returns to the hangar and can launch another run without page errors", asy
   await expect(page.locator("#game-hud")).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test("warns when IndexedDB is unavailable instead of implying durable saves", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "indexedDB", { configurable: true, value: undefined });
+  });
+  await page.goto("/");
+  await expect(page.locator("#save-status")).toContainText("メモリ保存のみ");
+});
