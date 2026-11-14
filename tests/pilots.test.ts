@@ -1,0 +1,72 @@
+import { describe, expect, it } from "vitest";
+import { createBackup, createDefaultSave, sanitizeSaveData, verifyBackup } from "../src/game/core";
+import {
+  getPilotProfile,
+  normalizeSelectedPilotId,
+  normalizeUnlockedPilotIds
+} from "../src/game/pilots";
+
+const LEGACY_PAYLOAD = {"version":1,"shards":120,"upgrades":{"attack":2,"hull":1},"bestScores":{"story":3400},"settings":{"sensitivity":1.15,"volume":0.7},"totalRuns":3,"unlockedShips":["Lumen-01","Aqua-Comet"],"selectedShip":"Aqua-Comet","pilotLevel":4,"pilotXp":25};
+const LEGACY_BACKUP = JSON.stringify({
+  format: "starlight-wing-save",
+  version: 1,
+  checksum: "b55a0f90",
+  payload: LEGACY_PAYLOAD
+});
+
+describe("pilot roster and backward-compatible save integration", () => {
+  it("defines three pilots with differentiated gameplay roles", () => {
+    const support = getPilotProfile("noa-celeste");
+    const ace = getPilotProfile("rin-vega");
+    expect(support.hullBonus).toBeGreaterThan(0);
+    expect(support.shieldRechargeMultiplier).toBeGreaterThan(1);
+    expect(support.specialMultiplier).toBeGreaterThan(1);
+    expect(ace.attackMultiplier).toBeGreaterThan(1);
+    expect(ace.movementMultiplier).toBeGreaterThan(1);
+    expect(ace.shieldRechargeMultiplier).toBeLessThan(1);
+  });
+
+  it("filters unknown and duplicate pilot identifiers and always retains Lumi", () => {
+    expect(normalizeUnlockedPilotIds(["rin-vega", "rin-vega", "forged-pilot"])).toEqual([
+      "lumi-asteria",
+      "rin-vega"
+    ]);
+  });
+
+  it("does not allow selection of a locked or unknown pilot", () => {
+    const unlocked = normalizeUnlockedPilotIds(["lumi-asteria", "noa-celeste"]);
+    expect(normalizeSelectedPilotId("noa-celeste", unlocked)).toBe("noa-celeste");
+    expect(normalizeSelectedPilotId("rin-vega", unlocked)).toBe("lumi-asteria");
+    expect(normalizeSelectedPilotId("forged-pilot", unlocked)).toBe("lumi-asteria");
+  });
+
+  it("preserves unlocked and selected pilots in new backup round trips", () => {
+    const save = createDefaultSave();
+    save.unlockedPilots.push("noa-celeste");
+    save.selectedPilot = "noa-celeste";
+    const restored = verifyBackup(createBackup(save));
+    expect(restored?.unlockedPilots).toContain("noa-celeste");
+    expect(restored?.selectedPilot).toBe("noa-celeste");
+  });
+
+  it("loads a pre-pilot version 1 backup without dropping existing progress", () => {
+    const restored = verifyBackup(LEGACY_BACKUP);
+    expect(restored).not.toBeNull();
+    expect(restored?.shards).toBe(120);
+    expect(restored?.selectedShip).toBe("Aqua-Comet");
+    expect(restored?.pilotLevel).toBe(4);
+    expect(restored?.unlockedPilots).toEqual(["lumi-asteria"]);
+    expect(restored?.selectedPilot).toBe("lumi-asteria");
+  });
+
+  it("sanitizes forged pilot identifiers in local and imported save data", () => {
+    const save = createDefaultSave();
+    const clean = sanitizeSaveData({
+      ...save,
+      unlockedPilots: ["lumi-asteria", "forged-pilot"],
+      selectedPilot: "forged-pilot"
+    });
+    expect(clean.unlockedPilots).toEqual(["lumi-asteria"]);
+    expect(clean.selectedPilot).toBe("lumi-asteria");
+  });
+});
