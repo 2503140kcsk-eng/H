@@ -58,3 +58,22 @@ test("warns when IndexedDB is unavailable instead of implying durable saves", as
   await page.goto("/");
   await expect(page.locator("#save-status")).toContainText("メモリ保存のみ");
 });
+
+
+test("pauses safely on WebGL context loss and requires explicit resume after restoration", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  await page.locator('[data-mode="story"]').click();
+
+  const canvas = page.locator("#game-canvas");
+  await canvas.dispatchEvent("webglcontextlost", { cancelable: true });
+  await expect(page.locator("#pause-modal")).toBeVisible();
+  await expect(page.locator("#toast")).toContainText("3D描画が一時停止しました");
+
+  await canvas.dispatchEvent("webglcontextrestored");
+  await expect(page.locator("#toast")).toContainText("3D描画が復旧しました");
+  await page.locator("#resume-button").click();
+  await expect(page.locator("#pause-modal")).toBeHidden();
+  expect(errors).toEqual([]);
+});
