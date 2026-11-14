@@ -225,7 +225,14 @@ function makeGame(): Game {
     sensitivity: save.settings.sensitivity,
     upgrades: save.upgrades,
     onHudUpdate: updateHud,
-    onRunEnd: (result) => { void handleRunEnd(result); }
+    onRunEnd: (result) => { void handleRunEnd(result); },
+    onGraphicsContextLost: () => {
+      pauseGame();
+      showToast("3D描画が一時停止しました。復旧したら「戦闘に戻る」を押してね。");
+    },
+    onGraphicsContextRestored: () => {
+      showToast("3D描画が復旧しました。再開ボタンを押してね。");
+    }
   });
 }
 
