@@ -45,6 +45,25 @@ const SaveSchema = z.object({
   pilotXp: z.number().int().min(0).max(1_000_000_000).catch(0)
 });
 
+const BackupPayloadSchema = z.object({
+  version: z.literal(1),
+  shards: z.number().int().min(0).max(100_000_000),
+  upgrades: z.object({
+    attack: z.number().int().min(0).max(20),
+    hull: z.number().int().min(0).max(20)
+  }).strict(),
+  bestScores: z.record(z.string().min(1).max(48), z.number().int().min(0).max(1_000_000_000_000)),
+  settings: z.object({
+    sensitivity: z.number().min(0.35).max(2.5),
+    volume: z.number().min(0).max(1)
+  }).strict(),
+  totalRuns: z.number().int().min(0).max(1_000_000),
+  unlockedShips: z.array(z.string().min(1).max(48)).min(1).max(16),
+  selectedShip: z.string().min(1).max(48),
+  pilotLevel: z.number().int().min(1).max(100),
+  pilotXp: z.number().int().min(0).max(1_000_000_000)
+}).strict();
+
 export function clamp(value: number, min: number, max: number): number {
   if (!Number.isFinite(value) || !Number.isFinite(min) || !Number.isFinite(max) || min > max) {
     return min;
@@ -147,7 +166,9 @@ export function verifyBackup(serialized: string): SaveData | null {
     if (envelope.format !== "starlight-wing-save" || envelope.version !== 1) return null;
     if (typeof envelope.checksum !== "string" || !/^[0-9a-f]{8}$/.test(envelope.checksum)) return null;
     if (checksum(envelope.payload) !== envelope.checksum) return null;
-    return sanitizeSaveData(envelope.payload);
+    const validated = BackupPayloadSchema.safeParse(envelope.payload);
+    if (!validated.success) return null;
+    return sanitizeSaveData(validated.data);
   } catch {
     return null;
   }

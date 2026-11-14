@@ -65,5 +65,13 @@ describe("combat and progression core", () => {
     const parsed = JSON.parse(serialized) as { payload: { shards: number } };
     parsed.payload.shards += 1;
     expect(core.verifyBackup(JSON.stringify(parsed))).toBeNull();
+
+    const unsupportedVersion = JSON.parse(serialized) as { payload: { version: number } };
+    unsupportedVersion.payload.version = 99;
+    expect(core.verifyBackup(JSON.stringify(unsupportedVersion))).toBeNull();
+
+    const malformedPayload = JSON.parse(serialized) as { payload: { upgrades: { attack: number } } };
+    malformedPayload.payload.upgrades.attack = 999;
+    expect(core.verifyBackup(JSON.stringify(malformedPayload))).toBeNull();
   });
 });
