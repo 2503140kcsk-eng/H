@@ -76,7 +76,7 @@ uiRoot.innerHTML = `
       <button id="pause-button" class="icon-button" aria-label="一時停止">Ⅱ</button>
     </header>
     <div class="hud-left">
-      <div class="pilot-mini"><span>✧</span><div><strong>LUMI</strong><small>LUMEN-01</small></div></div>
+      <div class="pilot-mini"><span>✧</span><div><strong>LUMI</strong><small id="ship-label">LUMEN-01</small></div></div>
       <div class="meter-label"><span>HULL</span><b id="hp-text">3 / 3</b></div>
       <div class="meter"><i id="hp-fill" class="hp-fill"></i></div>
       <div class="meter-label"><span>SHIELD</span><b id="shield-text">100%</b></div>
@@ -274,6 +274,7 @@ function startRun(mode: GameMode): void {
     runActive = true;
     paused = false;
     byId("mode-label").textContent = mode.toUpperCase();
+    byId("ship-label").textContent = save.selectedShip;
     playTone(660, 0.16);
   } catch (error) {
     game?.dispose();
