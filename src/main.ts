@@ -230,7 +230,7 @@ function renderPilotChoices(): void {
     return `<button type="button" class="pilot-option ${selected ? "selected" : ""} ${unlocked ? "unlocked" : "locked"}"
       data-pilot-id="${pilot.id}" ${disabled ? "disabled" : ""} aria-pressed="${selected}" title="${pilot.biography}">
       <span class="pilot-option-avatar" style="--pilot-accent:#${pilot.accentColor.toString(16).padStart(6, "0")}">${pilot.avatar}</span>
-      <span class="pilot-option-copy"><b>${pilot.name}</b><small>${pilot.className} · Lv.${progress.level}</small></span>
+      <span class="pilot-option-copy"><b>${pilot.name}</b><small>${pilot.className} · Lv.${progress.level}${progress.level >= 100 ? " MAX" : ` · XP ${progress.xp}/${progress.level * 100}`}</small></span>
       <span class="pilot-option-action">${action}</span>
     </button>`;
   }).join("");
