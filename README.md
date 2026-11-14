@@ -40,7 +40,11 @@ npm run preview
 
 ## iPhoneでの試遊
 
-デプロイされたHTTPSプレビューをSafariまたはBraveで開き、横向きにしてプレイします。Safariでは共有メニューから「ホーム画面に追加」を選ぶとPWAとして起動できます。Braveでも通常のブラウザプレイを優先して確認してください。
+**公開ブランチのブラウザ試遊:** [StackBlitzで feature/starlight-wing-mvp を開く](https://stackblitz.com/github/2503140kcsk-eng/H/tree/feature/starlight-wing-mvp)
+
+StackBlitzはこの公開GitHubブランチを読み込むため、ブランチへの新しいコミットが試遊環境へ反映されます。読み込み後にViteのプレビューを起動し、プレビューを別タブで開くとiPhoneで操作しやすくなります。iOS SafariでのWebContainersはベータ対応で、メモリ制限により大きなプロジェクトで停止する場合があります。まずSafariで試し、プレビューが起動しない場合はPCブラウザでの確認が必要です。iOS版BraveでのStackBlitz開発環境の動作は未検証です。
+
+このStackBlitz URLは**開発用プレビュー**であり、正式な配布URLやiPhone実機の動作保証ではありません。ゲームのセーブ領域もStackBlitzのプレビューオリジンに属します。実機でのPWAインストール、Safari / BraveのGPU負荷、長時間プレイ、機種変更復元は別途確認が必要です。
 
 iOSブラウザが画面向きの強制固定を受け付けない場合があるため、縦向きでは回転案内を表示します。
 
