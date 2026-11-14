@@ -63,6 +63,7 @@ describe("pilot roster and backward-compatible save integration", () => {
     const legacy: Record<string, unknown> = {
       ...createDefaultSave(),
       shards: 120,
+      unlockedShips: ["Lumen-01", "Aqua-Comet"],
       selectedShip: "Aqua-Comet",
       pilotLevel: 4,
       pilotXp: 25
