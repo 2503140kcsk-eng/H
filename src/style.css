@@ -182,3 +182,29 @@ h1 span { color: var(--pink); }
   .ship-option { min-height: 64px; padding: 5px 6px; gap: 2px; }
   .ship-option-description { font-size: 7px; }
 }
+
+
+.pilot-dock { margin-top: 8px; padding-top: 7px; border-top: 1px solid rgba(180,196,255,.1); }
+.pilot-dock-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; color: #cbd7ff; }
+.pilot-dock-heading strong { font-size: 10px; letter-spacing: .1em; }
+.pilot-dock-heading span { color: #8e9dc6; font-size: 8px; }
+.pilot-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.pilot-option { min-width: 0; min-height: 51px; display: flex; align-items: center; gap: 6px; padding: 5px 7px; border: 1px solid rgba(173,188,255,.2); border-radius: 10px; color: #e9edff; background: rgba(72,83,146,.15); text-align: left; cursor: pointer; }
+.pilot-option.selected { border-color: rgba(140,239,255,.68); background: linear-gradient(135deg, rgba(57,150,189,.24), rgba(151,105,206,.19)); }
+.pilot-option.locked { border-style: dashed; }
+.pilot-option:disabled { opacity: .5; cursor: not-allowed; }
+.pilot-option-avatar { flex: 0 0 25px; width: 25px; height: 25px; display: grid; place-items: center; border-radius: 8px; color: white; background: linear-gradient(135deg, var(--pilot-accent), #b89cff); font-size: 14px; box-shadow: 0 0 10px color-mix(in srgb, var(--pilot-accent) 25%, transparent); }
+.pilot-option-copy { min-width: 0; display: grid; gap: 2px; }
+.pilot-option-copy b { overflow: hidden; color: #fff; font-size: 9px; white-space: nowrap; text-overflow: ellipsis; }
+.pilot-option-copy small { overflow: hidden; color: #a8c5e9; font-size: 7px; white-space: nowrap; text-overflow: ellipsis; }
+.pilot-option-action { margin-left: auto; flex: 0 0 auto; color: #ffb4dc; font-size: 7px; }
+.pilot-option.selected .pilot-option-action { color: #8dffdc; }
+@media (max-height: 500px) {
+  .pilot-dock { margin-top: 5px; padding-top: 4px; }
+  .pilot-options { gap: 5px; }
+  .pilot-option { min-height: 43px; padding: 4px 5px; gap: 4px; }
+  .pilot-option-avatar { flex-basis: 21px; width: 21px; height: 21px; font-size: 12px; }
+  .pilot-option-copy b { font-size: 8px; }
+  .pilot-option-copy small { font-size: 6px; }
+  .pilot-option-action { font-size: 6px; }
+}
