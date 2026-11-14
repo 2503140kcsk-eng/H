@@ -224,12 +224,13 @@ function renderPilotChoices(): void {
     const pilot = PILOT_PROFILES[id];
     const unlocked = save.unlockedPilots.includes(id);
     const selected = save.selectedPilot === id;
+    const progress = save.pilotProgress[id] ?? { level: 1, xp: 0 };
     const disabled = !unlocked && save.shards < pilot.unlockCost;
     const action = unlocked ? (selected ? "選択中" : "選択") : `解放 ${pilot.unlockCost.toLocaleString("ja-JP")} ✦`;
     return `<button type="button" class="pilot-option ${selected ? "selected" : ""} ${unlocked ? "unlocked" : "locked"}"
       data-pilot-id="${pilot.id}" ${disabled ? "disabled" : ""} aria-pressed="${selected}" title="${pilot.biography}">
       <span class="pilot-option-avatar" style="--pilot-accent:#${pilot.accentColor.toString(16).padStart(6, "0")}">${pilot.avatar}</span>
-      <span class="pilot-option-copy"><b>${pilot.name}</b><small>${pilot.className}</small></span>
+      <span class="pilot-option-copy"><b>${pilot.name}</b><small>${pilot.className} · Lv.${progress.level}</small></span>
       <span class="pilot-option-action">${action}</span>
     </button>`;
   }).join("");
@@ -237,8 +238,9 @@ function renderPilotChoices(): void {
 
 function refreshMenu(): void {
   const selectedPilot = getPilotProfile(save.selectedPilot);
+  const selectedProgress = save.pilotProgress[save.selectedPilot] ?? { level: save.pilotLevel, xp: save.pilotXp };
   byId("pilot-name").textContent = selectedPilot.name;
-  byId("pilot-role").textContent = selectedPilot.className + " · Lv." + save.pilotLevel;
+  byId("pilot-role").textContent = selectedPilot.className + " · Lv." + selectedProgress.level;
   byId("pilot-avatar").textContent = selectedPilot.avatar;
   byId("currency").textContent = save.shards.toLocaleString("en-US") + " ✦";
   byId("attack-level").textContent = "Lv. " + save.upgrades.attack;
@@ -277,6 +279,7 @@ function makeGame(): Game {
     upgrades: save.upgrades,
     shipId: save.selectedShip,
     pilotId: save.selectedPilot,
+    pilotLevel: save.pilotProgress[save.selectedPilot]?.level ?? save.pilotLevel,
     onHudUpdate: updateHud,
     onRunEnd: (result) => { void handleRunEnd(result); },
     onGraphicsContextLost: () => {
@@ -349,11 +352,16 @@ async function handleRunEnd(result: RunResult): Promise<void> {
   next.shards = Math.min(100_000_000, next.shards + reward);
   next.totalRuns += 1;
   next.bestScores[result.mode] = Math.max(next.bestScores[result.mode] ?? 0, result.score);
-  next.pilotXp += result.kills * 12 + (result.status === "clear" ? 100 : 0);
-  while (next.pilotLevel < 100 && next.pilotXp >= next.pilotLevel * 100) {
-    next.pilotXp -= next.pilotLevel * 100;
-    next.pilotLevel += 1;
+  const activePilotId = next.selectedPilot;
+  const activeProgress = next.pilotProgress[activePilotId] ?? { level: next.pilotLevel, xp: next.pilotXp };
+  activeProgress.xp += result.kills * 12 + (result.status === "clear" ? 100 : 0);
+  while (activeProgress.level < 100 && activeProgress.xp >= activeProgress.level * 100) {
+    activeProgress.xp -= activeProgress.level * 100;
+    activeProgress.level += 1;
   }
+  next.pilotProgress[activePilotId] = activeProgress;
+  next.pilotLevel = activeProgress.level;
+  next.pilotXp = activeProgress.xp;
   save = await saveProgress(next);
   refreshMenu();
   byId("result-kicker").textContent = result.mode.toUpperCase() + " · " + formatTime(result.duration);
@@ -422,6 +430,10 @@ byId("pilot-list").addEventListener("click", async (event) => {
   if (save.unlockedPilots.includes(pilotId)) {
     if (save.selectedPilot === pilotId) return;
     save.selectedPilot = pilotId;
+    const progress = save.pilotProgress[pilotId] ?? { level: 1, xp: 0 };
+    save.pilotProgress[pilotId] = progress;
+    save.pilotLevel = progress.level;
+    save.pilotXp = progress.xp;
     await persist();
     showToast(pilot.name + "を選択したよ！");
     playTone(760, 0.12);
@@ -435,6 +447,10 @@ byId("pilot-list").addEventListener("click", async (event) => {
   save.shards -= pilot.unlockCost;
   save.unlockedPilots.push(pilotId);
   save.selectedPilot = pilotId;
+  const progress = save.pilotProgress[pilotId] ?? { level: 1, xp: 0 };
+  save.pilotProgress[pilotId] = progress;
+  save.pilotLevel = progress.level;
+  save.pilotXp = progress.xp;
   await persist();
   showToast(pilot.name + "が仲間になったよ！");
   playTone(980, 0.16);
