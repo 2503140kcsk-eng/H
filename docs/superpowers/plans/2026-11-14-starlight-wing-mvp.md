@@ -156,4 +156,4 @@ Files: src/game/pilots.ts, src/game/core.ts, src/game/Game.ts, src/main.ts, test
 - [x] Drop unknown pilot IDs from the progress map and clamp levels / XP at the save boundary.
 - [x] Test new backup round trips, pre-pilot backups, intermediate shared-XP saves, independent pilot growth and malformed progress keys.
 
-**Growth rule (gameplay design constants):** attack multiplier = (1 + 0.01 \times \min(20, Lv-1)); hull bonus = (lfloor (Lv-1)/10 \rfloor). Level is capped at 100. These are tuning values, not measured balance results.
+**Growth rule (gameplay design constants):** attack multiplier = 1 + 1% × min(20, Lv − 1); hull bonus = floor((Lv − 1) / 10). Level is capped at 100. These are tuning values, not measured balance results.
