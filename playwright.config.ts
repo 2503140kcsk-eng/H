@@ -10,7 +10,10 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:4173",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
-    ...devices["iPhone 13 landscape"]
+    ...devices["iPhone 13"],
+    viewport: { width: 844, height: 390 },
+    isMobile: true,
+    hasTouch: true
   },
   projects: [
     {
