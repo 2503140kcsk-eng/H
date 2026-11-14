@@ -8,13 +8,13 @@ The implementation repository is authoritative. Tool usage is restricted to capa
 |---|---|---|
 | GitHub | Source of truth, branches, commits, CI, issues and review trail | Active: feature branch and CI |
 | Context7 | Verify current Three.js, PWA, Dexie and testing APIs before coding | Active: implementation references |
-| Superpowers | Requirements decomposition, test-first workflow, debugging and review gates | Active: design/plan/TDD |
-| Vercel Hobby | Static preview hosting, HTTPS and branch preview | After CI; remain inside included free usage |
-| Figma | Touch HUD layout, component states and visual design review | Later; no paid assets or seat required |
-| Canva | Optional key art, title card and store/promo graphics | Later; only existing free features/assets |
-| Adobe | Optional vector cleanup, sprite/texture editing and audio/video polish | Later; only operations confirmed included at no charge |
+| Superpowers | Process checklist for requirements decomposition, test-first workflow, debugging and review gates | Workflow represented in repo docs; no callable Superpowers connector is exposed in this session |
+| Vercel Hobby | Static preview hosting, HTTPS and branch preview; no server functions or paid add-ons | Preview deployment after the branch passes CI; keep within the Hobby quota |
+| Figma | Touch HUD layout, component states and visual design review | Connected Figma seat is `View` on Starter; review only unless editing access becomes available |
+| Canva | Optional key art, title card and store/promo graphics; never a runtime dependency | Deferred; use only clearly free templates/assets and no paid generation |
+| Adobe | Optional vector cleanup, sprite/texture editing and audio/video polish; never a runtime dependency | Deferred; Firefly credits and subscription entitlements are not assumed free |
 | Notion | Optional roadmap and milestone mirror; GitHub docs remain canonical | Later; not a runtime dependency |
-| Supabase | Not used for first milestone: no login/cloud sync is required; avoid introducing a backend bill or a network dependency | Deferred; reconsider only for opt-in cloud sync |
+| Supabase | Not used for first milestone: no login/cloud sync is required; avoid introducing a backend bill or a network dependency | Deferred; reconsider only for opt-in cloud sync after explicit scope and free-quota check |
 
 ## Starred repository assignments
 
