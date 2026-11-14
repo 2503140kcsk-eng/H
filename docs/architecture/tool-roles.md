@@ -1,0 +1,53 @@
+# Tool and Repository Role Allocation
+
+The implementation repository is authoritative. Tool usage is restricted to capabilities already connected and actions that stay within free/no-charge limits. A tool being connected does not imply that every feature or AI-credit allowance in that product is free.
+
+## Connected work roles
+
+| Tool | Assigned role | First milestone |
+|---|---|---|
+| GitHub | Source of truth, branches, commits, CI, issues and review trail | Active: feature branch and CI |
+| Context7 | Verify current Three.js, PWA, Dexie and testing APIs before coding | Active: implementation references |
+| Superpowers | Requirements decomposition, test-first workflow, debugging and review gates | Active: design/plan/TDD |
+| Vercel Hobby | Static preview hosting, HTTPS and branch preview | After CI; remain inside included free usage |
+| Figma | Touch HUD layout, component states and visual design review | Later; no paid assets or seat required |
+| Canva | Optional key art, title card and store/promo graphics | Later; only existing free features/assets |
+| Adobe | Optional vector cleanup, sprite/texture editing and audio/video polish | Later; only operations confirmed included at no charge |
+| Notion | Optional roadmap and milestone mirror; GitHub docs remain canonical | Later; not a runtime dependency |
+| Supabase | Not used for first milestone: no login/cloud sync is required; avoid introducing a backend bill or a network dependency | Deferred; reconsider only for opt-in cloud sync |
+
+## Starred repository assignments
+
+| Repository | Assigned role | Adoption rule |
+|---|---|---|
+| mrdoob/three.js | 3D scene, camera, materials, render loop and geometry | Core runtime |
+| pmndrs/postprocessing | Bloom, glow and other screen-space effects | Add selectively after mobile FPS budget is measured |
+| dimforge/rapier | Physics/collision for complex moving bodies | Defer; simple bounded hit tests first |
+| tweenjs/tween.js | UI, boss-entry and camera transitions | Introduce when animation sequencing grows |
+| gkjohnson/three-mesh-bvh | Accelerated raycasts and spatial queries | Use only when scene collision/query scale requires it |
+| pixiv/three-vrm | VRM pilot models and hangar character display | Later; require a redistributable model license |
+| Hidencod/tge-assets | Candidate game asset source / reference pack | Audit repository contents and each asset license before importing |
+| shorepine/kenney | Candidate game asset pack / reference source | Audit repository identity and per-pack license before shipping |
+| KhronosGroup/glTF-Sample-Assets | glTF importer and material compatibility fixtures | Test fixtures; not automatically production art |
+| Tonejs/Tone.js | Musical sequencing and layered adaptive BGM | Later; heavier than needed for the first SFX pass |
+| goldfire/howler.js | Cross-browser audio playback and audio sprite handling | Optional when authored music/audio files arrive |
+| KilledByAPixel/ZzFX | Tiny synthesized arcade SFX | Candidate SFX layer; current MVP uses simple Web Audio tones |
+| dexie/Dexie.js | IndexedDB persistence and schema evolution | Core persistence |
+| colinhacks/zod | Runtime validation of local saves and imported JSON | Core input boundary |
+| vite-pwa/vite-plugin-pwa | PWA manifest, worker registration and offline precache | Core delivery |
+| GoogleChrome/workbox | Service-worker caching primitives used by the PWA pipeline | Managed through vite-plugin-pwa; avoid a duplicate hand-written worker |
+| donmccurdy/glTF-Transform | glTF pruning, transforms and asset conversion | Build-time asset pipeline |
+| zeux/meshoptimizer | Geometry/mesh compression and optimization | Build-time asset pipeline |
+| google/draco | Optional geometry compression decoder/encoder | Only when model size warrants it |
+| KhronosGroup/glTF-Validator | Validate exported glTF/GLB assets | Asset CI gate |
+| vitest-dev/vitest | Unit tests for deterministic game rules and save logic | Core CI |
+| microsoft/playwright | Browser smoke tests and interaction regression tests | Core CI |
+| georgealways/lil-gui | Development-only balancing and debug controls | Dev build only; never required for players |
+| codecruzer/webgl-starfield | Starfield rendering reference / optional inspiration | Reimplement as small bounded layers unless its license and fit are verified |
+
+## Safety and license policy
+
+- Never bundle an asset merely because its repository is public.
+- Check the exact asset license, attribution terms, model/texture/audio provenance and redistribution rights.
+- Keep procedural MVP assets original and local.
+- No production code depends on a secret, paid API key, online leaderboard, or cloud database.
