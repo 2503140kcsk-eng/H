@@ -1,3 +1,4 @@
+import { normalizeSelectedShipId, normalizeUnlockedShipIds } from "./ships";
 import { z } from "zod";
 
 export interface SaveData {
@@ -97,8 +98,8 @@ export function sanitizeSaveData(value: unknown): SaveData {
   if (!parsed.success) return createDefaultSave();
 
   const data = parsed.data;
-  const ships = data.unlockedShips.length > 0 ? Array.from(new Set(data.unlockedShips)) : ["Lumen-01"];
-  const selectedShip = ships.includes(data.selectedShip) ? data.selectedShip : ships[0] ?? "Lumen-01";
+  const ships = normalizeUnlockedShipIds(data.unlockedShips);
+  const selectedShip = normalizeSelectedShipId(data.selectedShip, ships);
 
   return {
     ...data,
