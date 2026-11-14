@@ -441,17 +441,19 @@ export class Game {
     if (this.enemies.length >= MAX_ENEMIES) return;
     const profile = ENEMY_PROFILES[kind];
     const group = new THREE.Group();
-    const bodyGeometry: THREE.BufferGeometry = {
-      cone: new THREE.ConeGeometry(0.42, 1.05, 5),
-      octahedron: new THREE.OctahedronGeometry(0.52, 0),
-      box: new THREE.BoxGeometry(1.2, 0.88, 0.7),
-      needle: new THREE.ConeGeometry(0.3, 1.4, 5),
-      bomber: new THREE.BoxGeometry(1.35, 0.9, 0.7),
-      dart: new THREE.ConeGeometry(0.26, 1.25, 5),
-      orb: new THREE.OctahedronGeometry(0.58, 1),
-      swarm: new THREE.ConeGeometry(0.22, 0.55, 4),
-      elite: new THREE.DodecahedronGeometry(0.68, 0)
-    }[profile.shape];
+    const bodyGeometry: THREE.BufferGeometry = (() => {
+      switch (profile.shape) {
+        case "cone": return new THREE.ConeGeometry(0.42, 1.05, 5);
+        case "octahedron": return new THREE.OctahedronGeometry(0.52, 0);
+        case "box": return new THREE.BoxGeometry(1.2, 0.88, 0.7);
+        case "needle": return new THREE.ConeGeometry(0.3, 1.4, 5);
+        case "bomber": return new THREE.BoxGeometry(1.35, 0.9, 0.7);
+        case "dart": return new THREE.ConeGeometry(0.26, 1.25, 5);
+        case "orb": return new THREE.OctahedronGeometry(0.58, 1);
+        case "swarm": return new THREE.ConeGeometry(0.22, 0.55, 4);
+        case "elite": return new THREE.DodecahedronGeometry(0.68, 0);
+      }
+    })();
     const material = {
       scout: this.materials.enemyScout,
       interceptor: this.materials.enemyFast,
