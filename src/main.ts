@@ -2,7 +2,7 @@ import { registerSW } from "virtual:pwa-register";
 import { Game, type GameMode, type HudState, type RunResult } from "./game/Game";
 import { createDefaultSave, upgradeCost, type SaveData } from "./game/core";
 import { exportBackup, importBackup } from "./persistence/backup";
-import { loadSave, saveProgress } from "./persistence/database";
+import { getSavePersistenceStatus, loadSave, saveProgress } from "./persistence/database";
 import "./style.css";
 
 registerSW({ immediate: true });
@@ -57,6 +57,7 @@ uiRoot.innerHTML = `
         <label>効果音 <input id="volume" type="range" min="0" max="1" step="0.05" value="0.65" /></label>
         <p>セーブはこの端末内に保存。機種変更はJSONバックアップで引き継げます。</p>
       </div>
+      <p id="save-status" class="save-status" role="status" aria-live="polite">端末内保存：確認中…</p>
       <p class="fine-print">NO ADS · NO GACHA · NO PAY-TO-WIN</p>
     </div>
   </section>
@@ -203,6 +204,14 @@ function refreshMenu(): void {
   hullButton.disabled = hullCost === null || save.shards < hullCost;
   sensitivityInput.value = String(save.settings.sensitivity);
   volumeInput.value = String(save.settings.volume);
+  const status = byId<HTMLParagraphElement>("save-status");
+  const persistenceMode = getSavePersistenceStatus();
+  status.dataset.mode = persistenceMode;
+  status.textContent = persistenceMode === "memory-only"
+    ? "メモリ保存のみ：再起動すると進行が失われる可能性があります。JSONバックアップを保存してください。"
+    : persistenceMode === "persistent"
+      ? "端末内保存：有効"
+      : "端末内保存：確認中…";
 }
 
 async function persist(): Promise<void> {
@@ -283,6 +292,7 @@ async function handleRunEnd(result: RunResult): Promise<void> {
     next.pilotLevel += 1;
   }
   save = await saveProgress(next);
+  refreshMenu();
   byId("result-kicker").textContent = result.mode.toUpperCase() + " · " + formatTime(result.duration);
   byId("result-title").textContent = result.status === "clear" ? "MISSION CLEAR!" : "FLIGHT OVER";
   byId("result-score").textContent = Math.floor(result.score).toLocaleString("en-US");
