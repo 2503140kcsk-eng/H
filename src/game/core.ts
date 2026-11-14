@@ -13,6 +13,7 @@ export interface SaveData {
   selectedShip: string;
   unlockedPilots: string[];
   selectedPilot: string;
+  pilotProgress: Record<string, { level: number; xp: number }>;
   pilotLevel: number;
   pilotXp: number;
 }
@@ -28,6 +29,7 @@ const DEFAULT_SAVE: SaveData = {
   selectedShip: "Lumen-01",
   unlockedPilots: ["lumi-asteria"],
   selectedPilot: "lumi-asteria",
+  pilotProgress: { "lumi-asteria": { level: 1, xp: 0 } },
   pilotLevel: 1,
   pilotXp: 0
 };
@@ -49,6 +51,13 @@ const SaveSchema = z.object({
   selectedShip: z.string().min(1).max(48).catch("Lumen-01"),
   unlockedPilots: z.array(z.string().min(1).max(48)).max(12).catch(["lumi-asteria"]),
   selectedPilot: z.string().min(1).max(48).catch("lumi-asteria"),
+  pilotProgress: z.record(
+    z.string().min(1).max(48),
+    z.object({
+      level: z.number().int().min(1).max(100),
+      xp: z.number().int().min(0).max(1_000_000_000)
+    }).strict()
+  ).catch({}),
   pilotLevel: z.number().int().min(1).max(100).catch(1),
   pilotXp: z.number().int().min(0).max(1_000_000_000).catch(0)
 });
@@ -70,6 +79,13 @@ const BackupPayloadSchema = z.object({
   selectedShip: z.string().min(1).max(48),
   unlockedPilots: z.array(z.string().min(1).max(48)).min(1).max(12).optional().default(["lumi-asteria"]),
   selectedPilot: z.string().min(1).max(48).optional().default("lumi-asteria"),
+  pilotProgress: z.record(
+    z.string().min(1).max(48),
+    z.object({
+      level: z.number().int().min(1).max(100),
+      xp: z.number().int().min(0).max(1_000_000_000)
+    }).strict()
+  ).optional().default({}),
   pilotLevel: z.number().int().min(1).max(100),
   pilotXp: z.number().int().min(0).max(1_000_000_000)
 }).strict();
@@ -111,6 +127,22 @@ export function sanitizeSaveData(value: unknown): SaveData {
   const selectedShip = normalizeSelectedShipId(data.selectedShip, ships);
   const pilots = normalizeUnlockedPilotIds(data.unlockedPilots);
   const selectedPilot = normalizeSelectedPilotId(data.selectedPilot, pilots);
+  const pilotProgress: Record<string, { level: number; xp: number }> = {};
+  for (const id of pilots) {
+    const stored = data.pilotProgress[id];
+    pilotProgress[id] = stored
+      ? {
+          level: clamp(Math.floor(stored.level), 1, 100),
+          xp: clamp(Math.floor(stored.xp), 0, 1_000_000_000)
+        }
+      : id === selectedPilot
+        ? {
+            level: clamp(data.pilotLevel, 1, 100),
+            xp: clamp(data.pilotXp, 0, 1_000_000_000)
+          }
+        : { level: 1, xp: 0 };
+  }
+  const activePilotProgress = pilotProgress[selectedPilot] ?? { level: 1, xp: 0 };
 
   return {
     ...data,
@@ -133,9 +165,10 @@ export function sanitizeSaveData(value: unknown): SaveData {
     selectedShip,
     unlockedPilots: pilots,
     selectedPilot,
+    pilotProgress,
     totalRuns: clamp(data.totalRuns, 0, 1_000_000),
-    pilotLevel: clamp(data.pilotLevel, 1, 100),
-    pilotXp: clamp(data.pilotXp, 0, 1_000_000_000)
+    pilotLevel: activePilotProgress.level,
+    pilotXp: activePilotProgress.xp
   };
 }
 
