@@ -91,4 +91,26 @@ Files: src/game/Game.ts, src/main.ts, tests/e2e/app.spec.ts.
 
 ## Verified scope boundary (2026-11-14)
 
-CI success is not physical iPhone certification. Safari / Brave on iOS, real GPU context loss/recovery, sustained frame rate, heat, PWA installation, and device-to-device backup restoration still require manual testing. The current game has one procedural ship and one pilot profile, two permanent upgrades, nine regular enemy archetypes, and one phased boss. Full character/ship collection, ten-plus weapons, campaign content, authored adaptive music, and long-session progression remain roadmap items.
+CI success is not physical iPhone certification. Safari / Brave on iOS, real GPU context loss/recovery, sustained frame rate, heat, PWA installation, and device-to-device backup restoration still require manual testing. The current game has three selectable and permanently unlockable procedural ships (Lumen-01, Aqua-Comet and Rose-Bastion), one pilot profile, two permanent stat-upgrade tracks, nine regular enemy archetypes and one phased boss. Multiple pilots, ship skins, weapon collections, ten-plus weapon families, authored campaign content, adaptive music and long-session progression remain roadmap items.
+
+
+### Task 7: Permanent ship roster
+
+Files: src/game/ships.ts, src/game/core.ts, src/game/Game.ts, src/main.ts, src/style.css, tests/ships.test.ts, tests/e2e/app.spec.ts.
+
+- [x] Define three original ship profiles with explicit combat trade-offs.
+- [x] Render all three ships in the hangar and support permanent unlocks using earned shards.
+- [x] Apply ship-specific movement, firing interval, attack, hull and shield-regeneration stats to the actual game loop.
+- [x] Create distinct low-poly procedural silhouettes for the standard, interceptor and heavy ships.
+- [x] Persist ship unlocks/selection using the existing save format and include them in JSON backups.
+- [x] Reject unknown or forged ship identifiers during save sanitization.
+- [x] Add unit tests for roster balance and save/backup round trips, plus an iPhone-sized browser test for the hangar state.
+- [ ] Tune balance and touch feel from physical iPhone playtests.
+
+**Initial tuning constants (design values, not measured balance):**
+
+| Ship | Unlock cost | Attack | Fire interval | Movement response | Hull bonus | Shield recharge |
+|---|---:|---:|---:|---:|---:|---:|
+| Lumen-01 | Free | 1.00× | 1.00× | 1.00× | +0 | 1.00× |
+| Aqua-Comet | 350 shards | 0.88× | 0.78× | 1.24× | +0 | 0.88× |
+| Rose-Bastion | 750 shards | 1.32× | 1.16× | 0.80× | +2 | 1.30× |
