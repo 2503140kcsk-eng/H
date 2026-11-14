@@ -304,9 +304,9 @@ export class Game {
     }
     const shipDamage = this.shipProfile.attackMultiplier;
     for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
-      this.damageEnemy(index, Math.round((5 + this.pilotUpgrades.attack) * shipDamage));
+      this.damageEnemy(index, (5 + this.pilotUpgrades.attack) * shipDamage);
     }
-    if (this.boss) this.damageBoss(Math.round((10 + this.pilotUpgrades.attack * 2) * shipDamage));
+    if (this.boss) this.damageBoss((10 + this.pilotUpgrades.attack * 2) * shipDamage);
   }
 
   private createPlayer(): void {
@@ -633,10 +633,10 @@ export class Game {
         mesh,
         velocity,
         owner: "player",
-        damage: Math.max(1, Math.round(
+        damage: Math.max(0.1,
           ((this.overdriveTimer > 0 ? 2 : 1) + Math.floor(this.pilotUpgrades.attack / 3)) *
           this.shipProfile.attackMultiplier
-        )),
+        ),
         radius: 0.14
       });
     }
