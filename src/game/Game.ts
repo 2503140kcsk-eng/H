@@ -565,10 +565,23 @@ export class Game {
     if (enemy.hp <= 0) this.removeEnemy(index, true);
   }
 
+  private removeSceneObject(root: THREE.Object3D): void {
+    this.scene.remove(root);
+    const sharedGeometries = new Set<THREE.BufferGeometry>(Object.values(this.shared));
+    const disposedGeometries = new Set<THREE.BufferGeometry>();
+    root.traverse((object) => {
+      if (!(object instanceof THREE.Mesh) ||
+          sharedGeometries.has(object.geometry) ||
+          disposedGeometries.has(object.geometry)) return;
+      disposedGeometries.add(object.geometry);
+      object.geometry.dispose();
+    });
+  }
+
   private removeEnemy(index: number, defeated: boolean): void {
     const enemy = this.enemies[index];
     if (!enemy) return;
-    this.scene.remove(enemy.mesh);
+    this.removeSceneObject(enemy.mesh);
     this.enemies.splice(index, 1);
     if (defeated) {
       this.kills += 1;
@@ -623,7 +636,7 @@ export class Game {
   private removePickup(index: number): void {
     const pickup = this.pickups[index];
     if (!pickup) return;
-    this.scene.remove(pickup.mesh);
+    this.removeSceneObject(pickup.mesh);
     this.pickups.splice(index, 1);
   }
 
@@ -687,7 +700,7 @@ export class Game {
     this.spawnBurst(new THREE.Vector3(this.boss.mesh.position.x, this.boss.mesh.position.y - 0.4, 0.9), 0xff8bd4, 3);
     if (this.boss.hp <= 0) {
       const position = this.boss.mesh.position.clone();
-      this.scene.remove(this.boss.mesh);
+      this.removeSceneObject(this.boss.mesh);
       this.boss = null;
       this.bossTelegraph.visible = false;
       this.score += 2500;
@@ -717,6 +730,10 @@ export class Game {
   private spawnBurst(position: THREE.Vector3, color: number, count: number): void {
     const material = new THREE.MeshBasicMaterial({ color });
     const actualCount = Math.min(count, MAX_PARTICLES - this.particles.length);
+    if (actualCount <= 0) {
+      material.dispose();
+      return;
+    }
     for (let index = 0; index < actualCount; index += 1) {
       const mesh = new THREE.Mesh(this.shared.particleGeometry, material);
       mesh.position.copy(position);
@@ -793,19 +810,21 @@ export class Game {
   }
 
   private clearRunObjects(): void {
-    for (const enemy of this.enemies) this.scene.remove(enemy.mesh);
+    for (const enemy of this.enemies) this.removeSceneObject(enemy.mesh);
     this.enemies.length = 0;
     for (const projectile of this.projectiles) this.scene.remove(projectile.mesh);
     this.projectiles.length = 0;
-    for (const pickup of this.pickups) this.scene.remove(pickup.mesh);
+    for (const pickup of this.pickups) this.removeSceneObject(pickup.mesh);
     this.pickups.length = 0;
+    const particleMaterials = new Set<THREE.Material>();
     for (const particle of this.particles) {
-      this.scene.remove(particle.mesh);
+      this.removeSceneObject(particle.mesh);
       const material = particle.mesh.material as THREE.Material & { burstOwned?: boolean };
-      if (material.burstOwned) material.dispose();
+      if (material.burstOwned) particleMaterials.add(material);
     }
+    for (const material of particleMaterials) material.dispose();
     this.particles.length = 0;
-    if (this.boss) this.scene.remove(this.boss.mesh);
+    if (this.boss) this.removeSceneObject(this.boss.mesh);
     this.boss = null;
     this.bossTelegraph.visible = false;
   }
