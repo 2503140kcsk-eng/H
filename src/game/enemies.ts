@@ -51,27 +51,27 @@ export const ENEMY_PROFILES = {
   },
   sniper: {
     health: 3, speed: 1.55, radius: 0.5, fireInterval: 2.65, score: 180, shards: 3,
-    unlockAt: 6, shape: "needle", movement: "sniper", attack: "aimed", shield: 0
+    unlockAt: 5, shape: "needle", movement: "sniper", attack: "aimed", shield: 0
   },
   bomber: {
     health: 5, speed: 1.4, radius: 0.64, fireInterval: 2.8, score: 210, shards: 4,
-    unlockAt: 12, shape: "bomber", movement: "sway", attack: "spread", shield: 0
+    unlockAt: 10, shape: "bomber", movement: "sway", attack: "spread", shield: 0
   },
   missile: {
     health: 2, speed: 3.6, radius: 0.42, fireInterval: 3.4, score: 190, shards: 4,
-    unlockAt: 18, shape: "dart", movement: "zigzag", attack: "homing", shield: 0
+    unlockAt: 14, shape: "dart", movement: "zigzag", attack: "homing", shield: 0
   },
   guardian: {
     health: 6, speed: 1.4, radius: 0.66, fireInterval: 2.35, score: 260, shards: 5,
-    unlockAt: 24, shape: "orb", movement: "guard", attack: "aimed", shield: 4
+    unlockAt: 18, shape: "orb", movement: "guard", attack: "aimed", shield: 4
   },
   swarm: {
     health: 1, speed: 5.6, radius: 0.26, fireInterval: 4.2, score: 75, shards: 1,
-    unlockAt: 30, shape: "swarm", movement: "zigzag", attack: "none", shield: 0
+    unlockAt: 22, shape: "swarm", movement: "zigzag", attack: "none", shield: 0
   },
   elite: {
     health: 9, speed: 2.2, radius: 0.78, fireInterval: 1.8, score: 360, shards: 8,
-    unlockAt: 36, shape: "elite", movement: "strafe", attack: "triple", shield: 2
+    unlockAt: 28, shape: "elite", movement: "strafe", attack: "triple", shield: 2
   }
 } satisfies Record<EnemyKind, EnemyProfile>;
 
