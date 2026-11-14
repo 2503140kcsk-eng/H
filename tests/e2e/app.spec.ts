@@ -33,3 +33,20 @@ test("settings panel toggles and retains valid input values", async ({ page }) =
   await page.locator("#settings-toggle").click();
   await expect(page.locator("#settings-panel")).toBeHidden();
 });
+
+
+test("returns to the hangar and can launch another run without page errors", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  await page.locator('[data-mode="story"]').click();
+  await expect(page.locator("#game-hud")).toBeVisible();
+  await page.locator("#pause-button").click();
+  await expect(page.locator("#pause-modal")).toBeVisible();
+  await page.locator("#pause-menu-button").click();
+  await expect(page.locator("#menu-screen")).toBeVisible();
+  await expect(page.locator("#game-hud")).toBeHidden();
+  await page.locator('[data-mode="endless"]').click();
+  await expect(page.locator("#game-hud")).toBeVisible();
+  expect(errors).toEqual([]);
+});
