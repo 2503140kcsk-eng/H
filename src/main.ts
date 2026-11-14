@@ -10,6 +10,7 @@ registerSW({ immediate: true });
 const uiRoot = document.querySelector<HTMLDivElement>("#ui-root");
 const canvas = document.querySelector<HTMLCanvasElement>("#game-canvas");
 if (!uiRoot || !canvas) throw new Error("Game shell is incomplete.");
+const gameCanvas: HTMLCanvasElement = canvas;
 
 uiRoot.innerHTML = `
   <div class="rotate-note" role="status">
@@ -209,7 +210,7 @@ async function persist(): Promise<void> {
 
 function makeGame(): Game {
   return new Game({
-    canvas,
+    canvas: gameCanvas,
     sensitivity: save.settings.sensitivity,
     upgrades: save.upgrades,
     onHudUpdate: updateHud,
