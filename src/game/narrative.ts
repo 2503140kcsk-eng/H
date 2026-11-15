@@ -149,3 +149,19 @@ export function hasSecretStarRoute(pilotId: string, choices: Readonly<Record<str
       choices[getStoryChoiceKey(pilotId, planetId)] === "follow-signal"
     );
 }
+
+export interface StoryCombatBonuses {
+  weakpointMultiplier: number;
+  hullBonus: number;
+  shieldRechargeMultiplier: number;
+}
+
+export function getStoryCombatBonuses(choice: string | undefined): StoryCombatBonuses {
+  if (choice === "follow-signal") {
+    return { weakpointMultiplier: 1.1, hullBonus: 0, shieldRechargeMultiplier: 1 };
+  }
+  if (choice === "protect-crew") {
+    return { weakpointMultiplier: 1, hullBonus: 1, shieldRechargeMultiplier: 1.1 };
+  }
+  return { weakpointMultiplier: 1, hullBonus: 0, shieldRechargeMultiplier: 1 };
+}
