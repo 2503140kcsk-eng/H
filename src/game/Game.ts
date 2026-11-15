@@ -428,33 +428,45 @@ export class Game {
 
   private createPlayer(): void {
     const visual = this.shipProfile.visual;
-    const bodyWidth = visual === "speed" ? 0.35 : visual === "heavy" ? 0.58 : 0.47;
-    const bodyLength = visual === "speed" ? 1.9 : visual === "heavy" ? 1.5 : 1.65;
+    const bodyWidth = visual === "speed" ? 0.35 : visual === "heavy" ? 0.58 : visual === "arc" ? 0.42 : 0.47;
+    const bodyLength = visual === "speed" ? 1.9 : visual === "heavy" ? 1.5 : visual === "arc" ? 1.82 : 1.65;
     const bodyMaterial = visual === "speed" ? this.materials.wing
-      : visual === "heavy" ? this.materials.pink : this.materials.player;
-    const body = new THREE.Mesh(new THREE.ConeGeometry(bodyWidth, bodyLength, visual === "heavy" ? 6 : 5), bodyMaterial);
+      : visual === "heavy" ? this.materials.pink
+        : visual === "arc" ? this.materials.glow : this.materials.player;
+    const body = new THREE.Mesh(new THREE.ConeGeometry(bodyWidth, bodyLength, visual === "heavy" ? 6 : visual === "arc" ? 8 : 5), bodyMaterial);
     body.position.y = 0.05;
     const cockpit = new THREE.Mesh(new THREE.SphereGeometry(visual === "heavy" ? 0.29 : 0.25, 12, 10), this.pilotCockpitMaterial);
     cockpit.scale.set(0.78, 1.45, 0.58);
     cockpit.position.set(0, 0.12, 0.42);
-    const wingSpan = visual === "heavy" ? 1.02 : visual === "speed" ? 0.92 : 0.78;
-    const wingOffset = visual === "heavy" ? 0.72 : visual === "speed" ? 0.58 : 0.54;
-    const wingGeometry = new THREE.BoxGeometry(wingSpan, visual === "heavy" ? 0.36 : 0.24, 0.18);
+    const wingSpan = visual === "arc" ? 1.18 : visual === "heavy" ? 1.02 : visual === "speed" ? 0.92 : 0.78;
+    const wingOffset = visual === "arc" ? 0.78 : visual === "heavy" ? 0.72 : visual === "speed" ? 0.58 : 0.54;
+    const wingGeometry = new THREE.BoxGeometry(wingSpan, visual === "heavy" ? 0.36 : visual === "arc" ? 0.18 : 0.24, 0.18);
     const leftWing = new THREE.Mesh(wingGeometry, this.materials.wing);
     leftWing.position.set(-wingOffset, -0.28, 0.02);
-    leftWing.rotation.z = visual === "speed" ? -0.36 : -0.24;
+    leftWing.rotation.z = visual === "speed" ? -0.36 : visual === "arc" ? -0.5 : -0.24;
     leftWing.name = "wing-left";
     const rightWing = new THREE.Mesh(wingGeometry, this.materials.wing);
     rightWing.position.set(wingOffset, -0.28, 0.02);
-    rightWing.rotation.z = visual === "speed" ? 0.36 : 0.24;
+    rightWing.rotation.z = visual === "speed" ? 0.36 : visual === "arc" ? 0.5 : 0.24;
     rightWing.name = "wing-right";
-    const engineGeometry = new THREE.CylinderGeometry(visual === "heavy" ? 0.16 : 0.12, 0.2, visual === "speed" ? 0.66 : 0.5, 8);
-    const engineOffset = visual === "heavy" ? 0.38 : 0.27;
+    const engineGeometry = new THREE.CylinderGeometry(visual === "heavy" ? 0.16 : visual === "arc" ? 0.105 : 0.12, 0.2, visual === "speed" ? 0.66 : visual === "arc" ? 0.74 : 0.5, 8);
+    const engineOffset = visual === "heavy" ? 0.38 : visual === "arc" ? 0.47 : 0.27;
     const engineLeft = new THREE.Mesh(engineGeometry, this.materials.glow);
     engineLeft.position.set(-engineOffset, -0.8, 0.04);
     engineLeft.name = "engine-left";
     const engineRight = engineLeft.clone();
     engineRight.position.x = engineOffset;
+    if (visual === "arc") {
+      const halo = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.045, 6, 24), this.materials.glow);
+      halo.position.set(0, -0.12, -0.16);
+      halo.name = "arc-resonance-ring";
+      const sideFin = new THREE.Mesh(new THREE.OctahedronGeometry(0.18, 0), this.materials.pink);
+      const leftFin = sideFin.clone();
+      leftFin.position.set(-0.94, 0.18, 0.08);
+      const rightFin = sideFin.clone();
+      rightFin.position.set(0.94, 0.18, 0.08);
+      this.player.add(halo, leftFin, rightFin);
+    }
     if (visual === "heavy") {
       const armorGeometry = new THREE.BoxGeometry(0.28, 0.62, 0.24);
       const armorLeft = new THREE.Mesh(armorGeometry, this.materials.player);
