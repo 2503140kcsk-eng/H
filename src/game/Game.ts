@@ -8,7 +8,7 @@ import { applyBossPartDamage, getBossAttackInterval, getBossPhase, getBossVolley
 import { getStoryCombatBonuses, type StoryCombatBonuses } from "./narrative";
 import { PICKUP_EFFECTS, selectPickupKind, type PickupKind } from "./pickups";
 import { getShipProfile, type ShipProfile } from "./ships";
-import { getEndlessBossProfile, getPlanetProfile, type BossProfile, type PlanetEventKind, type PlanetId, type PlanetProfile } from "./campaign";
+import { getEndlessBossProfile, getPlanetProfile, type BossProfile, type PlanetEventBranch, type PlanetEventKind, type PlanetId, type PlanetProfile } from "./campaign";
 import { getWeaponProfile, normalizeEquippedWeaponIds, normalizeUnlockedWeaponIds, normalizeWeaponSlot, type WeaponId } from "./weapons";
 
 export type GameMode = "story" | "stage" | "endless";
@@ -173,6 +173,8 @@ export class Game {
   private lastFrame = 0;
   private elapsed = 0;
   private planetEventTriggered = false;
+  private planetEventSecondTriggered = false;
+  private planetEventActiveStage: 1 | 2 = 1;
   private planetEventRemaining = 0;
   private eventDamageMultiplier = 1;
   private enemyProjectileSpeedMultiplier = 1;
@@ -193,6 +195,7 @@ export class Game {
   private readonly pilotGrowth: ReturnType<typeof getPilotGrowthStats>;
   private readonly pilotSkillBonuses: PilotSkillBonuses;
   private readonly storyCombatBonuses: StoryCombatBonuses;
+  private readonly storyChoice: PlanetEventBranch;
   private readonly bossPartHitPosition = new THREE.Vector3();
   private readonly pilotCockpitMaterial: THREE.MeshStandardMaterial;
   private readonly invulnerableForTest: boolean;
@@ -271,6 +274,7 @@ export class Game {
     this.pilotGrowth = getPilotGrowthStats(options.pilotLevel ?? 1);
     this.pilotSkillBonuses = getPilotSkillBonuses(this.pilotProfile.id, options.pilotSkills ?? []);
     this.storyCombatBonuses = getStoryCombatBonuses(options.storyChoice);
+    this.storyChoice = options.storyChoice === "follow-signal" ? "follow-signal" : "protect-crew";
     this.invulnerableForTest = import.meta.env.DEV && options.invulnerableForTest === true;
     this.pilotCockpitMaterial = new THREE.MeshStandardMaterial({
       color: this.pilotProfile.accentColor,
@@ -344,6 +348,8 @@ export class Game {
     this.bossSequence = 0;
     this.defeatedBosses.length = 0;
     this.planetEventTriggered = false;
+    this.planetEventSecondTriggered = false;
+    this.planetEventActiveStage = 1;
     this.planetEventRemaining = 0;
     this.eventDamageMultiplier = 1;
     this.enemyProjectileSpeedMultiplier = 1;
@@ -547,7 +553,11 @@ export class Game {
   private update(dt: number): void {
     this.elapsed += dt;
     if (!this.planetEventTriggered && this.elapsed >= this.planetProfile.missionEvent.triggerAtSeconds) {
-      this.activatePlanetEvent();
+      this.activatePlanetEvent(1);
+    }
+    const followUp = this.planetProfile.missionEvent.followUps[this.storyChoice];
+    if (this.planetEventTriggered && !this.planetEventSecondTriggered && this.elapsed >= followUp.triggerAtSeconds) {
+      this.activatePlanetEvent(2);
     }
     if (this.planetEventRemaining > 0) {
       this.planetEventRemaining = Math.max(0, this.planetEventRemaining - dt);
@@ -621,12 +631,17 @@ export class Game {
     }
   }
 
-  private activatePlanetEvent(): void {
-    const event = this.planetProfile.missionEvent;
+  private activatePlanetEvent(stage: 1 | 2): void {
+    const event = stage === 1
+      ? this.planetProfile.missionEvent
+      : this.planetProfile.missionEvent.followUps[this.storyChoice];
     this.planetEventTriggered = true;
+    if (stage === 2) this.planetEventSecondTriggered = true;
+    this.planetEventActiveStage = stage;
     this.planetEventRemaining = event.durationSeconds;
     const dialogue = event.pilotDialogue[this.pilotProfile.id] ?? event.name;
-    this.callbacks.onMissionEvent(`【${event.name}】${dialogue}`, this.pilotProfile.name);
+    const stageLabel = stage === 1 ? "第一段階" : "第二段階";
+    this.callbacks.onMissionEvent(`【${event.name} · ${stageLabel}】${dialogue}`, this.pilotProfile.name);
 
     if (event.kind === "resonance") {
       this.eventDamageMultiplier = 1.28;
@@ -640,16 +655,34 @@ export class Game {
         if (this.projectiles[index].owner === "enemy") this.removeProjectile(index);
       }
       this.spawnBurst(this.player.position, 0x8cecff, 44);
+    } else if (event.kind === "damage-boost") {
+      this.eventDamageMultiplier = 1.42;
+      this.spawnBurst(this.player.position, 0xe1a8ff, 38);
+    } else if (event.kind === "shield-ward") {
+      this.shield = 100;
+      this.shieldTimer = Math.max(this.shieldTimer, event.durationSeconds);
+      this.enemyProjectileSpeedMultiplier = 0.72;
+      for (let index = this.projectiles.length - 1; index >= 0; index -= 1) {
+        if (this.projectiles[index].owner === "enemy") this.removeProjectile(index);
+      }
+      this.spawnBurst(this.player.position, 0x9ceeff, 48);
     }
   }
 
   private completePlanetEvent(): void {
     this.eventDamageMultiplier = 1;
     this.enemyProjectileSpeedMultiplier = 1;
-    this.score += 650;
-    this.shards += 12;
+    const stage = this.planetEventActiveStage;
+    const scoreReward = stage === 1 ? 650 : 900;
+    const shardReward = stage === 1 ? 12 : 18;
+    this.score += scoreReward;
+    this.shards += shardReward;
+    const eventName = stage === 1
+      ? this.planetProfile.missionEvent.name
+      : this.planetProfile.missionEvent.followUps[this.storyChoice].name;
+    const stageLabel = stage === 1 ? "" : " · 第二段階";
     this.callbacks.onMissionEvent(
-      `惑星イベント「${this.planetProfile.missionEvent.name}」達成！ +650 SCORE / +12 ✦`,
+      `惑星イベント「${eventName}」${stageLabel}達成！ +${scoreReward} SCORE / +${shardReward} ✦`,
       "MISSION CONTROL"
     );
     this.spawnBurst(this.player.position, 0xffe7a1, 24);
