@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import type { PilotProfile } from "./pilots";
+import { getPilotSkinProfile } from "./pilot-skins";
 
 type VrmRuntime = {
   scene: THREE.Object3D;
@@ -69,11 +70,11 @@ export class PilotShowcase {
     this.animate();
   }
 
-  setPilot(profile: PilotProfile): void {
+  setPilot(profile: PilotProfile, skinId = "standard"): void {
     this.clearModel();
     this.speaking = false;
     this.animationStyle = profile.animationStyle;
-    this.modelRoot = this.createProceduralPilot(profile);
+    this.modelRoot = this.createProceduralPilot(profile, skinId);
     this.scene.add(this.modelRoot);
   }
 
@@ -81,12 +82,15 @@ export class PilotShowcase {
     this.speaking = active;
   }
 
-  private createProceduralPilot(profile: PilotProfile): THREE.Group {
+  private createProceduralPilot(profile: PilotProfile, skinId: string): THREE.Group {
     const root = new THREE.Group();
     root.position.y = -1.36;
+    const outfit = getPilotSkinProfile(skinId);
+    const uniformColor = outfit.uniformColor < 0 ? profile.accentColor : outfit.uniformColor;
     const skin = new THREE.MeshStandardMaterial({ color: 0xffd8ce, roughness: 0.75 });
-    const uniform = new THREE.MeshStandardMaterial({ color: profile.accentColor, roughness: 0.48, metalness: 0.12 });
-    const trim = new THREE.MeshStandardMaterial({ color: 0xe9f3ff, roughness: 0.38, metalness: 0.18 });
+    const uniform = new THREE.MeshStandardMaterial({ color: uniformColor, roughness: 0.48, metalness: 0.12 });
+    const trim = new THREE.MeshStandardMaterial({ color: outfit.trimColor, roughness: 0.38, metalness: 0.18 });
+    const accessory = new THREE.MeshStandardMaterial({ color: outfit.accessoryColor, roughness: 0.32, metalness: 0.35 });
     const dark = new THREE.MeshStandardMaterial({ color: 0x26304f, roughness: 0.7 });
     const hair = new THREE.MeshStandardMaterial({
       color: profile.id === "noa-celeste" ? 0x6e9dc4 : profile.id === "rin-vega" ? 0x9e426e : 0x7651a5,
@@ -147,13 +151,13 @@ export class PilotShowcase {
     add(shoulder, trim, root, -0.39, 0.62, 0);
     add(shoulder.clone(), trim, root, 0.39, 0.62, 0);
     if (profile.id === "lumi-asteria") {
-      const star = add(new THREE.OctahedronGeometry(0.13, 0), trim, root, 0, 1.7, 0.02);
+      const star = add(new THREE.OctahedronGeometry(0.13, 0), accessory, root, 0, 1.7, 0.02);
       star.rotation.z = Math.PI / 4;
     } else if (profile.id === "noa-celeste") {
-      const halo = add(new THREE.TorusGeometry(0.19, 0.035, 6, 18), trim, root, 0, 1.74, 0);
+      const halo = add(new THREE.TorusGeometry(0.19, 0.035, 6, 18), accessory, root, 0, 1.74, 0);
       halo.rotation.x = Math.PI / 2.8;
     } else {
-      const crest = add(new THREE.ConeGeometry(0.12, 0.42, 5), trim, root, 0.28, 1.55, 0);
+      const crest = add(new THREE.ConeGeometry(0.12, 0.42, 5), accessory, root, 0.28, 1.55, 0);
       crest.rotation.z = -0.4;
     }
     return root;
