@@ -4,7 +4,7 @@ import { absorbGuardianShield, ENEMY_PROFILES, selectEnemyKind, type EnemyKind }
 import { TouchInput } from "./input";
 import { getPilotGrowthStats, getPilotProfile, type PilotProfile } from "./pilots";
 import { getPilotSkillBonuses, type PilotSkillBonuses } from "./pilot-skills";
-import { getBossAttackInterval, getBossPhase, getBossVolleyCount, isBossWeakpointOpen, type BossPhase } from "./boss-mechanics";
+import { applyBossPartDamage, getBossAttackInterval, getBossPhase, getBossVolleyCount, isBossWeakpointOpen, type BossPhase } from "./boss-mechanics";
 import { PICKUP_EFFECTS, selectPickupKind, type PickupKind } from "./pickups";
 import { getShipProfile, type ShipProfile } from "./ships";
 import { getEndlessBossProfile, getPlanetProfile, type BossProfile, type PlanetEventKind, type PlanetId, type PlanetProfile } from "./campaign";
@@ -407,14 +407,13 @@ export class Game {
     }
     const shipDamage = this.shipProfile.attackMultiplier *
       this.pilotProfile.attackMultiplier * this.pilotProfile.specialMultiplier *
-      this.pilotGrowth.attackMultiplier * this.pilotSkillBonuses.attackMultiplier *
-      this.pilotSkillBonuses.specialMultiplier;
+      this.pilotGrowth.attackMultiplier * this.pilotSkillBonuses.attackMultiplier;
     for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
       this.damageEnemy(index, (5 + this.pilotUpgrades.attack) * shipDamage);
     }
     if (this.boss) this.damageBoss((10 + this.pilotUpgrades.attack * 2) * shipDamage);
     if (this.pilotProfile.skillType === "aegis") {
-      this.shield = Math.min(100, this.shield + 35);
+      this.shield = Math.min(100, this.shield + 35 * this.pilotSkillBonuses.shieldSpecialMultiplier);
       this.shieldTimer = Math.max(this.shieldTimer, 1.4);
     } else if (this.pilotProfile.skillType === "comet") {
       this.overdriveTimer = Math.max(this.overdriveTimer, 3.5);
@@ -1249,11 +1248,12 @@ export class Game {
 
   private damageBossPart(part: BossPart, damage: number): void {
     if (part.destroyed || !Number.isFinite(damage) || damage <= 0) return;
-    part.hp = Math.max(0, part.hp - damage);
+    const next = applyBossPartDamage(part, damage);
+    part.hp = next.hp;
+    part.destroyed = next.destroyed;
     part.mesh.getWorldPosition(this.bossPartHitPosition);
-    this.spawnBurst(this.bossPartHitPosition, part.hp <= 0 ? 0xffd78c : 0x9ceaff, part.hp <= 0 ? 18 : 4);
-    if (part.hp <= 0) {
-      part.destroyed = true;
+    this.spawnBurst(this.bossPartHitPosition, part.destroyed ? 0xffd78c : 0x9ceaff, part.destroyed ? 18 : 4);
+    if (part.destroyed) {
       part.mesh.visible = false;
       this.score += 320;
       this.shards += 6;
