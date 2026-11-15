@@ -36,6 +36,12 @@ describe("Q-TRACE iPhone Quality Gate", () => {
       manualPending: 0,
       disposition: "ready"
     });
+
+    expect(summarizeQualityGate(checks, 5)).toMatchObject({
+      score: 100,
+      manualPending: 5,
+      disposition: "device-check-required"
+    });
   });
 
   it("blocks insecure origins and missing WebGL2 rather than claiming readiness", () => {
