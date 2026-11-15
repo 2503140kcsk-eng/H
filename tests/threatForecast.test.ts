@@ -101,6 +101,24 @@ describe("evasion scoring", () => {
     expect(result.recommended).toBe("hold");
   });
 
+  it("checks the launch point at release, not a projectile that moved during wind-up", () => {
+    const warning: ThreatPath = {
+      position: { x: 0, y: 0 },
+      velocity: { x: 0, y: -5 },
+      radius: 0.2,
+      source: "forecast",
+      startDelaySeconds: 0.5
+    };
+    const result = assessEvasion(
+      { x: 0, y: 0 },
+      { x: 0, y: 0 },
+      [warning],
+      bounds,
+      { horizonSeconds: 1 }
+    );
+    expect(result.risk).toBe("danger");
+  });
+
   it("evaluates a dodge as a deliberate change of movement direction", () => {
     const crossing: ThreatPath = {
       position: { x: 2.5, y: 0 },
