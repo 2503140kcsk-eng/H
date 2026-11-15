@@ -5,6 +5,7 @@ import { TouchInput } from "./input";
 import { getPilotGrowthStats, getPilotProfile, type PilotProfile } from "./pilots";
 import { getPilotSkillBonuses, type PilotSkillBonuses } from "./pilot-skills";
 import { applyBossPartDamage, getBossAttackInterval, getBossPhase, getBossVolleyCount, isBossWeakpointOpen, type BossPhase } from "./boss-mechanics";
+import { getStoryCombatBonuses, type StoryCombatBonuses } from "./narrative";
 import { PICKUP_EFFECTS, selectPickupKind, type PickupKind } from "./pickups";
 import { getShipProfile, type ShipProfile } from "./ships";
 import { getEndlessBossProfile, getPlanetProfile, type BossProfile, type PlanetEventKind, type PlanetId, type PlanetProfile } from "./campaign";
@@ -191,6 +192,7 @@ export class Game {
   private readonly pilotProfile: PilotProfile;
   private readonly pilotGrowth: ReturnType<typeof getPilotGrowthStats>;
   private readonly pilotSkillBonuses: PilotSkillBonuses;
+  private readonly storyCombatBonuses: StoryCombatBonuses;
   private readonly bossPartHitPosition = new THREE.Vector3();
   private readonly pilotCockpitMaterial: THREE.MeshStandardMaterial;
   private readonly invulnerableForTest: boolean;
@@ -240,6 +242,7 @@ export class Game {
     pilotId?: string;
     pilotLevel?: number;
     pilotSkills?: readonly string[];
+    storyChoice?: string;
     planetId?: string;
     weaponIds?: readonly string[];
     activeWeaponSlot?: number;
@@ -267,6 +270,7 @@ export class Game {
     this.pilotProfile = getPilotProfile(options.pilotId ?? "lumi-asteria");
     this.pilotGrowth = getPilotGrowthStats(options.pilotLevel ?? 1);
     this.pilotSkillBonuses = getPilotSkillBonuses(this.pilotProfile.id, options.pilotSkills ?? []);
+    this.storyCombatBonuses = getStoryCombatBonuses(options.storyChoice);
     this.invulnerableForTest = import.meta.env.DEV && options.invulnerableForTest === true;
     this.pilotCockpitMaterial = new THREE.MeshStandardMaterial({
       color: this.pilotProfile.accentColor,
@@ -349,7 +353,8 @@ export class Game {
     this.callbacks.onMissionEvent(pilotBriefing, this.pilotProfile.name);
     this.callbacks.onMissionEvent(this.planetProfile.event, "MISSION CONTROL");
     this.hp = 3 + this.pilotUpgrades.hull + this.shipProfile.hullBonus +
-      this.pilotProfile.hullBonus + this.pilotGrowth.hullBonus + this.pilotSkillBonuses.hullBonus;
+      this.pilotProfile.hullBonus + this.pilotGrowth.hullBonus + this.pilotSkillBonuses.hullBonus +
+      this.storyCombatBonuses.hullBonus;
     this.maxHp = this.hp;
     this.shield = 100;
     this.special = 60;
@@ -545,7 +550,7 @@ export class Game {
     this.speedBoostTimer = Math.max(0, this.speedBoostTimer - dt);
     this.shield = Math.min(100, this.shield + dt * 2.5 *
       this.shipProfile.shieldRechargeMultiplier * this.pilotProfile.shieldRechargeMultiplier *
-      this.pilotSkillBonuses.shieldRechargeMultiplier);
+      this.pilotSkillBonuses.shieldRechargeMultiplier * this.storyCombatBonuses.shieldRechargeMultiplier);
     this.special = Math.min(100, this.special + dt * 1.1);
 
     const dx = this.playerTarget.x - this.player.position.x;
@@ -1267,7 +1272,8 @@ export class Game {
     if (!this.boss) return;
     const boss = this.boss;
     const multiplier = weakpoint && boss.weakpointOpen
-      ? boss.profile.weakpointMultiplier * this.pilotSkillBonuses.weakpointMultiplier : 1;
+      ? boss.profile.weakpointMultiplier * this.pilotSkillBonuses.weakpointMultiplier *
+        this.storyCombatBonuses.weakpointMultiplier : 1;
     boss.hp -= Math.max(0, damage) * multiplier;
     this.triggerCameraShake(weakpoint && boss.weakpointOpen ? 0.55 : 0.16, 0.42);
     this.spawnBurst(new THREE.Vector3(boss.mesh.position.x, boss.mesh.position.y - 0.4, 0.9),
