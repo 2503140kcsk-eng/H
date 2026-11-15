@@ -61,8 +61,7 @@ export const PLANETS: Readonly<Record<PlanetId, PlanetProfile>> = {
         "lumi-asteria": "ルミ「この光は味方だよ！ 武器出力が上がってる、今のうちに突破しよう！」",
         "noa-celeste": "ノア「星雲の位相が同期したわ。攻撃出力を一時的に増幅できる。」",
         "rin-vega": "リン「追い風きた！ ここで一気にスコアを稼ぐよ！」"
-      }
-    },
+      },
       followUps: {
         "follow-signal": {
           id: "starlight-chart-lock",
@@ -88,7 +87,8 @@ export const PLANETS: Readonly<Record<PlanetId, PlanetProfile>> = {
             "rin-vega": "リン「僚機は後ろへ！ ここは私が全部引き受ける！」"
           }
         }
-      },
+      }
+    },
     backgroundColor: 0x07122d,
     fogColor: 0x17285b,
     boss: {
@@ -118,8 +118,7 @@ export const PLANETS: Readonly<Record<PlanetId, PlanetProfile>> = {
         "lumi-asteria": "ルミ「重力嵐が来るよ！ 敵弾の速度が上がるから、軌道をよく見て！」",
         "noa-celeste": "ノア「重力勾配が変わったわ。敵弾の到達時間を読み直して。」",
         "rin-vega": "リン「弾が速くなるなら、もっと速く動けばいいだけ！」"
-      }
-    },
+      },
       followUps: {
         "follow-signal": {
           id: "gravity-inversion",
@@ -145,7 +144,8 @@ export const PLANETS: Readonly<Record<PlanetId, PlanetProfile>> = {
             "rin-vega": "リン「隊列を崩さないで！ 私のブーストに合わせて！」"
           }
         }
-      },
+      }
+    },
     backgroundColor: 0x241020,
     fogColor: 0x6b263f,
     boss: {
@@ -175,8 +175,7 @@ export const PLANETS: Readonly<Record<PlanetId, PlanetProfile>> = {
         "lumi-asteria": "ルミ「古代の記録が防壁を起動したみたい。今なら守りを固められる！」",
         "noa-celeste": "ノア「防衛機構が味方認証を行ったわ。シールドを最大限に活用して。」",
         "rin-vega": "リン「守りがあるうちに攻める！ 一気に片をつけよう！」"
-      }
-    },
+      },
       followUps: {
         "follow-signal": {
           id: "memory-unseal",
@@ -202,7 +201,8 @@ export const PLANETS: Readonly<Record<PlanetId, PlanetProfile>> = {
             "rin-vega": "リン「後ろは任せて。仲間は一人も置いていかない！」"
           }
         }
-      },
+      }
+    },
     backgroundColor: 0x090e24,
     fogColor: 0x34305f,
     boss: {
