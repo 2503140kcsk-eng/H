@@ -4,7 +4,7 @@ test("Q-TRACE opens, refreshes, and exports an auditable JSON passport", async (
   await page.goto("/");
   await page.locator("#iphone-quality-open").click();
   await expect(page.getByRole("heading", { name: /Q-TRACE/ })).toBeVisible();
-  await expect(page.locator("#quality-checks [data-quality-id]")).toHaveCount(11);
+  await expect(page.locator("#quality-checks [data-quality-id]")).toHaveCount(12);
   await page.locator("#quality-audio-resume").click();
   await expect(page.locator("#quality-audio-resume")).toContainText("音声状態:");
   const downloadPromise = page.waitForEvent("download");
@@ -45,11 +45,22 @@ test("Q-TRACE exports CSV with environment and check evidence", async ({ page })
 test("Q-TRACE observes game-canvas touch input and app lifecycle evidence", async ({ page }) => {
   await page.goto("/");
   await page.locator('[data-mode="story"]').click();
+  const canvas = page.locator("#game-canvas");
+  await canvas.dispatchEvent("webglcontextlost", { cancelable: true });
+  await expect(page.locator("#pause-modal")).toBeVisible();
+  await canvas.dispatchEvent("webglcontextrestored");
+  await page.locator("#resume-button").click();
   await page.touchscreen.tap(420, 220);
   await page.locator("#pause-button").click();
   await page.locator("#pause-menu-button").click();
+  await page.evaluate(() => {
+    window.dispatchEvent(new Event("pagehide"));
+    window.dispatchEvent(new Event("pageshow"));
+  });
   await page.locator("#iphone-quality-open").click();
   const pointerCheck = page.locator('[data-quality-id="game-canvas-pointer"]');
   await expect(pointerCheck).toContainText(/down [1-9]/);
   await expect(pointerCheck).toContainText(/up-or-cancel [1-9]/);
+  await expect(page.locator('[data-quality-id="webgl-recovery"]')).toContainText("PASS");
+  await expect(page.locator('[data-quality-id="lifecycle-resume"]')).toContainText("PASS");
 });
