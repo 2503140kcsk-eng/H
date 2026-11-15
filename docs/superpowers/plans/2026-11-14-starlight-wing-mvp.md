@@ -234,3 +234,19 @@ Files: .github/workflows/ci.yml, README.md, docs/architecture/tool-roles.md.
 - [ ] Verify on the next PR update that exactly one Quality Gate run is created and it completes successfully.
 
 Cost boundary: this reduces duplicate CI executions on PR pushes; it does not change the tests or require a paid plan.
+
+
+### Task 15: Local VRM pilot import and hangar preview
+
+Files: package.json, src/game/vrmFile.ts, src/game/vrmPreview.ts, src/persistence/database.ts, src/main.ts, src/style.css, tests/vrmFile.test.ts, tests/e2e/app.spec.ts, README.md, docs/architecture/tool-roles.md.
+
+- [x] Add the MIT-licensed `@pixiv/three-vrm` runtime at pinned version 3.5.5; retain the existing Three.js 0.186 runtime using the package's peer range (three >= 0.137).
+- [x] Load the VRM code only after the user selects a model; no VRM code is required for the initial title-screen bundle.
+- [x] Validate `.vrm` extension, non-empty file size and a 32 MiB import ceiling before model parsing.
+- [x] Add a separate Dexie v2 table for local per-pilot VRM blobs; existing save and recovery tables and save version 1 remain unchanged.
+- [x] Parse local file bytes with GLTFLoader + VRMLoaderPlugin, optimize redundant vertices / skeletons, fit the avatar to a compact preview and update spring-bone runtime during a 30 FPS idle loop.
+- [x] Stop the preview loop and release model GPU resources / context before starting combat; restore the selected pilot's preview on return to hangar.
+- [x] Add unit coverage for valid extension, uppercase extension, empty file, size limit and oversized file; add browser coverage for rejecting non-VRM files.
+- [x] Document that model files are local, user-supplied, not uploaded, and not included in JSON progression backups.
+
+Performance / privacy boundaries: the game does not ship a sample character or contact any model CDN. The model is parsed from a user-selected local file and stored in browser IndexedDB per pilot. The preview is capped to 30 FPS and DPR 1.0; the combat renderer is not active while the preview renderer is running. The 32 MiB file limit is a conservative starting guard, not a guarantee that every accepted VRM fits every device's free memory. No lip-sync or voice generation is claimed in this task; those need a separate voice/phoneme pipeline.

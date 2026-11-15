@@ -38,6 +38,20 @@ h1 span { color: var(--pink); }
 .pilot-card strong { font-size: 13px; }
 .pilot-card small { margin-top: 2px; color: #a7b0d4; font-size: 10px; }
 .pilot-status { margin-left: auto; color: #83f4d8; font-size: 9px; letter-spacing: .16em; font-weight: 900; }
+.pilot-card-copy { min-width: 0; flex: 1 1 auto; }
+.pilot-model-preview { width: 74px; height: 106px; flex: 0 0 74px; overflow: hidden; border: 1px solid rgba(140,239,255,.32); border-radius: 12px; background: radial-gradient(ellipse at 50% 80%, rgba(88,168,217,.24), rgba(10,17,48,.05) 72%); }
+.pilot-model-preview canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; }
+.pilot-model-controls { width: min(390px, 100%); display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px 9px; margin: -10px auto 13px; }
+.pilot-model-button { padding: 6px 9px; border: 1px solid rgba(140,239,255,.28); border-radius: 9px; color: #dffbff; background: rgba(62,143,176,.16); font-size: 9px; font-weight: 750; cursor: pointer; }
+.pilot-model-button.secondary { border-color: rgba(255,156,207,.32); color: #ffc4df; background: rgba(123,55,103,.14); }
+.pilot-model-button:active { transform: scale(.97); }
+.pilot-model-controls small { max-width: 100%; color: #91a5cf; font-size: 8px; text-align: center; }
+@media (max-height: 500px) {
+  .pilot-model-preview { width: 58px; height: 78px; flex-basis: 58px; }
+  .pilot-model-controls { margin-bottom: 8px; }
+  .pilot-model-button { padding: 5px 7px; }
+}
+
 .mode-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
 .mode-button { min-height: 61px; display: grid; place-content: center; gap: 4px; padding: 9px 7px; border: 1px solid rgba(173,188,255,.26); border-radius: 14px; background: rgba(80, 83, 150, .18); color: #f8f5ff; cursor: pointer; transition: transform .15s, background .15s, border-color .15s; }
 .mode-button:active, .large-button:active, .action-button:active { transform: scale(.975); }

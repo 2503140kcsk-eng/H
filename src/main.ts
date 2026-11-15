@@ -2,10 +2,11 @@ import { registerSW } from "virtual:pwa-register";
 import { Game, type GameMode, type HudState, type RunResult } from "./game/Game";
 import { createDefaultSave, upgradeCost, type SaveData } from "./game/core";
 import { exportBackup, importBackup } from "./persistence/backup";
-import { getSavePersistenceStatus, loadSave, saveProgress } from "./persistence/database";
+import { getSavePersistenceStatus, loadSave, saveProgress, loadPilotModel, savePilotModel, removePilotModel } from "./persistence/database";
 import { ALL_PILOT_IDS, PILOT_PROFILES, getPilotProfile, isPilotId } from "./game/pilots";
 import { ALL_SHIP_IDS, SHIP_PROFILES, isShipId } from "./game/ships";
 import { ALL_WEAPON_IDS, WEAPON_PROFILES, isWeaponId } from "./game/weapons";
+import { validateVrmFile } from "./game/vrmFile";
 import { collectDeviceDiagnostics, diagnosticsToCsv, type DeviceDiagnosticsReport, type GameDiagnosticsSnapshot } from "./game/diagnostics";
 import "./style.css";
 
@@ -31,8 +32,17 @@ uiRoot.innerHTML = `
       <p class="subtitle">星の翼 — かわいさ × 本格SFシューティング</p>
       <div class="pilot-card">
         <div id="pilot-avatar" class="pilot-avatar" aria-hidden="true">✦</div>
-        <div><strong id="pilot-name">ルミ・アステリア</strong><small id="pilot-role">オールラウンダー / Lv.1</small></div>
+        <div id="pilot-model-preview" class="pilot-model-preview" hidden>
+          <canvas id="pilot-model-canvas" aria-label="選択中パイロットの3Dモデル"></canvas>
+        </div>
+        <div class="pilot-card-copy"><strong id="pilot-name">ルミ・アステリア</strong><small id="pilot-role">オールラウンダー / Lv.1</small></div>
         <span class="pilot-status">READY</span>
+      </div>
+      <div class="pilot-model-controls">
+        <button id="pilot-vrm-import" class="pilot-model-button" type="button">＋ VRMモデル読込</button>
+        <button id="pilot-vrm-remove" class="pilot-model-button secondary" type="button" hidden>解除</button>
+        <input id="pilot-vrm-file" type="file" accept=".vrm,model/gltf-binary" hidden />
+        <small id="pilot-vrm-status" role="status" aria-live="polite">最大32 MiB · この端末内だけに保存</small>
       </div>
       <div class="mode-grid">
         <button class="mode-button primary" data-mode="story"><span>STORY</span><small>星域の謎を追う</small></button>
@@ -172,6 +182,12 @@ const diagnosticsStatus = byId<HTMLParagraphElement>("diagnostics-status");
 const diagnosticsOutput = byId<HTMLPreElement>("diagnostics-output");
 const diagnosticsJsonButton = byId<HTMLButtonElement>("diagnostics-json");
 const diagnosticsCsvButton = byId<HTMLButtonElement>("diagnostics-csv");
+const pilotVrmFileInput = byId<HTMLInputElement>("pilot-vrm-file");
+const pilotVrmStatus = byId<HTMLElement>("pilot-vrm-status");
+const pilotVrmRemoveButton = byId<HTMLButtonElement>("pilot-vrm-remove");
+const pilotModelPreview = byId<HTMLElement>("pilot-model-preview");
+const pilotModelCanvas = byId<HTMLCanvasElement>("pilot-model-canvas");
+const pilotAvatar = byId<HTMLElement>("pilot-avatar");
 
 let save: SaveData = createDefaultSave();
 let game: Game | null = null;
@@ -182,6 +198,8 @@ let audioContext: AudioContext | null = null;
 let toastTimeout = 0;
 let lastGameDiagnostics: GameDiagnosticsSnapshot | null = null;
 let diagnosticReport: DeviceDiagnosticsReport | null = null;
+let pilotPreview: import("./game/vrmPreview").VrmPreview | null = null;
+let pilotPreviewGeneration = 0;
 
 function showToast(message: string): void {
   toast.textContent = message;
@@ -212,6 +230,82 @@ function playTone(frequency: number, duration = 0.075): void {
   }
 }
 
+function disposePilotPreview(): void {
+  pilotPreviewGeneration += 1;
+  pilotPreview?.dispose();
+  pilotPreview = null;
+  pilotModelPreview.hidden = true;
+  pilotAvatar.hidden = false;
+}
+
+function setPilotVrmStatus(message: string, hasModel: boolean): void {
+  pilotVrmStatus.textContent = message;
+  pilotVrmRemoveButton.hidden = !hasModel;
+}
+
+async function loadPilotVrmPreview(): Promise<void> {
+  const generation = ++pilotPreviewGeneration;
+  const asset = await loadPilotModel(save.selectedPilot);
+  if (generation !== pilotPreviewGeneration) return;
+
+  if (!asset) {
+    disposePilotPreview();
+    setPilotVrmStatus("最大32 MiB · この端末内だけに保存", false);
+    return;
+  }
+
+  pilotModelPreview.hidden = false;
+  pilotAvatar.hidden = true;
+  setPilotVrmStatus("モデルを読み込み中…", false);
+  try {
+    const module = await import("./game/vrmPreview");
+    if (generation !== pilotPreviewGeneration) return;
+    pilotPreview ??= new module.VrmPreview(pilotModelCanvas);
+    const modelName = await pilotPreview.load(asset.blob);
+    if (generation !== pilotPreviewGeneration) return;
+    setPilotVrmStatus(`${asset.fileName} · 表示中`, true);
+    pilotModelPreview.setAttribute("aria-label", modelName);
+  } catch (error) {
+    if (generation !== pilotPreviewGeneration) return;
+    disposePilotPreview();
+    setPilotVrmStatus("このVRMを読み込めません。別のVRMを選んでください。", true);
+    console.warn("VRM preview failed:", error);
+  }
+}
+
+async function importPilotVrm(file: File): Promise<void> {
+  const validation = validateVrmFile(file);
+  if (!validation.valid) {
+    setPilotVrmStatus(validation.reason, false);
+    showToast(validation.reason);
+    return;
+  }
+
+  const generation = ++pilotPreviewGeneration;
+  setPilotVrmStatus("VRMを解析中…", false);
+  pilotModelPreview.hidden = false;
+  pilotAvatar.hidden = true;
+  try {
+    const module = await import("./game/vrmPreview");
+    if (generation !== pilotPreviewGeneration) return;
+    pilotPreview ??= new module.VrmPreview(pilotModelCanvas);
+    const modelName = await pilotPreview.load(file);
+    if (generation !== pilotPreviewGeneration) return;
+    const stored = await savePilotModel(save.selectedPilot, file, file.name);
+    if (generation !== pilotPreviewGeneration) return;
+    setPilotVrmStatus(stored ? `${file.name} · 端末内保存` : `${file.name} · このセッションのみ`, true);
+    pilotModelPreview.setAttribute("aria-label", modelName);
+    showToast(getPilotProfile(save.selectedPilot).name + "の3Dモデルを読み込みました。");
+  } catch (error) {
+    if (generation !== pilotPreviewGeneration) return;
+    disposePilotPreview();
+    setPilotVrmStatus("読み込み失敗 · ファイルを確認してください。", false);
+    const message = error instanceof Error ? error.message : "VRMの読み込みに失敗しました。";
+    showToast(message.slice(0, 100));
+    console.warn("VRM import failed:", error);
+  }
+}
+
 function formatTime(seconds: number): string {
   const whole = Math.max(0, Math.floor(seconds));
   return String(Math.floor(whole / 60)).padStart(2, "0") + ":" + String(whole % 60).padStart(2, "0");
@@ -229,6 +323,7 @@ function showMenu(): void {
   pauseModal.hidden = true;
   resultModal.hidden = true;
   refreshMenu();
+  void loadPilotVrmPreview();
 }
 
 function renderShipChoices(): void {
@@ -355,6 +450,7 @@ function makeGame(): Game {
 function startRun(mode: GameMode): void {
   try {
     retainGameDiagnostics();
+    disposePilotPreview();
     game?.dispose();
     game = makeGame();
     currentMode = mode;
@@ -529,6 +625,7 @@ byId("pilot-list").addEventListener("click", async (event) => {
     save.pilotLevel = progress.level;
     save.pilotXp = progress.xp;
     await persist();
+    void loadPilotVrmPreview();
     showToast(pilot.name + "を選択したよ！");
     playTone(760, 0.12);
     return;
@@ -546,6 +643,7 @@ byId("pilot-list").addEventListener("click", async (event) => {
   save.pilotLevel = progress.level;
   save.pilotXp = progress.xp;
   await persist();
+  void loadPilotVrmPreview();
   showToast(pilot.name + "が仲間になったよ！");
   playTone(980, 0.16);
 });
@@ -603,6 +701,18 @@ byId("weapon-list").addEventListener("click", async (event) => {
   showToast(weapon.name + "を解放して装備したよ！");
   playTone(920, 0.16);
 });
+byId("pilot-vrm-import").addEventListener("click", () => pilotVrmFileInput.click());
+pilotVrmFileInput.addEventListener("change", () => {
+  const file = pilotVrmFileInput.files?.[0];
+  if (file) void importPilotVrm(file);
+  pilotVrmFileInput.value = "";
+});
+pilotVrmRemoveButton.addEventListener("click", async () => {
+  await removePilotModel(save.selectedPilot);
+  disposePilotPreview();
+  setPilotVrmStatus("VRMモデルを解除しました。", false);
+  showToast("このパイロットの3Dモデルを解除しました。");
+});
 byId("pause-button").addEventListener("click", pauseGame);
 byId("resume-button").addEventListener("click", resumeGame);
 byId("pause-menu-button").addEventListener("click", showMenu);
@@ -651,6 +761,7 @@ saveFileInput.addEventListener("change", async () => {
     game = null;
     save = await importBackup(file);
     refreshMenu();
+    void loadPilotVrmPreview();
     showToast("バックアップを復元しました！");
     playTone(760);
   } catch (error) {

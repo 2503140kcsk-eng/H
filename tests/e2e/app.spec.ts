@@ -243,3 +243,21 @@ test("weapon dock unlocks, persists, exports and equips the selected combat weap
   await expect(page.locator("#weapon-label")).toHaveText("NOVA LANCE");
   expect(errors).toEqual([]);
 });
+
+
+test("rejects non-VRM avatar files locally without starting a model loader", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  await expect(page.locator("#pilot-vrm-import")).toBeVisible();
+  await expect(page.locator("#pilot-vrm-status")).toContainText("32 MiB");
+
+  await page.locator("#pilot-vrm-file").setInputFiles({
+    name: "not-a-vrm.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("not a VRM model")
+  });
+  await expect(page.locator("#pilot-vrm-status")).toContainText(".vrm");
+  await expect(page.locator("#pilot-model-preview")).toBeHidden();
+  expect(errors).toEqual([]);
+});

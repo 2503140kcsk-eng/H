@@ -29,7 +29,7 @@ The Quality Gate runs once on `push` for `main` and repository-owned `feature/**
 | dimforge/rapier | Physics/collision for complex moving bodies | Defer; simple bounded hit tests first |
 | tweenjs/tween.js | UI, boss-entry and camera transitions | Introduce when animation sequencing grows |
 | gkjohnson/three-mesh-bvh | Accelerated raycasts and spatial queries | Use only when scene collision/query scale requires it |
-| pixiv/three-vrm | VRM pilot models and hangar character display | Current pilots are data-driven profiles and cockpit accents; integrate VRM only with measured mobile memory budget and a redistributable model license |
+| pixiv/three-vrm | VRM pilot model parsing, humanoid runtime and hangar preview | Added as a lazy-loaded MIT dependency. Users import their own licensed `.vrm` (32 MiB cap); files stay in per-pilot IndexedDB records, never upload, and are excluded from JSON progression backups. The app bundles no character model |
 | Hidencod/tge-assets | Candidate game asset source / reference pack | Audit repository contents and each asset license before importing |
 | shorepine/kenney | Candidate game asset pack / reference source | Audit repository identity and per-pack license before shipping |
 | KhronosGroup/glTF-Sample-Assets | glTF importer and material compatibility fixtures | Test fixtures; not automatically production art |
