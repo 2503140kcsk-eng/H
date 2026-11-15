@@ -6,7 +6,7 @@ export function exportBackup(data: SaveData): void {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = "starlight-wing-save-v1.json";
+  anchor.download = "starlight-wing-save-v2.json";
   anchor.rel = "noopener";
   document.body.append(anchor);
   anchor.click();

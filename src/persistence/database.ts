@@ -14,6 +14,21 @@ class StarlightDatabase extends Dexie {
       saves: "id, updatedAt",
       recovery: "id, createdAt"
     });
+    this.version(2).stores({
+      saves: "id, updatedAt",
+      recovery: "id, createdAt"
+    }).upgrade(async (transaction) => {
+      const saves = transaction.table("saves") as Table<SaveRecord, string>;
+      const recovery = transaction.table("recovery") as Table<RecoveryRecord, string>;
+      await Promise.all([
+        saves.toCollection().modify((record) => {
+          record.data = sanitizeSaveData(record.data);
+        }),
+        recovery.toCollection().modify((record) => {
+          record.data = sanitizeSaveData(record.data);
+        })
+      ]);
+    });
   }
 }
 
@@ -53,14 +68,19 @@ export async function saveProgress(value: unknown): Promise<SaveData> {
 
 export async function restoreSave(value: unknown): Promise<SaveData> {
   const safe = sanitizeSaveData(value);
-  const previous = await loadSave();
+  // The loaded in-memory save is the active session state. Do not reload it
+  // from IndexedDB here: that could replace newer memory-only progress with a
+  // stale disk row immediately before a restore that later fails.
+  const previous = structuredClone(memorySave);
+  const timestamp = Date.now();
   try {
     await database.transaction("rw", database.saves, database.recovery, async () => {
-      await database.recovery.put({ id: "latest", data: previous, createdAt: Date.now() });
-      await database.saves.put({ id: "pilot", data: safe, updatedAt: Date.now() });
+      await database.recovery.put({ id: "latest", data: previous, createdAt: timestamp });
+      await database.saves.put({ id: "pilot", data: safe, updatedAt: timestamp });
     });
   } catch (error) {
     persistenceStatus = "memory-only";
+    // IndexedDB rolls back both writes. memorySave is intentionally untouched.
     throw new Error("復元を保存できませんでした。既存データは変更していません。", { cause: error });
   }
   persistenceStatus = "persistent";

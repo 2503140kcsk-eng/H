@@ -1,5 +1,5 @@
-export type ShipId = "Lumen-01" | "Aqua-Comet" | "Rose-Bastion";
-export type ShipVisual = "balanced" | "speed" | "heavy";
+export type ShipId = "Lumen-01" | "Aqua-Comet" | "Rose-Bastion" | "Astra-Arc";
+export type ShipVisual = "balanced" | "speed" | "heavy" | "arc";
 
 export interface ShipProfile {
   id: ShipId;
@@ -54,6 +54,19 @@ export const SHIP_PROFILES: Readonly<Record<ShipId, ShipProfile>> = {
     hullBonus: 2,
     shieldRechargeMultiplier: 1.3,
     visual: "heavy"
+  },
+  "Astra-Arc": {
+    id: "Astra-Arc",
+    name: "アストラ・アーク",
+    className: "共鳴型 / RESONATOR",
+    description: "弱点狙撃と必殺技の回転を重視。耐久は控えめ",
+    unlockCost: 980,
+    attackMultiplier: 1.12,
+    fireIntervalMultiplier: 1.08,
+    movementMultiplier: 1.02,
+    hullBonus: 0,
+    shieldRechargeMultiplier: 0.92,
+    visual: "arc"
   }
 };
 

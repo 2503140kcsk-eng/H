@@ -1,13 +1,60 @@
 import { normalizeAchievementIds } from "./achievements";
-import { normalizeBossCollectionIds, normalizeCompletedPlanetIds, normalizeSelectedPlanetId } from "./campaign";
+import { normalizeBossCollectionIds, normalizeCompletedPlanetIds, normalizeSelectedPlanetId, PLANET_ORDER, isPlanetId, type PlanetId } from "./campaign";
 import { isPilotId, normalizeSelectedPilotId, normalizeUnlockedPilotIds } from "./pilots";
-import { isPlanetId } from "./campaign";
 import { normalizeEquippedWeaponIds, normalizeUnlockedWeaponIds, normalizeWeaponSlot } from "./weapons";
 import { normalizeSelectedShipId, normalizeUnlockedShipIds } from "./ships";
+import { normalizePilotSkills, normalizeSkillTreeInput } from "./pilot-skills";
+import { normalizeStoryChoices, isStoryDecisionChoice, STORY_DECISION_ID, type StoryChoiceId } from "./narrative";
+import { normalizeSelectedPilotSkinId, normalizeUnlockedPilotSkinIds } from "./pilot-skins";
 import { z } from "zod";
 
+export interface ChapterProgressSave {
+  chapterId: PlanetId;
+  attempts: number;
+  clears: number;
+  bestScore: number;
+  lastPlayedAt: number;
+}
+
+export interface CampaignDecisionSave {
+  pilotId: string;
+  chapterId: PlanetId;
+  decisionId: string;
+  choiceId: string;
+  selectedAt: number;
+}
+
+export interface CampaignRouteProgressSave {
+  pilotId: string;
+  chapterId: PlanetId;
+  routeId: StoryChoiceId;
+  attempts: number;
+  clears: number;
+  bestScore: number;
+  lastPlayedAt: number;
+}
+
+export interface CampaignLastReplaySave {
+  pilotId: string;
+  chapterId: PlanetId;
+  routeId: StoryChoiceId | null;
+  outcome: "clear" | "gameover";
+  attemptNumber: number;
+  recordedAt: number;
+}
+
+export interface CampaignSave {
+  chapterProgress: ChapterProgressSave[];
+  decisions: CampaignDecisionSave[];
+  routeProgress: CampaignRouteProgressSave[];
+  unlockedSecretRouteIds: string[];
+  unlockedEndingIds: string[];
+  viewedEndingIds: string[];
+  lastReplay: CampaignLastReplaySave | null;
+}
+
 export interface SaveData {
-  version: 1;
+  version: 2;
   shards: number;
   upgrades: { attack: number; hull: number };
   bestScores: Record<string, number>;
@@ -18,6 +65,11 @@ export interface SaveData {
   unlockedPilots: string[];
   selectedPilot: string;
   pilotProgress: Record<string, { level: number; xp: number }>;
+  pilotSkills: Record<string, string[]>;
+  storyChoices: Record<string, string>;
+  storyFlags: string[];
+  unlockedPilotSkins: string[];
+  selectedPilotSkin: string;
   pilotLevel: number;
   pilotXp: number;
   unlockedWeapons: string[];
@@ -28,10 +80,32 @@ export interface SaveData {
   achievements: string[];
   bossCollection: string[];
   highScores: Array<{ score: number; mode: "story" | "stage" | "endless"; pilotId: string; planetId: string; achievedAt: number }>;
+  campaign: CampaignSave;
 }
 
+export interface CampaignRunResultInput {
+  pilotId: string;
+  chapterId: string;
+  routeId: string | null;
+  outcome: "clear" | "gameover";
+  score: number;
+  recordedAt: number;
+}
+
+const DEFAULT_CAMPAIGN: CampaignSave = {
+  chapterProgress: PLANET_ORDER.map((chapterId) => ({
+    chapterId, attempts: 0, clears: 0, bestScore: 0, lastPlayedAt: 0
+  })),
+  decisions: [],
+  routeProgress: [],
+  unlockedSecretRouteIds: [],
+  unlockedEndingIds: [],
+  viewedEndingIds: [],
+  lastReplay: null
+};
+
 const DEFAULT_SAVE: SaveData = {
-  version: 1,
+  version: 2,
   shards: 0,
   upgrades: { attack: 0, hull: 0 },
   bestScores: {},
@@ -42,6 +116,11 @@ const DEFAULT_SAVE: SaveData = {
   unlockedPilots: ["lumi-asteria"],
   selectedPilot: "lumi-asteria",
   pilotProgress: { "lumi-asteria": { level: 1, xp: 0 } },
+  pilotSkills: { "lumi-asteria": [] },
+  storyChoices: {},
+  storyFlags: [],
+  unlockedPilotSkins: ["standard"],
+  selectedPilotSkin: "standard",
   pilotLevel: 1,
   pilotXp: 0,
   unlockedWeapons: ["photon-pulse"],
@@ -51,8 +130,13 @@ const DEFAULT_SAVE: SaveData = {
   selectedPlanet: "aurora-prime",
   achievements: [],
   bossCollection: [],
-  highScores: []
+  highScores: [],
+  campaign: structuredClone(DEFAULT_CAMPAIGN)
 };
+
+const SECRET_ROUTE_IDS = ["celestial-echo"] as const;
+const ENDING_IDS: readonly string[] = [];
+const MAX_SAVE_TIMESTAMP = 9_999_999_999_999;
 
 const SaveSchema = z.object({
   version: z.literal(1).catch(1),
@@ -78,6 +162,11 @@ const SaveSchema = z.object({
       xp: z.number().int().min(0).max(1_000_000_000)
     }).strict()
   ).catch({}),
+  pilotSkills: z.record(z.string().min(1).max(48), z.array(z.string().min(1).max(48)).max(12)).catch({}),
+  storyChoices: z.record(z.string().min(1).max(80), z.string().min(1).max(48)).catch({}),
+  storyFlags: z.array(z.string().min(1).max(48)).max(8).catch([]),
+  unlockedPilotSkins: z.array(z.string().min(1).max(48)).max(8).catch(["standard"]),
+  selectedPilotSkin: z.string().min(1).max(48).catch("standard"),
   pilotLevel: z.number().int().min(1).max(100).catch(1),
   pilotXp: z.number().int().min(0).max(1_000_000_000).catch(0),
   unlockedWeapons: z.array(z.string().min(1).max(48)).max(12).catch(["photon-pulse"]),
@@ -120,6 +209,11 @@ const BackupPayloadSchema = z.object({
       xp: z.number().int().min(0).max(1_000_000_000)
     }).strict()
   ).optional().default({}),
+  pilotSkills: z.record(z.string().min(1).max(48), z.array(z.string().min(1).max(48)).max(12)).optional().default({}),
+  storyChoices: z.record(z.string().min(1).max(80), z.string().min(1).max(48)).optional().default({}),
+  storyFlags: z.array(z.string().min(1).max(48)).max(8).optional().default([]),
+  unlockedPilotSkins: z.array(z.string().min(1).max(48)).max(8).optional().default(["standard"]),
+  selectedPilotSkin: z.string().min(1).max(48).optional().default("standard"),
   pilotLevel: z.number().int().min(1).max(100),
   pilotXp: z.number().int().min(0).max(1_000_000_000),
   unlockedWeapons: z.array(z.string().min(1).max(48)).max(12).optional().default(["photon-pulse"]),
@@ -136,6 +230,61 @@ const BackupPayloadSchema = z.object({
     planetId: z.string().min(1).max(48),
     achievedAt: z.number().int().min(0).max(9_999_999_999_999)
   }).strict()).max(50).optional().default([])
+}).strict();
+
+const ChapterProgressSchema = z.object({
+  chapterId: z.string().min(1).max(48),
+  attempts: z.number().int().min(0).max(1_000_000),
+  clears: z.number().int().min(0).max(1_000_000),
+  bestScore: z.number().int().min(0).max(1_000_000_000_000),
+  lastPlayedAt: z.number().int().min(0).max(MAX_SAVE_TIMESTAMP)
+}).strict();
+
+const CampaignDecisionSchema = z.object({
+  pilotId: z.string().min(1).max(48),
+  chapterId: z.string().min(1).max(48),
+  decisionId: z.string().min(1).max(48),
+  choiceId: z.string().min(1).max(48),
+  selectedAt: z.number().int().min(0).max(MAX_SAVE_TIMESTAMP)
+}).strict();
+
+const CampaignRouteProgressSchema = z.object({
+  pilotId: z.string().min(1).max(48),
+  chapterId: z.string().min(1).max(48),
+  routeId: z.string().min(1).max(48),
+  attempts: z.number().int().min(0).max(1_000_000),
+  clears: z.number().int().min(0).max(1_000_000),
+  bestScore: z.number().int().min(0).max(1_000_000_000_000),
+  lastPlayedAt: z.number().int().min(0).max(MAX_SAVE_TIMESTAMP)
+}).strict();
+
+const CampaignLastReplaySchema = z.object({
+  pilotId: z.string().min(1).max(48),
+  chapterId: z.string().min(1).max(48),
+  routeId: z.string().min(1).max(48).nullable(),
+  outcome: z.enum(["clear", "gameover"]),
+  attemptNumber: z.number().int().min(1).max(1_000_000),
+  recordedAt: z.number().int().min(0).max(MAX_SAVE_TIMESTAMP)
+}).strict();
+
+const CampaignSchema = z.object({
+  chapterProgress: z.array(ChapterProgressSchema).max(32),
+  decisions: z.array(CampaignDecisionSchema).max(512),
+  routeProgress: z.array(CampaignRouteProgressSchema).max(256),
+  unlockedSecretRouteIds: z.array(z.string().min(1).max(48)).max(32),
+  unlockedEndingIds: z.array(z.string().min(1).max(48)).max(64),
+  viewedEndingIds: z.array(z.string().min(1).max(48)).max(64),
+  lastReplay: CampaignLastReplaySchema.nullable()
+}).strict();
+
+const SaveV2Schema = SaveSchema.extend({
+  version: z.literal(2).catch(2),
+  campaign: CampaignSchema.catch(structuredClone(DEFAULT_CAMPAIGN))
+});
+
+const BackupV2PayloadSchema = BackupPayloadSchema.extend({
+  version: z.literal(2),
+  campaign: CampaignSchema
 }).strict();
 
 export function clamp(value: number, min: number, max: number): number {
@@ -166,11 +315,153 @@ export function createDefaultSave(): SaveData {
   return structuredClone(DEFAULT_SAVE);
 }
 
-export function sanitizeSaveData(value: unknown): SaveData {
-  const parsed = SaveSchema.safeParse(value);
-  if (!parsed.success) return createDefaultSave();
+function safeInteger(value: number, max: number): number {
+  return Number.isFinite(value) ? clamp(Math.floor(value), 0, max) : 0;
+}
 
-  const data = parsed.data;
+function createLegacyCampaign(
+  legacy: z.infer<typeof SaveSchema>,
+  completedPlanets: PlanetId[],
+  storyChoices: Record<string, string>,
+  storyFlags: string[]
+): CampaignSave {
+  const completed = new Set(completedPlanets);
+  const chapterProgress: ChapterProgressSave[] = PLANET_ORDER.map((chapterId): ChapterProgressSave => {
+    const cleared = completed.has(chapterId);
+    return {
+      chapterId,
+      attempts: cleared ? 1 : 0,
+      clears: cleared ? 1 : 0,
+      bestScore: 0,
+      lastPlayedAt: 0
+    };
+  });
+  const decisions: CampaignDecisionSave[] = [];
+  for (const [key, choiceId] of Object.entries(storyChoices)) {
+    const separator = key.indexOf(":");
+    if (separator <= 0) continue;
+    const pilotId = key.slice(0, separator);
+    const chapterId = key.slice(separator + 1);
+    if (!isPilotId(pilotId) || !isPlanetId(chapterId) || !isStoryDecisionChoice(STORY_DECISION_ID, choiceId)) continue;
+    decisions.push({
+      pilotId, chapterId, decisionId: STORY_DECISION_ID, choiceId, selectedAt: 0
+    });
+  }
+
+  return {
+    chapterProgress,
+    decisions,
+    // V1 has no route-run history. A saved choice is not proof that this route was cleared.
+    routeProgress: [],
+    unlockedSecretRouteIds: storyFlags.includes("celestial-echo") ? ["celestial-echo"] : [],
+    unlockedEndingIds: [],
+    viewedEndingIds: [],
+    lastReplay: null
+  };
+}
+
+function normalizeCampaignSave(
+  source: CampaignSave,
+  storyChoices: Record<string, string>,
+  storyFlags: string[]
+): CampaignSave {
+  const chapterById = new Map<string, ChapterProgressSave>();
+  for (const record of source.chapterProgress) {
+    if (!isPlanetId(record.chapterId) || chapterById.has(record.chapterId)) continue;
+    chapterById.set(record.chapterId, {
+      chapterId: record.chapterId,
+      attempts: safeInteger(record.attempts, 1_000_000),
+      clears: safeInteger(record.clears, 1_000_000),
+      bestScore: safeInteger(record.bestScore, 1_000_000_000_000),
+      lastPlayedAt: safeInteger(record.lastPlayedAt, MAX_SAVE_TIMESTAMP)
+    });
+  }
+  const chapterProgress = PLANET_ORDER.map((chapterId) => chapterById.get(chapterId) ?? ({
+    chapterId, attempts: 0, clears: 0, bestScore: 0, lastPlayedAt: 0
+  }));
+
+  const decisionByKey = new Map<string, CampaignDecisionSave>();
+  for (const record of source.decisions) {
+    if (!isPilotId(record.pilotId) || !isPlanetId(record.chapterId) ||
+        !isStoryDecisionChoice(record.decisionId, record.choiceId)) continue;
+    const key = record.pilotId + ":" + record.chapterId + ":" + record.decisionId;
+    if (decisionByKey.has(key)) continue;
+    decisionByKey.set(key, {
+      pilotId: record.pilotId,
+      chapterId: record.chapterId,
+      decisionId: record.decisionId,
+      choiceId: record.choiceId,
+      selectedAt: safeInteger(record.selectedAt, MAX_SAVE_TIMESTAMP)
+    });
+  }
+  for (const [key, choiceId] of Object.entries(storyChoices)) {
+    const separator = key.indexOf(":");
+    if (separator <= 0) continue;
+    const pilotId = key.slice(0, separator);
+    const chapterId = key.slice(separator + 1);
+    if (!isPilotId(pilotId) || !isPlanetId(chapterId) ||
+        !isStoryDecisionChoice(STORY_DECISION_ID, choiceId)) continue;
+    const decisionKey = pilotId + ":" + chapterId + ":" + STORY_DECISION_ID;
+    const previous = decisionByKey.get(decisionKey);
+    decisionByKey.set(decisionKey, {
+      pilotId,
+      chapterId,
+      decisionId: STORY_DECISION_ID,
+      choiceId,
+      selectedAt: previous?.selectedAt ?? 0
+    });
+  }
+
+  const routeByKey = new Map<string, CampaignRouteProgressSave>();
+  for (const record of source.routeProgress) {
+    if (!isPilotId(record.pilotId) || !isPlanetId(record.chapterId) ||
+        !isStoryDecisionChoice(STORY_DECISION_ID, record.routeId)) continue;
+    const key = record.pilotId + ":" + record.chapterId + ":" + record.routeId;
+    if (routeByKey.has(key)) continue;
+    routeByKey.set(key, {
+      pilotId: record.pilotId,
+      chapterId: record.chapterId,
+      routeId: record.routeId as StoryChoiceId,
+      attempts: safeInteger(record.attempts, 1_000_000),
+      clears: safeInteger(record.clears, 1_000_000),
+      bestScore: safeInteger(record.bestScore, 1_000_000_000_000),
+      lastPlayedAt: safeInteger(record.lastPlayedAt, MAX_SAVE_TIMESTAMP)
+    });
+  }
+
+  const unlockedSecretRouteIds = SECRET_ROUTE_IDS.filter((id) =>
+    source.unlockedSecretRouteIds.includes(id) || (id === "celestial-echo" && storyFlags.includes(id))
+  );
+  const unlockedEndingIds = ENDING_IDS.filter((id) => source.unlockedEndingIds.includes(id));
+  const viewedEndingIds = unlockedEndingIds.filter((id) => source.viewedEndingIds.includes(id));
+
+  let lastReplay: CampaignLastReplaySave | null = null;
+  const candidate = source.lastReplay;
+  if (candidate && isPilotId(candidate.pilotId) && isPlanetId(candidate.chapterId) &&
+      (candidate.routeId === null || isStoryDecisionChoice(STORY_DECISION_ID, candidate.routeId)) &&
+      (candidate.outcome === "clear" || candidate.outcome === "gameover")) {
+    lastReplay = {
+      pilotId: candidate.pilotId,
+      chapterId: candidate.chapterId,
+      routeId: candidate.routeId as StoryChoiceId | null,
+      outcome: candidate.outcome,
+      attemptNumber: Math.max(1, safeInteger(candidate.attemptNumber, 1_000_000)),
+      recordedAt: safeInteger(candidate.recordedAt, MAX_SAVE_TIMESTAMP)
+    };
+  }
+
+  return {
+    chapterProgress,
+    decisions: [...decisionByKey.values()].slice(0, 512),
+    routeProgress: [...routeByKey.values()].slice(0, 256),
+    unlockedSecretRouteIds,
+    unlockedEndingIds,
+    viewedEndingIds,
+    lastReplay
+  };
+}
+
+function normalizeParsedSave(data: z.infer<typeof SaveV2Schema>): SaveData {
   const ships = normalizeUnlockedShipIds(data.unlockedShips);
   const selectedShip = normalizeSelectedShipId(data.selectedShip, ships);
   const pilots = normalizeUnlockedPilotIds(data.unlockedPilots);
@@ -201,10 +492,18 @@ export function sanitizeSaveData(value: unknown): SaveData {
           }
         : { level: 1, xp: 0 };
   }
+  const pilotSkills = normalizePilotSkills(normalizeSkillTreeInput(data.pilotSkills), pilots, pilotProgress);
+  const storyChoices = normalizeStoryChoices(data.storyChoices);
+  const storyFlags = data.storyFlags.includes("celestial-echo") ? ["celestial-echo"] : [];
+  const unlockedPilotSkins = normalizeUnlockedPilotSkinIds(data.unlockedPilotSkins);
+  const selectedPilotSkin = normalizeSelectedPilotSkinId(data.selectedPilotSkin, unlockedPilotSkins);
   const activePilotProgress = pilotProgress[selectedPilot] ?? { level: 1, xp: 0 };
+  // Zod validates the bounded shape; normalizeCampaignSave performs the semantic ID narrowing.
+  const campaign = normalizeCampaignSave(data.campaign as CampaignSave, storyChoices, storyFlags);
 
   return {
     ...data,
+    version: 2,
     shards: clamp(Math.floor(data.shards), 0, 100_000_000),
     upgrades: {
       attack: clamp(data.upgrades.attack, 0, 20),
@@ -225,6 +524,11 @@ export function sanitizeSaveData(value: unknown): SaveData {
     unlockedPilots: pilots,
     selectedPilot,
     pilotProgress,
+    pilotSkills,
+    storyChoices,
+    storyFlags,
+    unlockedPilotSkins,
+    selectedPilotSkin,
     totalRuns: clamp(data.totalRuns, 0, 1_000_000),
     pilotLevel: activePilotProgress.level,
     pilotXp: activePilotProgress.xp,
@@ -235,8 +539,112 @@ export function sanitizeSaveData(value: unknown): SaveData {
     selectedPlanet,
     achievements,
     bossCollection,
-    highScores
+    highScores,
+    campaign
   };
+}
+
+export function migrateV1ToV2(value: unknown): SaveData | null {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (record.version !== 1) return null;
+  const parsed = SaveSchema.safeParse(value);
+  if (!parsed.success) return null;
+
+  const legacy = parsed.data;
+  const storyChoices = normalizeStoryChoices(legacy.storyChoices);
+  const storyFlags = legacy.storyFlags.includes("celestial-echo") ? ["celestial-echo"] : [];
+  const completedPlanets = normalizeCompletedPlanetIds(legacy.completedPlanets);
+  const campaign = createLegacyCampaign(legacy, completedPlanets, storyChoices, storyFlags);
+  const migrated = SaveV2Schema.safeParse({
+    ...legacy,
+    version: 2,
+    storyChoices,
+    storyFlags,
+    completedPlanets,
+    campaign
+  });
+  return migrated.success ? normalizeParsedSave(migrated.data) : null;
+}
+
+export function sanitizeSaveData(value: unknown): SaveData {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return createDefaultSave();
+  const version = (value as Record<string, unknown>).version;
+  if (version === 1) return migrateV1ToV2(value) ?? createDefaultSave();
+  if (version !== 2) return createDefaultSave();
+  const parsed = SaveV2Schema.safeParse(value);
+  return parsed.success ? normalizeParsedSave(parsed.data) : createDefaultSave();
+}
+
+export function recordCampaignRunResult(value: unknown, event: CampaignRunResultInput): SaveData {
+  const save = sanitizeSaveData(value);
+  if (!isPilotId(event.pilotId) || !isPlanetId(event.chapterId) ||
+      (event.routeId !== null && !isStoryDecisionChoice(STORY_DECISION_ID, event.routeId)) ||
+      (event.outcome !== "clear" && event.outcome !== "gameover") ||
+      !Number.isSafeInteger(event.score) || event.score < 0 ||
+      !Number.isSafeInteger(event.recordedAt) || event.recordedAt < 0 ||
+      event.recordedAt > MAX_SAVE_TIMESTAMP) return save;
+
+  const score = clamp(event.score, 0, 1_000_000_000_000);
+  const existingChapter = save.campaign.chapterProgress.find((item) => item.chapterId === event.chapterId);
+  const chapterAttempts = (existingChapter?.attempts ?? 0) + 1;
+  const chapterProgress = save.campaign.chapterProgress.map((item) => item.chapterId === event.chapterId
+    ? {
+        ...item,
+        attempts: chapterAttempts,
+        clears: item.clears + (event.outcome === "clear" ? 1 : 0),
+        bestScore: Math.max(item.bestScore, score),
+        lastPlayedAt: event.recordedAt
+      }
+    : item);
+
+  let routeProgress = save.campaign.routeProgress;
+  let attemptNumber = chapterAttempts;
+  if (event.routeId !== null) {
+    const existingRoute = routeProgress.find((item) =>
+      item.pilotId === event.pilotId &&
+      item.chapterId === event.chapterId &&
+      item.routeId === event.routeId
+    );
+    attemptNumber = (existingRoute?.attempts ?? 0) + 1;
+    const nextRoute: CampaignRouteProgressSave = {
+      pilotId: event.pilotId,
+      chapterId: event.chapterId,
+      routeId: event.routeId as StoryChoiceId,
+      attempts: attemptNumber,
+      clears: (existingRoute?.clears ?? 0) + (event.outcome === "clear" ? 1 : 0),
+      bestScore: Math.max(existingRoute?.bestScore ?? 0, score),
+      lastPlayedAt: event.recordedAt
+    };
+    routeProgress = existingRoute
+      ? routeProgress.map((item) =>
+          item.pilotId === event.pilotId && item.chapterId === event.chapterId && item.routeId === event.routeId
+            ? nextRoute : item
+        )
+      : [...routeProgress, nextRoute];
+  }
+
+  const completedPlanets = event.outcome === "clear"
+    ? normalizeCompletedPlanetIds([...save.completedPlanets, event.chapterId])
+    : save.completedPlanets;
+
+  return sanitizeSaveData({
+    ...save,
+    completedPlanets,
+    campaign: {
+      ...save.campaign,
+      chapterProgress,
+      routeProgress,
+      lastReplay: {
+        pilotId: event.pilotId,
+        chapterId: event.chapterId,
+        routeId: event.routeId,
+        outcome: event.outcome,
+        attemptNumber,
+        recordedAt: event.recordedAt
+      }
+    }
+  });
 }
 
 function canonicalize(value: unknown): string {
@@ -265,7 +673,7 @@ export function createBackup(value: unknown): string {
   const payload = sanitizeSaveData(value);
   return JSON.stringify({
     format: "starlight-wing-save",
-    version: 1,
+    version: 2,
     checksum: checksum(payload),
     payload
   });
@@ -275,14 +683,19 @@ export function verifyBackup(serialized: string): SaveData | null {
   if (typeof serialized !== "string" || serialized.length > 1_000_000) return null;
   try {
     const parsed: unknown = JSON.parse(serialized);
-    if (parsed === null || typeof parsed !== "object") return null;
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return null;
     const envelope = parsed as Record<string, unknown>;
-    if (envelope.format !== "starlight-wing-save" || envelope.version !== 1) return null;
+    if (envelope.format !== "starlight-wing-save" ||
+        (envelope.version !== 1 && envelope.version !== 2)) return null;
     if (typeof envelope.checksum !== "string" || !/^[0-9a-f]{8}$/.test(envelope.checksum)) return null;
     if (checksum(envelope.payload) !== envelope.checksum) return null;
-    const validated = BackupPayloadSchema.safeParse(envelope.payload);
-    if (!validated.success) return null;
-    return sanitizeSaveData(validated.data);
+
+    if (envelope.version === 1) {
+      const validated = BackupPayloadSchema.safeParse(envelope.payload);
+      return validated.success ? migrateV1ToV2(validated.data) : null;
+    }
+    const validated = BackupV2PayloadSchema.safeParse(envelope.payload);
+    return validated.success ? sanitizeSaveData(validated.data) : null;
   } catch {
     return null;
   }

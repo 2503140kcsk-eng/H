@@ -51,7 +51,7 @@ describe("combat and progression core", () => {
       shards: -500,
       upgrades: { attack: 9000, hull: -9 }
     });
-    expect(clean.version).toBe(1);
+    expect(clean.version).toBe(2);
     expect(clean.shards).toBe(0);
     expect(clean.upgrades).toEqual({ attack: 20, hull: 0 });
   });

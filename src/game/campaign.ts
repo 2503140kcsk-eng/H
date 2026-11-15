@@ -1,15 +1,20 @@
 export type PlanetId = "aurora-prime" | "pyra-reach" | "noctis-archive";
 export type BossId = "nebula-empress" | "rift-wyrm" | "aegis-colossus";
 export type BossAttackPattern = "fan" | "seeker" | "cross";
-export type PlanetEventKind = "resonance" | "gravity-shear" | "archive-ward";
+export type PlanetEventKind = "resonance" | "gravity-shear" | "archive-ward" | "damage-boost" | "shield-ward";
+export type PlanetEventBranch = "follow-signal" | "protect-crew";
 
-export interface PlanetEventProfile {
+export interface PlanetEventStageProfile {
   id: string;
   name: string;
   triggerAtSeconds: number;
   durationSeconds: number;
   kind: PlanetEventKind;
   pilotDialogue: Readonly<Record<string, string>>;
+}
+
+export interface PlanetEventProfile extends PlanetEventStageProfile {
+  followUps: Readonly<Record<PlanetEventBranch, PlanetEventStageProfile>>;
 }
 
 export interface BossProfile {
@@ -56,6 +61,32 @@ export const PLANETS: Readonly<Record<PlanetId, PlanetProfile>> = {
         "lumi-asteria": "ルミ「この光は味方だよ！ 武器出力が上がってる、今のうちに突破しよう！」",
         "noa-celeste": "ノア「星雲の位相が同期したわ。攻撃出力を一時的に増幅できる。」",
         "rin-vega": "リン「追い風きた！ ここで一気にスコアを稼ぐよ！」"
+      },
+      followUps: {
+        "follow-signal": {
+          id: "starlight-chart-lock",
+          name: "星図逆照準",
+          triggerAtSeconds: 34,
+          durationSeconds: 7,
+          kind: "damage-boost",
+          pilotDialogue: {
+            "lumi-asteria": "ルミ「断片の座標がつながった！ 敵の弱点を星図に重ねるよ！」",
+            "noa-celeste": "ノア「信号の位相を固定したわ。コアへの照準補正を最大化する。」",
+            "rin-vega": "リン「座標をロック！ 今の一撃、外さないでよね！」"
+          }
+        },
+        "protect-crew": {
+          id: "convoy-light-guard",
+          name: "護衛星域",
+          triggerAtSeconds: 34,
+          durationSeconds: 7,
+          kind: "shield-ward",
+          pilotDialogue: {
+            "lumi-asteria": "ルミ「救難艇を星雲の内側へ！ 防壁がみんなを包んでくれるよ！」",
+            "noa-celeste": "ノア「護衛航路を確保。防壁を再展開して敵弾を遮断するわ。」",
+            "rin-vega": "リン「僚機は後ろへ！ ここは私が全部引き受ける！」"
+          }
+        }
       }
     },
     backgroundColor: 0x07122d,
@@ -87,6 +118,32 @@ export const PLANETS: Readonly<Record<PlanetId, PlanetProfile>> = {
         "lumi-asteria": "ルミ「重力嵐が来るよ！ 敵弾の速度が上がるから、軌道をよく見て！」",
         "noa-celeste": "ノア「重力勾配が変わったわ。敵弾の到達時間を読み直して。」",
         "rin-vega": "リン「弾が速くなるなら、もっと速く動けばいいだけ！」"
+      },
+      followUps: {
+        "follow-signal": {
+          id: "gravity-inversion",
+          name: "重力逆位相",
+          triggerAtSeconds: 38,
+          durationSeconds: 7,
+          kind: "damage-boost",
+          pilotDialogue: {
+            "lumi-asteria": "ルミ「嵐の中心を逆探知したよ！ 敵の装甲が揺らいでる！」",
+            "noa-celeste": "ノア「逆位相を同期。重力井戸の中心へ攻撃を集中して。」",
+            "rin-vega": "リン「重力を味方につけた！ 今なら一気に抜けられる！」"
+          }
+        },
+        "protect-crew": {
+          id: "inertia-bastion",
+          name: "慣性防壁",
+          triggerAtSeconds: 38,
+          durationSeconds: 7,
+          kind: "shield-ward",
+          pilotDialogue: {
+            "lumi-asteria": "ルミ「僚機の周りに安全な軌道を作るよ！ ついてきて！」",
+            "noa-celeste": "ノア「慣性を固定したわ。敵弾を止めてシールドを再同期する。」",
+            "rin-vega": "リン「隊列を崩さないで！ 私のブーストに合わせて！」"
+          }
+        }
       }
     },
     backgroundColor: 0x241020,
@@ -118,6 +175,32 @@ export const PLANETS: Readonly<Record<PlanetId, PlanetProfile>> = {
         "lumi-asteria": "ルミ「古代の記録が防壁を起動したみたい。今なら守りを固められる！」",
         "noa-celeste": "ノア「防衛機構が味方認証を行ったわ。シールドを最大限に活用して。」",
         "rin-vega": "リン「守りがあるうちに攻める！ 一気に片をつけよう！」"
+      },
+      followUps: {
+        "follow-signal": {
+          id: "memory-unseal",
+          name: "記憶解放",
+          triggerAtSeconds: 42,
+          durationSeconds: 8,
+          kind: "damage-boost",
+          pilotDialogue: {
+            "lumi-asteria": "ルミ「最後の記録が開いた！ 星の記憶が弱点を教えてくれる！」",
+            "noa-celeste": "ノア「防衛機構の設計を解読した。中枢の装甲を貫けるはずよ。」",
+            "rin-vega": "リン「門番の動きが読めた！ 最後の加速、いくよ！」"
+          }
+        },
+        "protect-crew": {
+          id: "archive-sanctuary",
+          name: "記憶の聖域",
+          triggerAtSeconds: 42,
+          durationSeconds: 8,
+          kind: "shield-ward",
+          pilotDialogue: {
+            "lumi-asteria": "ルミ「みんなの記憶を守ろう。ここにいる全員が帰るんだよ！」",
+            "noa-celeste": "ノア「避難船を守る最後の防壁を展開。今度こそ失わせない。」",
+            "rin-vega": "リン「後ろは任せて。仲間は一人も置いていかない！」"
+          }
+        }
       }
     },
     backgroundColor: 0x090e24,
