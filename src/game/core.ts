@@ -498,7 +498,8 @@ function normalizeParsedSave(data: z.infer<typeof SaveV2Schema>): SaveData {
   const unlockedPilotSkins = normalizeUnlockedPilotSkinIds(data.unlockedPilotSkins);
   const selectedPilotSkin = normalizeSelectedPilotSkinId(data.selectedPilotSkin, unlockedPilotSkins);
   const activePilotProgress = pilotProgress[selectedPilot] ?? { level: 1, xp: 0 };
-  const campaign = normalizeCampaignSave(data.campaign, storyChoices, storyFlags);
+  // Zod validates the bounded shape; normalizeCampaignSave performs the semantic ID narrowing.
+  const campaign = normalizeCampaignSave(data.campaign as CampaignSave, storyChoices, storyFlags);
 
   return {
     ...data,
@@ -609,7 +610,7 @@ export function recordCampaignRunResult(value: unknown, event: CampaignRunResult
     const nextRoute: CampaignRouteProgressSave = {
       pilotId: event.pilotId,
       chapterId: event.chapterId,
-      routeId: event.routeId,
+      routeId: event.routeId as StoryChoiceId,
       attempts: attemptNumber,
       clears: (existingRoute?.clears ?? 0) + (event.outcome === "clear" ? 1 : 0),
       bestScore: Math.max(existingRoute?.bestScore ?? 0, score),
