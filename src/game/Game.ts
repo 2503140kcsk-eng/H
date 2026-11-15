@@ -5,7 +5,7 @@ import { TouchInput } from "./input";
 import { getPilotGrowthStats, getPilotProfile, type PilotProfile } from "./pilots";
 import { PICKUP_EFFECTS, selectPickupKind, type PickupKind } from "./pickups";
 import { getShipProfile, type ShipProfile } from "./ships";
-import { getEndlessBossProfile, getPlanetProfile, type BossProfile, type PlanetId, type PlanetProfile } from "./campaign";
+import { getEndlessBossProfile, getPlanetProfile, type BossProfile, type PlanetEventKind, type PlanetId, type PlanetProfile } from "./campaign";
 import { getWeaponProfile, normalizeEquippedWeaponIds, normalizeUnlockedWeaponIds, normalizeWeaponSlot, type WeaponId } from "./weapons";
 
 export type GameMode = "story" | "stage" | "endless";
@@ -157,6 +157,10 @@ export class Game {
   private animationFrame = 0;
   private lastFrame = 0;
   private elapsed = 0;
+  private planetEventTriggered = false;
+  private planetEventRemaining = 0;
+  private eventDamageMultiplier = 1;
+  private enemyProjectileSpeedMultiplier = 1;
   private hudTimer = 0;
   private spawnTimer = 0.6;
   private fireTimer = 0;
@@ -197,7 +201,7 @@ export class Game {
     onRunEnd: (result: RunResult) => void;
     onGraphicsContextLost: () => void;
     onGraphicsContextRestored: () => void;
-    onMissionEvent: (message: string) => void;
+    onMissionEvent: (message: string, speaker?: string) => void;
   };
   private readonly handleWebGLContextLost = (event: Event): void => {
     // Three.js also listens for this event and restores its renderer when the browser does.
@@ -221,7 +225,7 @@ export class Game {
     planetId?: string;
     weaponIds?: readonly string[];
     activeWeaponSlot?: number;
-    onMissionEvent?: (message: string) => void;
+    onMissionEvent?: (message: string, speaker?: string) => void;
     onHudUpdate: (state: HudState) => void;
     onRunEnd: (result: RunResult) => void;
     onGraphicsContextLost: () => void;
@@ -314,9 +318,15 @@ export class Game {
     this.elapsed = 0;
     this.bossSequence = 0;
     this.defeatedBosses.length = 0;
+    this.planetEventTriggered = false;
+    this.planetEventRemaining = 0;
+    this.eventDamageMultiplier = 1;
+    this.enemyProjectileSpeedMultiplier = 1;
     this.scene.background = new THREE.Color(this.planetProfile.backgroundColor);
     this.scene.fog = new THREE.FogExp2(this.planetProfile.fogColor, 0.008);
-    this.callbacks.onMissionEvent(this.planetProfile.event);
+    const pilotBriefing = this.planetProfile.pilotBriefings[this.pilotProfile.id] ?? this.pilotProfile.storyIntro;
+    this.callbacks.onMissionEvent(pilotBriefing, this.pilotProfile.name);
+    this.callbacks.onMissionEvent(this.planetProfile.event, "MISSION CONTROL");
     this.hp = 3 + this.pilotUpgrades.hull + this.shipProfile.hullBonus +
       this.pilotProfile.hullBonus + this.pilotGrowth.hullBonus;
     this.maxHp = this.hp;
@@ -498,6 +508,13 @@ export class Game {
 
   private update(dt: number): void {
     this.elapsed += dt;
+    if (!this.planetEventTriggered && this.elapsed >= this.planetProfile.missionEvent.triggerAtSeconds) {
+      this.activatePlanetEvent();
+    }
+    if (this.planetEventRemaining > 0) {
+      this.planetEventRemaining = Math.max(0, this.planetEventRemaining - dt);
+      if (this.planetEventRemaining === 0) this.completePlanetEvent();
+    }
     this.damageCooldown = Math.max(0, this.damageCooldown - dt);
     this.comboTimer = Math.max(0, this.comboTimer - dt);
     if (this.comboTimer <= 0) this.combo = 0;
@@ -562,6 +579,40 @@ export class Game {
       this.callbacks.onHudUpdate(this.getHudState());
       this.hudTimer = 0.08;
     }
+  }
+
+  private activatePlanetEvent(): void {
+    const event = this.planetProfile.missionEvent;
+    this.planetEventTriggered = true;
+    this.planetEventRemaining = event.durationSeconds;
+    const dialogue = event.pilotDialogue[this.pilotProfile.id] ?? event.name;
+    this.callbacks.onMissionEvent(`【${event.name}】${dialogue}`, this.pilotProfile.name);
+
+    if (event.kind === "resonance") {
+      this.eventDamageMultiplier = 1.28;
+      this.spawnBurst(this.player.position, 0x9dfff2, 32);
+    } else if (event.kind === "gravity-shear") {
+      this.enemyProjectileSpeedMultiplier = 1.28;
+      this.spawnBurst(this.player.position, 0xff9a73, 26);
+    } else if (event.kind === "archive-ward") {
+      this.shieldTimer = Math.max(this.shieldTimer, event.durationSeconds);
+      for (let index = this.projectiles.length - 1; index >= 0; index -= 1) {
+        if (this.projectiles[index].owner === "enemy") this.removeProjectile(index);
+      }
+      this.spawnBurst(this.player.position, 0x8cecff, 44);
+    }
+  }
+
+  private completePlanetEvent(): void {
+    this.eventDamageMultiplier = 1;
+    this.enemyProjectileSpeedMultiplier = 1;
+    this.score += 650;
+    this.shards += 12;
+    this.callbacks.onMissionEvent(
+      `惑星イベント「${this.planetProfile.missionEvent.name}」達成！ +650 SCORE / +12 ✦`,
+      "MISSION CONTROL"
+    );
+    this.spawnBurst(this.player.position, 0xffe7a1, 24);
   }
 
   private updateStars(dt: number): void {
@@ -760,7 +811,7 @@ export class Game {
         damage: Math.max(0.1,
           ((this.overdriveTimer > 0 ? 2 : 1) + Math.floor(this.pilotUpgrades.attack / 3)) *
           this.shipProfile.attackMultiplier * this.pilotProfile.attackMultiplier *
-          this.pilotGrowth.attackMultiplier * weapon.damageMultiplier
+          this.pilotGrowth.attackMultiplier * weapon.damageMultiplier * this.eventDamageMultiplier
         ),
         radius: weapon.radius
       });
@@ -849,8 +900,9 @@ export class Game {
           if (bullet.velocity.lengthSq() > 0) bullet.velocity.setLength(speed);
         }
       }
-      bullet.mesh.position.x += bullet.velocity.x * dt;
-      bullet.mesh.position.y += bullet.velocity.y * dt;
+      const eventSpeed = bullet.owner === "enemy" ? this.enemyProjectileSpeedMultiplier : 1;
+      bullet.mesh.position.x += bullet.velocity.x * dt * eventSpeed;
+      bullet.mesh.position.y += bullet.velocity.y * dt * eventSpeed;
       if (bullet.weaponId === "comet-homing" || bullet.weaponId === "prism-laser") {
         bullet.mesh.rotation.z = Math.atan2(-bullet.velocity.x, bullet.velocity.y);
       }

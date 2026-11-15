@@ -118,6 +118,10 @@ uiRoot.innerHTML = `
       <div class="boss-meter"><i id="boss-fill"></i></div>
       <small id="boss-weakpoint" class="boss-weakpoint" hidden>WEAKPOINT OPEN · DAMAGE × UP</small>
     </div>
+    <aside id="comms-panel" class="comms-panel" role="status" aria-live="polite" hidden>
+      <span id="comms-speaker" class="comms-speaker">MISSION CONTROL</span>
+      <p id="comms-message" class="comms-message"></p>
+    </aside>
     <div class="hud-bottom">
       <div class="special-meter"><div><span>PHOTON BURST</span><b id="special-text">60%</b></div><div class="meter"><i id="special-fill" class="special-fill"></i></div></div>
       <div class="touch-hint">画面をドラッグして移動 · 射撃はオート</div>
@@ -170,6 +174,9 @@ const pauseModal = byId<HTMLElement>("pause-modal");
 const resultModal = byId<HTMLElement>("result-modal");
 const settingsPanel = byId<HTMLElement>("settings-panel");
 const toast = byId<HTMLDivElement>("toast");
+const commsPanel = byId<HTMLElement>("comms-panel");
+const commsSpeaker = byId<HTMLElement>("comms-speaker");
+const commsMessage = byId<HTMLElement>("comms-message");
 const sensitivityInput = byId<HTMLInputElement>("sensitivity");
 const volumeInput = byId<HTMLInputElement>("volume");
 const saveFileInput = byId<HTMLInputElement>("save-file");
@@ -181,12 +188,39 @@ let runActive = false;
 let paused = false;
 const sound = new SoundDirector();
 let toastTimeout = 0;
+let commsTimeout = 0;
+const commsQueue: Array<{ speaker: string; message: string }> = [];
 
 function showToast(message: string): void {
   toast.textContent = message;
   toast.classList.add("visible");
   window.clearTimeout(toastTimeout);
   toastTimeout = window.setTimeout(() => toast.classList.remove("visible"), 2600);
+}
+
+function displayNextComms(): void {
+  const line = commsQueue.shift();
+  if (!line) {
+    commsTimeout = 0;
+    commsPanel.hidden = true;
+    return;
+  }
+  commsSpeaker.textContent = line.speaker;
+  commsMessage.textContent = line.message;
+  commsPanel.hidden = false;
+  commsTimeout = window.setTimeout(displayNextComms, 3_600);
+}
+
+function showComms(speaker: string, message: string): void {
+  commsQueue.push({ speaker, message });
+  if (commsTimeout === 0) displayNextComms();
+}
+
+function clearComms(): void {
+  window.clearTimeout(commsTimeout);
+  commsTimeout = 0;
+  commsQueue.length = 0;
+  commsPanel.hidden = true;
 }
 
 function playTone(frequency: number, duration = 0.075): void {
@@ -200,6 +234,7 @@ function formatTime(seconds: number): string {
 }
 
 function showMenu(): void {
+  clearComms();
   runActive = false;
   paused = false;
   game?.dispose();
@@ -354,10 +389,12 @@ function makeGame(): Game {
     planetId: save.selectedPlanet,
     weaponIds: save.equippedWeapons,
     activeWeaponSlot: save.activeWeaponSlot,
-    onMissionEvent: (message) => {
+    onMissionEvent: (message, speaker = "MISSION CONTROL") => {
       showToast(message);
+      showComms(speaker, message);
       if (message.includes("弱点コア開放")) sound.cue("weakpoint");
       else if (message.includes("撃破")) sound.cue("victory");
+      else if (message.includes("達成")) sound.cue("unlock");
     },
     onHudUpdate: updateHud,
     onRunEnd: (result) => { void handleRunEnd(result); },
@@ -373,6 +410,7 @@ function makeGame(): Game {
 
 function startRun(mode: GameMode): void {
   try {
+    clearComms();
     game?.dispose();
     game = makeGame();
     currentMode = mode;

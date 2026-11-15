@@ -40,3 +40,28 @@ describe("planetary campaign and boss archive", () => {
     }
   });
 });
+
+
+describe("planet-specific mid-sortie events", () => {
+  it("schedules an original event with pilot dialogue and a bounded duration on every planet", () => {
+    for (const id of PLANET_ORDER) {
+      const event = PLANETS[id].missionEvent;
+      expect(event.id.length).toBeGreaterThan(0);
+      expect(event.name.length).toBeGreaterThan(0);
+      expect(event.triggerAtSeconds).toBeGreaterThan(0);
+      expect(event.durationSeconds).toBeGreaterThan(0);
+      expect(event.triggerAtSeconds + event.durationSeconds).toBeLessThan(30);
+      expect(["resonance", "gravity-shear", "archive-ward"]).toContain(event.kind);
+      expect(event.pilotDialogue["lumi-asteria"]).toBeTruthy();
+      expect(event.pilotDialogue["noa-celeste"]).toBeTruthy();
+      expect(event.pilotDialogue["rin-vega"]).toBeTruthy();
+    }
+  });
+
+  it("assigns different tactical effects to the three planetary events", () => {
+    expect(PLANETS["aurora-prime"].missionEvent.kind).toBe("resonance");
+    expect(PLANETS["pyra-reach"].missionEvent.kind).toBe("gravity-shear");
+    expect(PLANETS["noctis-archive"].missionEvent.kind).toBe("archive-ward");
+    expect(new Set(PLANET_ORDER.map((id) => PLANETS[id].missionEvent.id)).size).toBe(3);
+  });
+});

@@ -40,6 +40,15 @@ This iteration does not claim full-body character animation, voice acting or a m
 - Boss attack patterns: aimed fan, homing missiles, and phase-two crossfire.
 - Endless mode cycles boss profiles independently of planet progression.
 
+## Planet event loop and radio
+
+- The selected planet schedules one mid-sortie event before the first standard boss arrival.
+- Aurora Prime's Starlight Resonance grants a temporary 1.28x player projectile damage multiplier.
+- Pyra Reach's Gravity Shear accelerates enemy projectile travel by 1.28x for its active window.
+- Noctis Archive's Archive Ward clears active hostile projectiles and maintains a temporary shield.
+- Every event has pilot-specific dialogue and a bounded duration. Surviving the event grants 650 score and 12 shards.
+- A queued radio panel displays speaker/message lines without covering the boss meter or touch action controls.
+
 ## Presentation
 
 - Procedural Web Audio melody and cues are original synthesized notes, not prerecorded music.

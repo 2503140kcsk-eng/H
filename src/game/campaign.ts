@@ -1,6 +1,16 @@
 export type PlanetId = "aurora-prime" | "pyra-reach" | "noctis-archive";
 export type BossId = "nebula-empress" | "rift-wyrm" | "aegis-colossus";
 export type BossAttackPattern = "fan" | "seeker" | "cross";
+export type PlanetEventKind = "resonance" | "gravity-shear" | "archive-ward";
+
+export interface PlanetEventProfile {
+  id: string;
+  name: string;
+  triggerAtSeconds: number;
+  durationSeconds: number;
+  kind: PlanetEventKind;
+  pilotDialogue: Readonly<Record<string, string>>;
+}
 
 export interface BossProfile {
   id: BossId;
@@ -19,6 +29,7 @@ export interface PlanetProfile {
   sector: string;
   description: string;
   event: string;
+  missionEvent: PlanetEventProfile;
   backgroundColor: number;
   fogColor: number;
   boss: BossProfile;
@@ -35,6 +46,18 @@ export const PLANETS: Readonly<Record<PlanetId, PlanetProfile>> = {
     sector: "SECTOR 01 · LUMINOUS BELT",
     description: "星雲の光が絶えず流れる、最初の航路。",
     event: "星雲の中心に巨大反応。敵艦のコアが短時間だけ露出する！",
+    missionEvent: {
+      id: "starlight-resonance",
+      name: "星灯り共鳴",
+      triggerAtSeconds: 16,
+      durationSeconds: 8,
+      kind: "resonance",
+      pilotDialogue: {
+        "lumi-asteria": "ルミ「この光は味方だよ！ 武器出力が上がってる、今のうちに突破しよう！」",
+        "noa-celeste": "ノア「星雲の位相が同期したわ。攻撃出力を一時的に増幅できる。」",
+        "rin-vega": "リン「追い風きた！ ここで一気にスコアを稼ぐよ！」"
+      }
+    },
     backgroundColor: 0x07122d,
     fogColor: 0x17285b,
     boss: {
@@ -54,6 +77,18 @@ export const PLANETS: Readonly<Record<PlanetId, PlanetProfile>> = {
     sector: "SECTOR 02 · EMBER FRONTIER",
     description: "赤熱した小惑星群と、不規則な重力嵐の惑星帯。",
     event: "重力嵐が接近。敵の追尾弾を誘導し、開いた隙を狙え！",
+    missionEvent: {
+      id: "gravity-shear",
+      name: "重力剪断",
+      triggerAtSeconds: 18,
+      durationSeconds: 8,
+      kind: "gravity-shear",
+      pilotDialogue: {
+        "lumi-asteria": "ルミ「重力嵐が来るよ！ 敵弾の速度が上がるから、軌道をよく見て！」",
+        "noa-celeste": "ノア「重力勾配が変わったわ。敵弾の到達時間を読み直して。」",
+        "rin-vega": "リン「弾が速くなるなら、もっと速く動けばいいだけ！」"
+      }
+    },
     backgroundColor: 0x241020,
     fogColor: 0x6b263f,
     boss: {
@@ -73,6 +108,18 @@ export const PLANETS: Readonly<Record<PlanetId, PlanetProfile>> = {
     sector: "SECTOR 03 · LOST MEMORY",
     description: "失われた文明の記録が眠る、暗黒の外縁宙域。",
     event: "古代防衛機構が起動。十字砲火の予告線から離脱せよ！",
+    missionEvent: {
+      id: "archive-ward",
+      name: "アーカイブ防壁",
+      triggerAtSeconds: 20,
+      durationSeconds: 7,
+      kind: "archive-ward",
+      pilotDialogue: {
+        "lumi-asteria": "ルミ「古代の記録が防壁を起動したみたい。今なら守りを固められる！」",
+        "noa-celeste": "ノア「防衛機構が味方認証を行ったわ。シールドを最大限に活用して。」",
+        "rin-vega": "リン「守りがあるうちに攻める！ 一気に片をつけよう！」"
+      }
+    },
     backgroundColor: 0x090e24,
     fogColor: 0x34305f,
     boss: {

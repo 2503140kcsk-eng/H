@@ -173,3 +173,18 @@ test("exports a backup and restores it in a fresh browser context for device mig
     await sourceContext.close();
   }
 });
+
+
+test("shows pilot radio dialogue and completes the selected planet event", async ({ page }) => {
+  test.setTimeout(45_000);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  await page.locator('[data-mode="stage"]').click();
+  await expect(page.locator("#comms-panel")).toBeVisible();
+  await expect(page.locator("#comms-speaker")).toContainText("ルミ");
+  await expect(page.locator("#comms-message")).toContainText("星の地図");
+  await expect(page.locator("#comms-message")).toContainText("星灯り共鳴", { timeout: 22_000 });
+  await expect(page.locator("#comms-message")).toContainText("達成！ +650 SCORE / +12 ✦", { timeout: 12_000 });
+  expect(errors).toEqual([]);
+});

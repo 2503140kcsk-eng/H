@@ -23,6 +23,14 @@ Extend the existing iPhone-first Three.js shooter with a meaningful second progr
 - Hangar avatars have pilot-specific idle animation; in-flight wings and cockpit lighting animate with the selected pilot style.
 - Full-body VRM characters, voice acting and skill trees remain separate future work.
 
+### Planet events and in-sortie radio
+- Each planet now schedules a tactical event at 16–20 seconds, before the first boss entry.
+- Aurora: temporary 1.28x weapon damage (Starlight Resonance).
+- Pyra: enemy projectile travel accelerates by 1.28x (Gravity Shear).
+- Noctis: hostile bullets are cleared and a duration-matched shield is activated (Archive Ward).
+- Each event has a pilot-specific line, a queued comms panel, and a completion reward of 650 score + 12 shards.
+- Added a Playwright run test that observes initial pilot radio, event activation and completion.
+
 ### Campaign and bosses
 - Three sequentially unlocked planetary stages with unique palette, briefing, pilot dialogue, mission log and boss.
 - Three distinct boss forms/patterns: fan barrage, seeking missiles and crossfire.
@@ -55,6 +63,7 @@ Extend the existing iPhone-first Three.js shooter with a meaningful second progr
 - Context7 was used to check Three.js animation and resource disposal patterns. Figma is View-only; no Figma write is claimed. The Superpowers connector is not callable in this session; its workflow is represented in these docs and CI tasks.
 
 ## Verification gates
+1a. Pilot radio and planet-event timing/behavior are covered by an extended Playwright in-sortie test.
 
 1. Unit tests: weapon normalization, campaign unlock sequence, boss rotation, achievements, and save/backup round trips.
 2. Playwright: menu and HUD exposure, in-run weapon slot switching, and backup transfer to a fresh browser context.
