@@ -208,3 +208,54 @@ h1 span { color: var(--pink); }
   .pilot-option-copy small { font-size: 6px; }
   .pilot-option-action { font-size: 6px; }
 }
+
+
+/* Planetary campaign, weapon lab and local records */
+.expansion-dock { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-top: 10px; }
+.campaign-dock, .weapon-dock, .collection-dock { min-width: 0; padding: 10px; border: 1px solid rgba(174,190,255,.15); border-radius: 12px; background: rgba(4,9,32,.48); }
+.collection-dock { grid-column: 1 / -1; }
+.expansion-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 7px; color: #d5e1ff; }
+.expansion-heading strong { font-size: 10px; letter-spacing: .08em; }
+.expansion-heading span { color: #8799c6; font-size: 8px; text-align: right; }
+.planet-options { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 5px; }
+.planet-option, .weapon-option { min-width: 0; display: grid; align-content: start; gap: 4px; padding: 7px; border: 1px solid rgba(174,190,255,.2); border-radius: 9px; color: #eef3ff; background: rgba(63,77,137,.17); text-align: left; cursor: pointer; }
+.planet-option b, .weapon-option b { font-size: 9px; line-height: 1.3; }
+.planet-option small, .weapon-option small { color: #a4b5df; font-size: 7px; line-height: 1.4; }
+.planet-option span, .weapon-option span { color: #8df4e3; font-size: 7px; }
+.planet-option.selected, .weapon-option.selected { border-color: rgba(125,239,255,.75); background: linear-gradient(135deg,rgba(48,143,184,.25),rgba(133,89,181,.2)); }
+.planet-option.locked, .weapon-option.locked { border-style: dashed; }
+.planet-option:disabled, .weapon-option:disabled { opacity: .48; cursor: not-allowed; }
+.mission-briefing { margin: 7px 0 0; padding: 7px; border-left: 2px solid rgba(122,229,255,.55); color: #bac8eb; background: rgba(71,99,157,.11); font-size: 8px; line-height: 1.55; white-space: pre-line; }
+.weapon-slot-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 5px; margin-bottom: 6px; }
+.slot-button { min-width: 0; padding: 7px 5px; border: 1px solid rgba(174,190,255,.2); border-radius: 8px; color: #c4d6ff; background: rgba(63,77,137,.17); font-size: 8px; font-weight: 900; cursor: pointer; }
+.slot-button.selected { color: #f5ffff; border-color: rgba(125,239,255,.75); background: rgba(42,148,185,.24); }
+.weapon-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 5px; }
+.achievement-list { display: flex; flex-wrap: wrap; gap: 5px; }
+.achievement-chip, .boss-chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 7px; border: 1px solid rgba(174,190,255,.15); border-radius: 7px; color: #8998bc; background: rgba(55,67,112,.13); font-size: 8px; }
+.achievement-chip.unlocked, .boss-chip.collected { color: #a6ffea; border-color: rgba(125,239,213,.48); background: rgba(44,130,115,.14); }
+.boss-collection { margin-top: 7px; color: #aab9dd; }
+.boss-collection > small { display: block; margin-bottom: 4px; font-size: 8px; }
+.boss-collection > div { display: flex; flex-wrap: wrap; gap: 5px; }
+.local-ranking { display: grid; gap: 3px; margin: 8px 0 0; padding-left: 20px; color: #d8e2ff; font-size: 8px; }
+.local-ranking li { padding: 3px 0; }
+.local-ranking li small { margin-left: 5px; color: #8296c5; font-size: 7px; }
+.boss-weakpoint { display: block; margin-top: 4px; color: #fff0a9; font-size: 8px; font-weight: 900; letter-spacing: .1em; text-shadow: 0 0 10px rgba(255,220,120,.75); animation: weakpoint-pulse .55s ease-in-out infinite alternate; }
+.weapon-action { border-color: rgba(255,224,146,.7); background: radial-gradient(circle at 35% 20%,rgba(255,220,133,.4),rgba(104,68,147,.7)); }
+.result-unlocks { min-height: 16px; margin: 8px 0; color: #9dffe8; font-size: 9px; line-height: 1.45; }
+.pilot-option-avatar.animation-guide { animation: pilot-guide 2.3s ease-in-out infinite; }
+.pilot-option-avatar.animation-guardian { animation: pilot-guardian 2.3s ease-in-out infinite; }
+.pilot-option-avatar.animation-ace { animation: pilot-ace 1.3s ease-in-out infinite; }
+@keyframes pilot-guide { 0%,100% { transform: translateY(0) rotate(-5deg); } 50% { transform: translateY(-3px) rotate(5deg); } }
+@keyframes pilot-guardian { 0%,100% { box-shadow: 0 0 8px rgba(116,231,255,.25); } 50% { box-shadow: 0 0 17px rgba(116,231,255,.72); } }
+@keyframes pilot-ace { 0%,100% { transform: rotate(-7deg) scale(.96); } 50% { transform: rotate(7deg) scale(1.06); } }
+@keyframes weakpoint-pulse { from { opacity: .55; } to { opacity: 1; } }
+@media (max-width: 620px) {
+  .expansion-dock { grid-template-columns: 1fr; }
+  .collection-dock { grid-column: auto; }
+}
+@media (max-height: 500px) {
+  .expansion-dock { gap: 6px; margin-top: 6px; }
+  .campaign-dock, .weapon-dock, .collection-dock { padding: 7px; }
+  .planet-option, .weapon-option { padding: 5px; gap: 2px; }
+  .mission-briefing { padding: 5px; font-size: 7px; }
+}

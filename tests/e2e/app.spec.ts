@@ -94,3 +94,82 @@ test("hangar shows three distinct ships and locks unaffordable ships", async ({ 
   await expect(page.locator('[data-pilot-id="rin-vega"]')).toBeDisabled();
   await expect(page.locator("#save-status")).toContainText("端末内保存");
 });
+
+
+test("weapon lab and campaign show two slots and sequential planet availability", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("#weapon-list [data-weapon-id]")).toHaveCount(4);
+  await expect(page.locator("#weapon-slot-list [data-weapon-slot]")).toHaveCount(2);
+  await expect(page.locator("#planet-list [data-planet-id]")).toHaveCount(3);
+  await expect(page.locator('[data-planet-id="aurora-prime"]')).toBeEnabled();
+  await expect(page.locator('[data-planet-id="pyra-reach"]')).toBeDisabled();
+  await expect(page.locator("#mission-briefing")).toContainText("ネビュラ・エンプレス");
+});
+
+test("switches the equipped weapon slot during a live sortie", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  await page.locator('[data-mode="stage"]').click();
+  await expect(page.locator("#game-hud")).toBeVisible();
+  await expect(page.locator("#weapon-slot-label")).toHaveText("SLOT 1");
+  await page.locator("#weapon-switch-button").click();
+  await expect(page.locator("#weapon-slot-label")).toHaveText("SLOT 2");
+  expect(errors).toEqual([]);
+});
+
+test("exports a backup and restores it in a fresh browser context for device migration", async ({ browser }) => {
+  const { createBackup, createDefaultSave } = await import("../../src/game/core");
+  const seed = createDefaultSave();
+  seed.unlockedShips.push("Aqua-Comet");
+  seed.selectedShip = "Aqua-Comet";
+  seed.unlockedWeapons.push("prism-laser", "comet-homing");
+  seed.equippedWeapons = ["prism-laser", "comet-homing"];
+  seed.activeWeaponSlot = 1;
+  seed.completedPlanets.push("aurora-prime");
+  seed.selectedPlanet = "pyra-reach";
+
+  const sourceContext = await browser.newContext({ viewport: { width: 844, height: 390 } });
+  try {
+    const sourcePage = await sourceContext.newPage();
+    await sourcePage.goto("/");
+    sourcePage.on("dialog", (dialog) => dialog.accept());
+    await sourcePage.locator("#save-file").setInputFiles({
+      name: "seed-save.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(createBackup(seed))
+    });
+    await expect(sourcePage.locator("#toast")).toContainText("バックアップを復元しました");
+    await expect(sourcePage.locator('[data-ship-id="Aqua-Comet"]')).toHaveAttribute("aria-pressed", "true");
+
+    const downloadPromise = sourcePage.waitForEvent("download");
+    await sourcePage.locator("#export-save").click();
+    const download = await downloadPromise;
+    const stream = await download.createReadStream();
+    if (!stream) throw new Error("The exported save did not produce a readable download stream.");
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+    const exported = Buffer.concat(chunks);
+
+    const destinationContext = await browser.newContext({ viewport: { width: 844, height: 390 } });
+    try {
+      const destinationPage = await destinationContext.newPage();
+      await destinationPage.goto("/");
+      destinationPage.on("dialog", (dialog) => dialog.accept());
+      await destinationPage.locator("#save-file").setInputFiles({
+        name: "iphone-transfer.json",
+        mimeType: "application/json",
+        buffer: exported
+      });
+      await expect(destinationPage.locator("#toast")).toContainText("バックアップを復元しました");
+      await expect(destinationPage.locator('[data-ship-id="Aqua-Comet"]')).toHaveAttribute("aria-pressed", "true");
+      await expect(destinationPage.locator('[data-planet-id="pyra-reach"]')).toHaveAttribute("aria-pressed", "true");
+      await expect(destinationPage.locator("#weapon-slot-1")).toHaveText("SLOT 2 · HOMING");
+      await expect(destinationPage.locator("#weapon-slot-1")).toHaveAttribute("aria-pressed", "true");
+    } finally {
+      await destinationContext.close();
+    }
+  } finally {
+    await sourceContext.close();
+  }
+});

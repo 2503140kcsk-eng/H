@@ -7,8 +7,12 @@ export function exportBackup(data: SaveData): void {
   const anchor = document.createElement("a");
   anchor.href = url;
   anchor.download = "starlight-wing-save-v1.json";
+  anchor.rel = "noopener";
+  document.body.append(anchor);
   anchor.click();
-  URL.revokeObjectURL(url);
+  anchor.remove();
+  // Safari/iOS may not have consumed the object URL at the instant click() returns.
+  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
 }
 
 export async function importBackup(file: File): Promise<SaveData> {

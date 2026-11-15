@@ -1,4 +1,8 @@
-import { normalizeSelectedPilotId, normalizeUnlockedPilotIds } from "./pilots";
+import { normalizeAchievementIds } from "./achievements";
+import { normalizeBossCollectionIds, normalizeCompletedPlanetIds, normalizeSelectedPlanetId } from "./campaign";
+import { isPilotId, normalizeSelectedPilotId, normalizeUnlockedPilotIds } from "./pilots";
+import { isPlanetId } from "./campaign";
+import { normalizeEquippedWeaponIds, normalizeUnlockedWeaponIds, normalizeWeaponSlot } from "./weapons";
 import { normalizeSelectedShipId, normalizeUnlockedShipIds } from "./ships";
 import { z } from "zod";
 
@@ -16,6 +20,14 @@ export interface SaveData {
   pilotProgress: Record<string, { level: number; xp: number }>;
   pilotLevel: number;
   pilotXp: number;
+  unlockedWeapons: string[];
+  equippedWeapons: string[];
+  activeWeaponSlot: 0 | 1;
+  completedPlanets: string[];
+  selectedPlanet: string;
+  achievements: string[];
+  bossCollection: string[];
+  highScores: Array<{ score: number; mode: "story" | "stage" | "endless"; pilotId: string; planetId: string; achievedAt: number }>;
 }
 
 const DEFAULT_SAVE: SaveData = {
@@ -31,7 +43,15 @@ const DEFAULT_SAVE: SaveData = {
   selectedPilot: "lumi-asteria",
   pilotProgress: { "lumi-asteria": { level: 1, xp: 0 } },
   pilotLevel: 1,
-  pilotXp: 0
+  pilotXp: 0,
+  unlockedWeapons: ["photon-pulse"],
+  equippedWeapons: ["photon-pulse", "photon-pulse"],
+  activeWeaponSlot: 0,
+  completedPlanets: [],
+  selectedPlanet: "aurora-prime",
+  achievements: [],
+  bossCollection: [],
+  highScores: []
 };
 
 const SaveSchema = z.object({
@@ -59,7 +79,21 @@ const SaveSchema = z.object({
     }).strict()
   ).catch({}),
   pilotLevel: z.number().int().min(1).max(100).catch(1),
-  pilotXp: z.number().int().min(0).max(1_000_000_000).catch(0)
+  pilotXp: z.number().int().min(0).max(1_000_000_000).catch(0),
+  unlockedWeapons: z.array(z.string().min(1).max(48)).max(12).catch(["photon-pulse"]),
+  equippedWeapons: z.array(z.string().min(1).max(48)).max(2).catch(["photon-pulse"]),
+  activeWeaponSlot: z.union([z.literal(0), z.literal(1)]).catch(0),
+  completedPlanets: z.array(z.string().min(1).max(48)).max(12).catch([]),
+  selectedPlanet: z.string().min(1).max(48).catch("aurora-prime"),
+  achievements: z.array(z.string().min(1).max(48)).max(32).catch([]),
+  bossCollection: z.array(z.string().min(1).max(48)).max(24).catch([]),
+  highScores: z.array(z.object({
+    score: z.number().int().min(0).max(1_000_000_000_000),
+    mode: z.enum(["story", "stage", "endless"]),
+    pilotId: z.string().min(1).max(48),
+    planetId: z.string().min(1).max(48),
+    achievedAt: z.number().int().min(0).max(9_999_999_999_999)
+  }).strict()).max(50).catch([])
 });
 
 const BackupPayloadSchema = z.object({
@@ -87,7 +121,21 @@ const BackupPayloadSchema = z.object({
     }).strict()
   ).optional().default({}),
   pilotLevel: z.number().int().min(1).max(100),
-  pilotXp: z.number().int().min(0).max(1_000_000_000)
+  pilotXp: z.number().int().min(0).max(1_000_000_000),
+  unlockedWeapons: z.array(z.string().min(1).max(48)).max(12).optional().default(["photon-pulse"]),
+  equippedWeapons: z.array(z.string().min(1).max(48)).max(2).optional().default(["photon-pulse"]),
+  activeWeaponSlot: z.union([z.literal(0), z.literal(1)]).optional().default(0),
+  completedPlanets: z.array(z.string().min(1).max(48)).max(12).optional().default([]),
+  selectedPlanet: z.string().min(1).max(48).optional().default("aurora-prime"),
+  achievements: z.array(z.string().min(1).max(48)).max(32).optional().default([]),
+  bossCollection: z.array(z.string().min(1).max(48)).max(24).optional().default([]),
+  highScores: z.array(z.object({
+    score: z.number().int().min(0).max(1_000_000_000_000),
+    mode: z.enum(["story", "stage", "endless"]),
+    pilotId: z.string().min(1).max(48),
+    planetId: z.string().min(1).max(48),
+    achievedAt: z.number().int().min(0).max(9_999_999_999_999)
+  }).strict()).max(50).optional().default([])
 }).strict();
 
 export function clamp(value: number, min: number, max: number): number {
@@ -127,6 +175,17 @@ export function sanitizeSaveData(value: unknown): SaveData {
   const selectedShip = normalizeSelectedShipId(data.selectedShip, ships);
   const pilots = normalizeUnlockedPilotIds(data.unlockedPilots);
   const selectedPilot = normalizeSelectedPilotId(data.selectedPilot, pilots);
+  const unlockedWeapons = normalizeUnlockedWeaponIds(data.unlockedWeapons);
+  const equippedWeapons = normalizeEquippedWeaponIds(data.equippedWeapons, unlockedWeapons);
+  const completedPlanets = normalizeCompletedPlanetIds(data.completedPlanets);
+  const selectedPlanet = normalizeSelectedPlanetId(data.selectedPlanet, completedPlanets);
+  const achievements = normalizeAchievementIds(data.achievements);
+  const bossCollection = normalizeBossCollectionIds(data.bossCollection);
+  const highScores = data.highScores
+    .filter((entry) => isPilotId(entry.pilotId) && isPlanetId(entry.planetId))
+    .map((entry) => ({ ...entry, score: clamp(Math.floor(entry.score), 0, 1_000_000_000_000) }))
+    .sort((left, right) => right.score - left.score || right.achievedAt - left.achievedAt)
+    .slice(0, 10);
   const pilotProgress: Record<string, { level: number; xp: number }> = {};
   for (const id of pilots) {
     const stored = data.pilotProgress[id];
@@ -168,7 +227,15 @@ export function sanitizeSaveData(value: unknown): SaveData {
     pilotProgress,
     totalRuns: clamp(data.totalRuns, 0, 1_000_000),
     pilotLevel: activePilotProgress.level,
-    pilotXp: activePilotProgress.xp
+    pilotXp: activePilotProgress.xp,
+    unlockedWeapons,
+    equippedWeapons,
+    activeWeaponSlot: normalizeWeaponSlot(data.activeWeaponSlot),
+    completedPlanets,
+    selectedPlanet,
+    achievements,
+    bossCollection,
+    highScores
   };
 }
 

@@ -143,3 +143,15 @@ describe("pilot roster and backward-compatible save integration", () => {
     expect(clean.selectedPilot).toBe("lumi-asteria");
   });
 });
+
+
+describe("pilot-specific skills, narrative and flight animation", () => {
+  it("gives each pilot an authored skill, personal introduction and animation style", () => {
+    const pilots = ["lumi-asteria", "noa-celeste", "rin-vega"].map(getPilotProfile);
+    expect(new Set(pilots.map((pilot) => pilot.skillType)).size).toBe(3);
+    expect(pilots.every((pilot) => pilot.skillName.length > 0)).toBe(true);
+    expect(pilots.every((pilot) => pilot.skillDescription.length > 0)).toBe(true);
+    expect(pilots.every((pilot) => pilot.storyIntro.length > 0)).toBe(true);
+    expect(new Set(pilots.map((pilot) => pilot.animationStyle)).size).toBe(3);
+  });
+});
