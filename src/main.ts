@@ -1,4 +1,7 @@
 import { registerSW } from "virtual:pwa-register";
+import { PilotShowcase } from "./game/PilotShowcase";
+import { canUnlockPilotSkill, getPilotSkills, getUnspentSkillPoints } from "./game/pilot-skills";
+import { getStoryScene, hasSecretStarRoute, type StoryChoiceId } from "./game/narrative";
 import { Game, type GameMode, type HudState, type RunResult } from "./game/Game";
 import { createDefaultSave, upgradeCost, type SaveData } from "./game/core";
 import { exportBackup, importBackup } from "./persistence/backup";
@@ -32,9 +35,18 @@ uiRoot.innerHTML = `
       <h1>STARLIGHT <span>WING</span></h1>
       <p class="subtitle">星の翼 — かわいさ × 本格SFシューティング</p>
       <div class="pilot-card">
-        <div id="pilot-avatar" class="pilot-avatar" aria-hidden="true">✦</div>
-        <div><strong id="pilot-name">ルミ・アステリア</strong><small id="pilot-role">オールラウンダー / Lv.1</small></div>
+        <div class="pilot-preview-frame">
+          <canvas id="pilot-preview-canvas" class="pilot-preview-canvas" aria-label="選択中パイロットの3D全身モデル"></canvas>
+          <div id="pilot-avatar" class="pilot-avatar" aria-hidden="true">✦</div>
+        </div>
+        <div class="pilot-card-copy"><strong id="pilot-name">ルミ・アステリア</strong><small id="pilot-role">オールラウンダー / Lv.1</small></div>
         <span class="pilot-status">READY</span>
+      </div>
+      <div class="pilot-tools">
+        <button id="pilot-voice-button" type="button" class="pilot-tool-button">声を聞く · 端末読み上げ</button>
+        <button id="load-vrm-button" type="button" class="pilot-tool-button">VRM / GLBを読み込む</button>
+        <input id="pilot-vrm-file" type="file" accept=".vrm,.glb,model/gltf-binary" hidden />
+        <p id="pilot-caption" class="pilot-caption" aria-live="polite">音声は端末内蔵の読み上げ機能を使用します。</p>
       </div>
       <div class="mode-grid">
         <button class="mode-button primary" data-mode="story"><span>STORY</span><small>星域の謎を追う</small></button>
@@ -57,6 +69,20 @@ uiRoot.innerHTML = `
           <div class="pilot-dock">
             <div class="pilot-dock-heading"><strong>パイロット選択</strong><span>固有スキル・個別エピソード・専用モーション</span></div>
             <div id="pilot-list" class="pilot-options" aria-label="パイロット選択"></div>
+            <div class="pilot-progression-grid">
+              <section class="pilot-skill-panel">
+                <div class="pilot-dock-heading"><strong>固有スキルツリー</strong><span id="pilot-skill-points">SP 0</span></div>
+                <div id="pilot-skill-list" class="pilot-skill-list"></div>
+              </section>
+              <section class="pilot-story-panel">
+                <div class="pilot-dock-heading"><strong>パイロット・ストーリー</strong><span>選択で航路が分岐</span></div>
+                <b id="pilot-story-title" class="pilot-story-title"></b>
+                <p id="pilot-story-prompt" class="pilot-story-prompt"></p>
+                <div id="pilot-story-choices" class="pilot-story-choices"></div>
+                <p id="pilot-story-response" class="pilot-story-response" aria-live="polite"></p>
+                <small id="pilot-story-secret" class="pilot-story-secret"></small>
+              </section>
+            </div>
           </div>
         </div>
         <div class="expansion-dock">
@@ -117,6 +143,7 @@ uiRoot.innerHTML = `
       <div class="boss-name"><span>⚠</span> <b id="boss-name">BOSS</b> <small>PHASE <b id="boss-phase">I</b></small></div>
       <div class="boss-meter"><i id="boss-fill"></i></div>
       <small id="boss-weakpoint" class="boss-weakpoint" hidden>WEAKPOINT OPEN · DAMAGE × UP</small>
+      <small class="boss-parts">PARTS <b id="boss-parts-text">2/2</b></small>
     </div>
     <aside id="comms-panel" class="comms-panel" role="status" aria-live="polite" hidden>
       <span id="comms-speaker" class="comms-speaker">MISSION CONTROL</span>
@@ -180,12 +207,16 @@ const commsMessage = byId<HTMLElement>("comms-message");
 const sensitivityInput = byId<HTMLInputElement>("sensitivity");
 const volumeInput = byId<HTMLInputElement>("volume");
 const saveFileInput = byId<HTMLInputElement>("save-file");
+const pilotVrmInput = byId<HTMLInputElement>("pilot-vrm-file");
 
 let save: SaveData = createDefaultSave();
 let game: Game | null = null;
 let currentMode: GameMode = "story";
 let runActive = false;
 let paused = false;
+let pilotShowcase: PilotShowcase | null = null;
+let previewPilotId = "";
+let lastComboCue = 0;
 const sound = new SoundDirector();
 let toastTimeout = 0;
 let commsTimeout = 0;
@@ -233,8 +264,49 @@ function formatTime(seconds: number): string {
   return String(Math.floor(whole / 60)).padStart(2, "0") + ":" + String(whole % 60).padStart(2, "0");
 }
 
+function ensurePilotShowcase(): void {
+  if (pilotShowcase) return;
+  try {
+    pilotShowcase = new PilotShowcase(byId<HTMLCanvasElement>("pilot-preview-canvas"));
+    previewPilotId = save.selectedPilot;
+    pilotShowcase.setPilot(getPilotProfile(save.selectedPilot));
+    byId("pilot-avatar").hidden = true;
+  } catch (error) {
+    byId("pilot-avatar").hidden = false;
+    console.warn("3D pilot preview unavailable:", error);
+  }
+}
+
+let activeVoice: SpeechSynthesisUtterance | null = null;
+function stopPilotSpeech(): void {
+  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  activeVoice = null;
+  pilotShowcase?.setSpeaking(false);
+}
+
+function speakCurrentPilot(): void {
+  const pilot = getPilotProfile(save.selectedPilot);
+  const line = pilot.storyIntro;
+  byId<HTMLParagraphElement>("pilot-caption").textContent = line;
+  if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
+    showToast("このブラウザでは音声読み上げに対応していません。字幕で会話を確認できます。");
+    return;
+  }
+  stopPilotSpeech();
+  const utterance = new SpeechSynthesisUtterance(line);
+  utterance.lang = "ja-JP";
+  utterance.rate = 0.96;
+  utterance.pitch = pilot.id === "rin-vega" ? 1.12 : pilot.id === "noa-celeste" ? 0.92 : 1.04;
+  utterance.onstart = () => pilotShowcase?.setSpeaking(true);
+  utterance.onend = () => { pilotShowcase?.setSpeaking(false); activeVoice = null; };
+  utterance.onerror = () => { pilotShowcase?.setSpeaking(false); activeVoice = null; };
+  activeVoice = utterance;
+  window.speechSynthesis.speak(utterance);
+}
+
 function showMenu(): void {
   clearComms();
+  stopPilotSpeech();
   runActive = false;
   paused = false;
   game?.dispose();
@@ -243,6 +315,7 @@ function showMenu(): void {
   gameHud.hidden = true;
   pauseModal.hidden = true;
   resultModal.hidden = true;
+  ensurePilotShowcase();
   refreshMenu();
 }
 
@@ -280,6 +353,50 @@ function renderPilotChoices(): void {
       <span class="pilot-option-action">${action}</span>
     </button>`;
   }).join("");
+}
+
+function renderPilotSkills(): void {
+  const pilotId = save.selectedPilot;
+  const progress = save.pilotProgress[pilotId] ?? { level: 1, xp: 0 };
+  const unlocked = save.pilotSkills[pilotId] ?? [];
+  const points = getUnspentSkillPoints(progress.level, unlocked);
+  byId("pilot-skill-points").textContent = `SP ${points} · Lv.${progress.level}`;
+  byId<HTMLDivElement>("pilot-skill-list").innerHTML = getPilotSkills(pilotId).map((skill) => {
+    const acquired = unlocked.includes(skill.id);
+    const available = canUnlockPilotSkill(pilotId, skill.id, progress.level, unlocked);
+    const status = acquired ? "取得済" : available ? "SP 1 · 解放" : `Lv.${skill.unlockLevel} / 前提スキル`;
+    return `<button type="button" class="pilot-skill-node ${acquired ? "acquired" : available ? "available" : "locked"}"
+      data-skill-id="${skill.id}" ${acquired || !available ? "disabled" : ""}>
+      <span class="skill-node-tier">${skill.branch === "core" ? "CORE" : skill.branch === "left" ? "LEFT" : "RIGHT"}</span>
+      <b>${skill.name}</b><small>${skill.description}</small><em>${status}</em>
+    </button>`;
+  }).join("");
+}
+
+function renderPilotStory(): void {
+  const scene = getStoryScene(save.selectedPilot, save.selectedPlanet, save.storyChoices);
+  const title = byId<HTMLElement>("pilot-story-title");
+  const prompt = byId<HTMLParagraphElement>("pilot-story-prompt");
+  const choices = byId<HTMLDivElement>("pilot-story-choices");
+  const response = byId<HTMLParagraphElement>("pilot-story-response");
+  const secret = byId<HTMLElement>("pilot-story-secret");
+  if (!scene) {
+    title.textContent = "航路データなし";
+    prompt.textContent = "惑星を解放すると個別エピソードが表示されます。";
+    choices.innerHTML = "";
+    response.textContent = "";
+    secret.textContent = "";
+    return;
+  }
+  title.textContent = `${scene.title} · ${scene.speaker}`;
+  prompt.textContent = scene.prompt;
+  choices.innerHTML = scene.choices.map((choice) => `<button type="button" class="pilot-story-choice ${scene.selectedChoice === choice.id ? "selected" : ""}"
+    data-story-choice="${choice.id}" ${scene.selectedChoice ? "disabled" : ""}>${choice.label}</button>`).join("");
+  response.textContent = scene.response ?? "選択後に、この判断が残す記録が表示されます。";
+  const secretReady = hasSecretStarRoute(save.selectedPilot, save.storyChoices);
+  secret.textContent = save.storyFlags.includes("celestial-echo")
+    ? "✦ 隠し報酬：星環の残響を回収済み · シャード +75"
+    : secretReady ? "✦ 星環ルート達成！ 隠し報酬を獲得できます。" : "全3惑星で「信号を追う」選択を重ねると隠し航路が開く。";
 }
 
 function renderPlanetChoices(): void {
@@ -345,6 +462,10 @@ function refreshMenu(): void {
   byId("pilot-name").textContent = selectedPilot.name;
   byId("pilot-role").textContent = selectedPilot.className + " · Lv." + selectedProgress.level;
   byId("pilot-avatar").textContent = selectedPilot.avatar;
+  if (pilotShowcase && previewPilotId !== save.selectedPilot) {
+    pilotShowcase.setPilot(selectedPilot);
+    previewPilotId = save.selectedPilot;
+  }
   byId("currency").textContent = save.shards.toLocaleString("en-US") + " ✦";
   byId("attack-level").textContent = "Lv. " + save.upgrades.attack;
   byId("hull-level").textContent = "Lv. " + save.upgrades.hull;
@@ -358,6 +479,8 @@ function refreshMenu(): void {
   hullButton.disabled = hullCost === null || save.shards < hullCost;
   renderShipChoices();
   renderPilotChoices();
+  renderPilotSkills();
+  renderPilotStory();
   renderPlanetChoices();
   renderWeaponChoices();
   renderCollection();
@@ -386,6 +509,7 @@ function makeGame(): Game {
     shipId: save.selectedShip,
     pilotId: save.selectedPilot,
     pilotLevel: save.pilotProgress[save.selectedPilot]?.level ?? save.pilotLevel,
+    pilotSkills: save.pilotSkills[save.selectedPilot] ?? [],
     planetId: save.selectedPlanet,
     weaponIds: save.equippedWeapons,
     activeWeaponSlot: save.activeWeaponSlot,
@@ -412,6 +536,10 @@ function makeGame(): Game {
 function startRun(mode: GameMode): void {
   try {
     clearComms();
+    stopPilotSpeech();
+    pilotShowcase?.dispose();
+    pilotShowcase = null;
+    previewPilotId = "";
     game?.dispose();
     game = makeGame();
     currentMode = mode;
@@ -453,7 +581,8 @@ function updateHud(state: HudState): void {
   bossPanel.hidden = state.bossMaxHp <= 0;
   if (state.bossMaxHp > 0) {
     byId("boss-fill").setAttribute("style", "width:" + Math.max(0, state.bossHp / state.bossMaxHp * 100) + "%");
-    byId("boss-phase").textContent = state.bossHp <= state.bossMaxHp * 0.5 ? "II" : "I";
+    byId("boss-phase").textContent = state.bossPhase === 3 ? "III" : state.bossPhase === 2 ? "II" : "I";
+    byId("boss-parts-text").textContent = `${state.bossPartsRemaining}/${state.bossPartCount}`;
   }
   const combo = byId<HTMLElement>("combo-label");
   combo.hidden = state.combo < 2;
@@ -462,6 +591,12 @@ function updateHud(state: HudState): void {
   byId<HTMLButtonElement>("shield-button").disabled = state.shield < 30;
   byId("boss-name").textContent = state.bossName || "BOSS";
   byId<HTMLElement>("boss-weakpoint").hidden = !state.bossWeakpointOpen;
+  if (state.combo >= 5 && state.combo % 5 === 0 && state.combo !== lastComboCue) {
+    sound.playCombo(state.combo);
+    lastComboCue = state.combo;
+  } else if (state.combo < 5) {
+    lastComboCue = 0;
+  }
   byId("weapon-name").textContent = state.weaponName;
   byId("weapon-slot-label").textContent = "SLOT " + (state.weaponSlot + 1);
   sound.setBossMode(state.bossMaxHp > 0);
@@ -606,6 +741,60 @@ byId("pilot-list").addEventListener("click", async (event) => {
   showToast(pilot.name + "が仲間になったよ！");
   playTone(980, 0.16);
 });
+byId("pilot-skill-list").addEventListener("click", async (event) => {
+  if (!(event.target instanceof Element)) return;
+  const skillId = event.target.closest<HTMLButtonElement>("[data-skill-id]")?.dataset.skillId;
+  if (!skillId) return;
+  const pilotId = save.selectedPilot;
+  const progress = save.pilotProgress[pilotId] ?? { level: 1, xp: 0 };
+  const unlocked = save.pilotSkills[pilotId] ?? [];
+  const skill = getPilotSkills(pilotId).find((entry) => entry.id === skillId);
+  if (!skill || !canUnlockPilotSkill(pilotId, skillId, progress.level, unlocked)) {
+    showToast("レベル・前提スキル・SPを確認してね。");
+    return;
+  }
+  save.pilotSkills[pilotId] = [...unlocked, skill.id];
+  await persist();
+  sound.cue("unlock");
+  showToast(`${skill.name}を習得！ 次の出撃から効果が反映されます。`);
+});
+byId("pilot-story-choices").addEventListener("click", async (event) => {
+  if (!(event.target instanceof Element)) return;
+  const choice = event.target.closest<HTMLButtonElement>("[data-story-choice]")?.dataset.storyChoice;
+  if (choice !== "follow-signal" && choice !== "protect-crew") return;
+  const scene = getStoryScene(save.selectedPilot, save.selectedPlanet, save.storyChoices);
+  if (!scene || scene.selectedChoice) return;
+  const hadSecretReward = save.storyFlags.includes("celestial-echo");
+  save.storyChoices[scene.key] = choice as StoryChoiceId;
+  if (!hadSecretReward && hasSecretStarRoute(save.selectedPilot, save.storyChoices)) {
+    save.storyFlags.push("celestial-echo");
+    save.shards = Math.min(100_000_000, save.shards + 75);
+  }
+  await persist();
+  if (!hadSecretReward && save.storyFlags.includes("celestial-echo")) {
+    showToast("隠し航路「星環の残響」を発見！ シャード +75 ✦");
+    sound.cue("victory");
+  } else {
+    showToast("選択を航海記録に保存しました。");
+    playTone(740, 0.12);
+  }
+});
+byId("pilot-voice-button").addEventListener("click", speakCurrentPilot);
+byId("load-vrm-button").addEventListener("click", () => pilotVrmInput.click());
+pilotVrmInput.addEventListener("change", async () => {
+  const file = pilotVrmInput.files?.[0];
+  if (!file) return;
+  ensurePilotShowcase();
+  try {
+    if (!pilotShowcase) throw new Error("3Dプレビューを初期化できませんでした。");
+    await pilotShowcase.loadVrm(file);
+    showToast("ローカルVRMモデルを読み込みました。");
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : "VRMの読み込みに失敗しました。");
+  } finally {
+    pilotVrmInput.value = "";
+  }
+});
 byId("planet-list").addEventListener("click", async (event) => {
   if (!(event.target instanceof Element)) return;
   const id = event.target.closest<HTMLButtonElement>("[data-planet-id]")?.dataset.planetId;
@@ -736,6 +925,8 @@ window.addEventListener("keydown", (event) => {
 });
 window.addEventListener("beforeunload", () => {
   game?.dispose();
+  pilotShowcase?.dispose();
+  stopPilotSpeech();
   sound.dispose();
 });
 
