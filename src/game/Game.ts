@@ -5,7 +5,7 @@ import { TouchInput } from "./input";
 import { getPilotGrowthStats, getPilotProfile, type PilotProfile } from "./pilots";
 import { PICKUP_EFFECTS, selectPickupKind, type PickupKind } from "./pickups";
 import { getShipProfile, type ShipProfile } from "./ships";
-import { createWeaponShotSpecs, getWeaponFireInterval, getWeaponProfile, type WeaponProfile, type WeaponShotSpec } from "./weapons";
+import { createWeaponShotSpecs, getWeaponFireInterval, getWeaponProfile, registerProjectileHit, type WeaponProfile, type WeaponShotSpec } from "./weapons";
 import { getActiveFrameIntervalMs, summarizeFrameTimes, type GameDiagnosticsSnapshot } from "./diagnostics";
 
 export type GameMode = "story" | "stage" | "endless";
@@ -43,8 +43,7 @@ type Projectile = {
   radius: number;
   homing?: boolean;
   pierceRemaining: number;
-  hitEnemies?: Set<Enemy>;
-  hitBoss: boolean;
+  hitTargets?: Set<object>;
 };
 type Enemy = {
   mesh: THREE.Group;
@@ -801,10 +800,9 @@ export class Game {
       mesh, velocity, owner, damage,
       radius: weaponShot?.projectileRadius ?? (owner === "player" ? 0.14 : 0.19),
       homing,
-      pierceRemaining: weaponShot?.pierceTargets ?? 0,
-      hitBoss: false
+      pierceRemaining: weaponShot?.pierceTargets ?? 0
     };
-    if (projectile.pierceRemaining > 0) projectile.hitEnemies = new Set<Enemy>();
+    if (projectile.pierceRemaining > 0) projectile.hitTargets = new Set<object>();
     this.projectiles.push(projectile);
     if (this.projectiles.length > MAX_PROJECTILES) this.removeProjectile(0);
   }
@@ -832,26 +830,23 @@ export class Game {
         let removeAfterHit = false;
         for (let enemyIndex = this.enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
           const enemy = this.enemies[enemyIndex];
-          if (bullet.hitEnemies?.has(enemy)) continue;
-          if (bullet.mesh.position.distanceTo(enemy.mesh.position) < enemy.radius + bullet.radius) {
-            this.damageEnemy(enemyIndex, bullet.damage);
-            if (bullet.hitEnemies && bullet.pierceRemaining > 0) {
-              bullet.hitEnemies.add(enemy);
-              bullet.pierceRemaining -= 1;
-            } else {
-              removeAfterHit = true;
-            }
-            break;
-          }
+          if (bullet.mesh.position.distanceTo(enemy.mesh.position) >= enemy.radius + bullet.radius) continue;
+          const decision = bullet.hitTargets
+            ? registerProjectileHit(bullet as Projectile & { hitTargets: Set<object> }, enemy)
+            : "remove";
+          if (decision === "duplicate") continue;
+          this.damageEnemy(enemyIndex, bullet.damage);
+          if (decision === "remove") removeAfterHit = true;
+          break;
         }
-        if (!removeAfterHit && this.boss && !bullet.hitBoss &&
+        if (!removeAfterHit && this.boss &&
             bullet.mesh.position.distanceTo(this.boss.mesh.position) < 2.15) {
-          this.damageBoss(bullet.damage);
-          if (bullet.hitEnemies && bullet.pierceRemaining > 0) {
-            bullet.hitBoss = true;
-            bullet.pierceRemaining -= 1;
-          } else {
-            removeAfterHit = true;
+          const decision = bullet.hitTargets
+            ? registerProjectileHit(bullet as Projectile & { hitTargets: Set<object> }, this.boss)
+            : "remove";
+          if (decision !== "duplicate") {
+            this.damageBoss(bullet.damage);
+            if (decision === "remove") removeAfterHit = true;
           }
         }
         if (removeAfterHit) this.removeProjectile(index);

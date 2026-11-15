@@ -98,3 +98,19 @@ export function getWeaponFireInterval(weaponId: string, baseInterval: number, ov
       : 0.23;
   return Math.max(0.08, Math.min(2.5, base * getWeaponProfile(weaponId).fireIntervalMultiplier));
 }
+
+
+export type ProjectileHitDecision = "duplicate" | "pierce" | "remove";
+
+export function registerProjectileHit<T>(
+  state: { pierceRemaining: number; hitTargets: Set<T> },
+  target: T
+): ProjectileHitDecision {
+  if (state.hitTargets.has(target)) return "duplicate";
+  if (state.pierceRemaining > 0) {
+    state.hitTargets.add(target);
+    state.pierceRemaining -= 1;
+    return "pierce";
+  }
+  return "remove";
+}

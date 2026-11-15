@@ -8,7 +8,8 @@ import {
   getWeaponProfile,
   createWeaponShotSpecs,
   normalizeSelectedWeaponId,
-  normalizeUnlockedWeaponIds
+  normalizeUnlockedWeaponIds,
+  registerProjectileHit
 } from "../src/game/weapons";
 
 const LEGACY_BACKUP_WITHOUT_WEAPONS = JSON.stringify({
@@ -96,6 +97,7 @@ describe("weapon save and backup compatibility", () => {
     const legacy: Record<string, unknown> = {
       ...createDefaultSave(),
       shards: 520,
+      unlockedShips: ["Lumen-01", "Aqua-Comet"],
       selectedShip: "Aqua-Comet"
     };
     delete legacy.unlockedWeapons;
@@ -138,5 +140,27 @@ describe("weapon save and backup compatibility", () => {
     expect(restored?.pilotLevel).toBe(4);
     expect(restored?.unlockedWeapons).toEqual(["star-pulse"]);
     expect(restored?.selectedWeapon).toBe("star-pulse");
+  });
+});
+
+
+describe("Nova Lance piercing", () => {
+  it("hits one extra distinct target, ignores repeat overlap, and is removed on the next target", () => {
+    const state = { pierceRemaining: 1, hitTargets: new Set<object>() };
+    const firstTarget = {};
+    const secondTarget = {};
+    const thirdTarget = {};
+
+    expect(registerProjectileHit(state, firstTarget)).toBe("pierce");
+    expect(state.pierceRemaining).toBe(0);
+    expect(registerProjectileHit(state, firstTarget)).toBe("duplicate");
+    expect(registerProjectileHit(state, secondTarget)).toBe("remove");
+    expect(state.hitTargets).toEqual(new Set([firstTarget]));
+    expect(registerProjectileHit(state, thirdTarget)).toBe("remove");
+  });
+
+  it("does not pierce with the standard weapon", () => {
+    const state = { pierceRemaining: 0, hitTargets: new Set<object>() };
+    expect(registerProjectileHit(state, {})).toBe("remove");
   });
 });
