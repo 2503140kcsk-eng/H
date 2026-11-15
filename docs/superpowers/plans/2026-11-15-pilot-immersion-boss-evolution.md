@@ -31,6 +31,12 @@ Base: `feat/planetary-combat-expansion`
 - [x] Add a route achievement for following the signal across all three planets.
 - [ ] Expand into a multi-chapter campaign with choice-dependent events, side missions and replayable routes.
 
+### E. Planet event depth
+- [x] Preserve Stage I's original event timing, effect and reward.
+- [x] Add a timed Stage II to all three planets, after Stage I is complete.
+- [x] Branch Stage II by the saved pilot × planet decision, with distinct offensive and defensive variants.
+- [x] Add pilot-specific dialogue, effects, rewards and deterministic unit/E2E coverage.
+
 ### E. Boss evolution
 - [x] Add three HP-threshold phases and phase-dependent attack cadence.
 - [x] Add destructible left/right cannons and the Colossus armor plate.
