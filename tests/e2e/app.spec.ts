@@ -96,10 +96,21 @@ test("hangar shows three distinct ships and locks unaffordable ships", async ({ 
 });
 
 
-test("iPhone diagnostics stay local and export JSON and CSV reports", async ({ page }) => {
+test("iPhone diagnostics capture live gameplay metrics and export local JSON and CSV reports", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
+
+  // Capture metrics from a real gameplay session, then return to the hangar.
+  await page.locator('[data-mode="story"]').click();
+  await expect(page.locator("#game-hud")).toBeVisible();
+  await page.waitForTimeout(1200);
+  await page.locator("#pause-button").click();
+  await expect(page.locator("#pause-modal")).toBeVisible();
+  await page.locator("#pause-menu-button").click();
+  await expect(page.locator("#menu-screen")).toBeVisible();
+  await expect(page.locator("#game-hud")).toBeHidden();
+
   await page.locator("#settings-toggle").click();
   await page.locator("#diagnostics-open").click();
   await expect(page.locator("#diagnostics-modal")).toBeVisible();
@@ -114,10 +125,41 @@ test("iPhone diagnostics stay local and export JSON and CSV reports", async ({ p
   const jsonStream = await jsonDownload.createReadStream();
   let jsonText = "";
   for await (const chunk of jsonStream ?? []) jsonText += chunk.toString();
-  const report = JSON.parse(jsonText) as { format: string; version: number; storage: { persistenceStatus: string } };
+  const report = JSON.parse(jsonText) as {
+    format: string;
+    version: number;
+    storage: { persistenceStatus: string };
+    capabilities: { webgl2: boolean | null };
+    game: {
+      sampleCount: number;
+      averageFrameTimeMs: number | null;
+      p95FrameTimeMs: number | null;
+      worstFrameTimeMs: number | null;
+      estimatedFps: number | null;
+      renderCalls: number;
+      triangles: number;
+      geometries: number;
+      textures: number;
+      drawingBuffer: { width: number; height: number };
+      webgl: { maxTextureSize: number; maxRenderbufferSize: number } | null;
+    } | null;
+  };
   expect(report.format).toBe("starlight-wing-diagnostics");
   expect(report.version).toBe(1);
   expect(report.storage.persistenceStatus).toBe("persistent");
+  expect(report.capabilities.webgl2).toBe(true);
+  expect(report.game).not.toBeNull();
+  expect(report.game!.sampleCount).toBeGreaterThan(0);
+  expect(report.game!.averageFrameTimeMs).toBeGreaterThan(0);
+  expect(report.game!.p95FrameTimeMs).toBeGreaterThan(0);
+  expect(report.game!.worstFrameTimeMs).toBeGreaterThan(0);
+  expect(report.game!.estimatedFps).toBeGreaterThan(0);
+  expect(report.game!.renderCalls).toBeGreaterThan(0);
+  expect(report.game!.triangles).toBeGreaterThan(0);
+  expect(report.game!.drawingBuffer.width).toBeGreaterThan(0);
+  expect(report.game!.drawingBuffer.height).toBeGreaterThan(0);
+  expect(report.game!.webgl?.maxTextureSize).toBeGreaterThan(0);
+  expect(report.game!.webgl?.maxRenderbufferSize).toBeGreaterThan(0);
 
   const csvPromise = page.waitForEvent("download");
   await page.locator("#diagnostics-csv").click();
@@ -128,6 +170,7 @@ test("iPhone diagnostics stay local and export JSON and CSV reports", async ({ p
   for await (const chunk of csvStream ?? []) csvText += chunk.toString();
   expect(csvText).toContain('"path","value"');
   expect(csvText).toContain('"device.viewport.width"');
+  expect(csvText).toContain('"game.estimatedFps"');
 
   await page.locator("#diagnostics-close").click();
   await expect(page.locator("#diagnostics-modal")).toBeHidden();

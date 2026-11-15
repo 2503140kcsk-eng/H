@@ -173,3 +173,20 @@ Files: src/game/pickups.ts, src/game/Game.ts, tests/pickups.test.ts.
 - [x] Add deterministic weighted drop selection and unit tests for every probability boundary / invalid random input.
 
 **Drop weights:** shard 34%, repair 14%, overdrive 16%, multishot 12%, shield 12%, speed 6%, special 6%. Probabilities are initial design values and should be tuned from play data.
+
+### Task 11: iPhone Quality Gate and local diagnostics
+
+Files: src/game/diagnostics.ts, src/game/Game.ts, src/main.ts, src/style.css, tests/diagnostics.test.ts, tests/e2e/app.spec.ts, docs/qa/iphone-quality-gate.md.
+
+- [x] Add unit coverage for frame-time summary edge cases and CSV escaping.
+- [x] Add a local-only device diagnostics panel with JSON / CSV export.
+- [x] Capture up to 600 active-gameplay frame intervals and summarize average, p95, worst and estimated FPS.
+- [x] Capture the latest Three.js draw calls, triangles, geometry / texture counts, drawing-buffer size and WebGL2 limits.
+- [x] Capture browser viewport, touch / PWA capability and Storage API / IndexedDB persistence information.
+- [x] Verify the full flow in Playwright: start a real sortie, collect a non-empty frame sample, return to hangar, and export JSON and CSV with non-zero rendering data.
+- [x] Document the physical-device procedure and unsupported metrics.
+- [ ] Run Safari / Brave on a physical iPhone, record 2-minute and 10-minute runs, and attach user-reviewed exports before making device-performance claims.
+
+Metric boundary: Three.js renderer.info resets at each render() call by default. The current game performs one render per animation frame and reads counters immediately afterward. If post-processing adds multiple render passes, set autoReset to false, reset once per frame, and then read the aggregate. Frame-time values are requestAnimationFrame interval estimates, not direct GPU timings.
+
+Privacy boundary: diagnostic collection is local-only; User-Agent is included in exported files and should be reviewed before sharing. The app does not read location, camera, microphone, contacts, battery or device temperature.

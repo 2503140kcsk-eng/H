@@ -7,6 +7,7 @@ The implementation repository is authoritative. Tool usage is restricted to capa
 | Tool | Assigned role | First milestone |
 |---|---|---|
 | GitHub | Source of truth, branches, commits, CI, issues and review trail | Active: feature branch and CI |
+| GitLab Beta | Optional independent mirror / second CI review | Connector is authenticated; no owned Starlight project exists, so do not create a duplicate project without a selected destination. GitHub stays authoritative |
 | Context7 | Verify current Three.js, PWA, Dexie and testing APIs before coding | Active: implementation references |
 | Superpowers | Process checklist for requirements decomposition, test-first workflow, debugging and review gates | Workflow represented in repo docs; no callable Superpowers connector is exposed in this session |
 | Vercel Hobby | Optional static HTTPS hosting; no server functions or paid add-ons | Connected team is Hobby, but project creation returned 403; no Vercel deployment is claimed. Revisit only after project-creation access is granted |
