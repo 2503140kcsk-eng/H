@@ -204,3 +204,18 @@ Files: vite.config.ts, package.json, scripts/verify-pages-build.mjs, .github/wor
 - [ ] A repository administrator selects Settings > Pages > Build and deployment > Source > GitHub Actions; then merge to main and verify the first deployment URL.
 
 Cost/security boundary: the Pages workflow uses GitHub Actions' hosted runner and GitHub's Pages artifact/deploy actions; it adds no runtime server, database, secret, third-party asset or paid API. The deployment job requires pages:write and id-token:write, is gated to refs/heads/main, and does not run for this draft PR's feature branch.
+### Task 13: Three-weapon hangar and combat loadout
+
+Files: src/game/weapons.ts, src/game/core.ts, src/game/Game.ts, src/main.ts, src/style.css, tests/weapons.test.ts, tests/e2e/app.spec.ts, README.md.
+
+- [ ] Add test-first coverage for weapon profile distinctions, default selection, locked/forged IDs, old local saves, old version-1 backup imports and new backup round trips.
+- [ ] Define three original profiles: Star Pulse (single standard shot), Prism Fan (three-shot spread with reduced per-shot damage), Nova Lance (high-damage, slower, one-target piercing shot).
+- [ ] Persist unlockedWeapons and selectedWeapon as additive version-1 fields. Older local saves and backups that omit them must migrate to Star Pulse without losing other progress.
+- [ ] Add a compact three-card weapon dock with shard unlock / select actions and show the active weapon in the combat HUD.
+- [ ] Feed weapon projectile count, spread, damage, cooldown, speed, radius, tint and pierce count into the existing capped Three.js projectile loop.
+- [ ] Reuse the current shared projectile geometry and bounded projectile list; do not add runtime packages or remotely loaded assets.
+- [ ] Test that Nova Lance damages each enemy at most once per projectile and can pass through exactly one additional target.
+- [ ] Add Playwright coverage for hangar selection, combat HUD selection, save persistence and JSON export/import.
+- [ ] Update README and repository tool-role notes; record that weapon values are starting design constants and still need physical iPhone balancing.
+
+Cost/performance ruling: no new dependencies, network requests, physics engine, post-processing pass or asset downloads. Simple custom hit tests remain sufficient for the bounded 18-enemy / 110-projectile arena.
