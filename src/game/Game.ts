@@ -5,7 +5,7 @@ import { TouchInput } from "./input";
 import { getPilotGrowthStats, getPilotProfile, type PilotProfile } from "./pilots";
 import { PICKUP_EFFECTS, selectPickupKind, type PickupKind } from "./pickups";
 import { getShipProfile, type ShipProfile } from "./ships";
-import { createWeaponShotSpecs, getWeaponFireInterval, getWeaponProfile, registerProjectileHit, type WeaponProfile, type WeaponShotSpec } from "./weapons";
+import { createWeaponShotSpecs, getWeaponFireInterval, getWeaponProfile, registerProjectileHit, WEAPON_PROFILES, type WeaponProfile, type WeaponShotSpec } from "./weapons";
 import { getActiveFrameIntervalMs, summarizeFrameTimes, type GameDiagnosticsSnapshot } from "./diagnostics";
 
 export type GameMode = "story" | "stage" | "endless";
@@ -124,9 +124,9 @@ export class Game {
     guardianShield: new THREE.MeshBasicMaterial({ color: 0x79ecff, transparent: true, opacity: 0.58 }),
     boss: new THREE.MeshStandardMaterial({ color: 0x8c7bff, metalness: 0.68, roughness: 0.25, emissive: 0x38267f }),
     bossCore: new THREE.MeshStandardMaterial({ color: 0xff83dc, metalness: 0.15, roughness: 0.2, emissive: 0xb20a71 }),
-    playerBullet: new THREE.MeshBasicMaterial({ color: 0x8cf5ff }),
-    playerBulletFan: new THREE.MeshBasicMaterial({ color: 0xffdc83 }),
-    playerBulletLance: new THREE.MeshBasicMaterial({ color: 0xff91e8 }),
+    playerBullet: new THREE.MeshBasicMaterial({ color: WEAPON_PROFILES["star-pulse"].tint }),
+    playerBulletFan: new THREE.MeshBasicMaterial({ color: WEAPON_PROFILES["prism-fan"].tint }),
+    playerBulletLance: new THREE.MeshBasicMaterial({ color: WEAPON_PROFILES["nova-lance"].tint }),
     enemyBullet: new THREE.MeshBasicMaterial({ color: 0xff72a9 }),
     shard: new THREE.MeshStandardMaterial({ color: 0x7deeff, emissive: 0x176c91, metalness: 0.25 }),
     repair: new THREE.MeshStandardMaterial({ color: 0xffa2c8, emissive: 0x8e2758 }),

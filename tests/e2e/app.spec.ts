@@ -184,7 +184,7 @@ test("weapon dock unlocks, persists, exports and equips the selected combat weap
   await page.goto("/");
   await page.evaluate(async () => {
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open("starlight-wing", 1);
+      const request = indexedDB.open("starlight-wing");
       request.onsuccess = () => resolve(request.result);
       request.onerror = () => reject(request.error);
     });
