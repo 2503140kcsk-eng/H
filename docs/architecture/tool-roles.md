@@ -73,9 +73,9 @@ Canonical implementation: this GitHub repository. All usage is limited to curren
 
 - **Pilot rendering:** a self-authored low-poly full-body procedural model is the offline fallback. The optional VRM loader operates on a user-selected file locally. No external character model, voice recording or face likeness is included.
 - **Voice and mouth movement:** browser speech synthesis is used when available; the avatar mouth/VRM `aa` expression is animated while the utterance is active. This is not studio voice acting or phoneme-accurate lip-sync. Availability and voice quality vary by iOS browser.
-- **Story:** pilot × planet scenes are data-driven; selected choices are saved. Following the signal on all three planets unlocks the one-time Celestial Echo bonus. More chapters/choice-dependent mission variants remain future content.
+- **Story / planetary events:** nine pilot × planet scenes persist two-way choices; those choices also select a second timed event stage on each planet (offensive target analysis or defensive escort/sanctuary). Following the signal on all three planets unlocks the one-time Celestial Echo bonus. A much longer chapter campaign with mission-wide branch rewrites remains future content.
 - **Bosses:** health thresholds drive three phases; destructible ports/armor gate associated attacks. Additional boss families, skins and full balance passes remain future work.
-- **Audio:** adaptive normal/boss motifs and combo-tier cues are synthesized at runtime. Recorded/arranged high-quality BGM and SFX are still an outstanding asset task.
+- **Audio:** adaptive normal/boss motifs now use a four-chord progression, sustained triads, bass roots, counter-line and a light pulse layer; combo tiers, Stage II events, boss phases and part breaks have dedicated cues. This is an original procedural synthesizer arrangement, not a recorded performance; recorded/mastered BGM and authored SFX remain outstanding.
 - **iPhone acceptance:** the checklist defines how to measure FPS/frame-time, missed touches, thermal state, WebGL context loss, PWA offline startup and file-based A↔B backup transfer. No physical measurements are recorded yet.
 
 ## No-cost preview and iPhone verification
