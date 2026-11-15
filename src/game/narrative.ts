@@ -19,7 +19,7 @@ export interface StoryScene {
   response: string | null;
 }
 
-const SCENES: Readonly<Record<PilotId, Readonly<Record<PlanetId, Omit<StoryScene, "key" | "selectedChoice" | "response">>>> = {
+const SCENES: Readonly<Record<PilotId, Readonly<Record<PlanetId, Omit<StoryScene, "key" | "selectedChoice" | "response">>>>> = {
   "lumi-asteria": {
     "aurora-prime": {
       title: "第一章：星図にない声",
