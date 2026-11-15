@@ -110,6 +110,12 @@ export function createAttackForecast(input: AttackForecastInput): AttackForecast
   };
 }
 
+/** Maximum half-angle of the visual danger envelope, in radians. */
+export function forecastHalfAngle(forecast: AttackForecast): number {
+  if (forecast.pattern !== "spread" || forecast.projectileCount <= 1) return 0;
+  return Math.min(1.2, forecast.spreadRadians * (forecast.projectileCount - 1) / 2);
+}
+
 /** Converts a warning into the exact projectile centre-lines used at release. */
 export function forecastPaths(forecast: AttackForecast, startDelaySeconds = 0): ThreatPath[] {
   const paths: ThreatPath[] = [];
@@ -119,7 +125,7 @@ export function forecastPaths(forecast: AttackForecast, startDelaySeconds = 0): 
   for (let index = 0; index < count; index += 1) {
     const offset = count === 1
       ? 0
-      : (index - (count - 1) / 2) * forecast.spreadRadians;
+      : clamp((index - (count - 1) / 2) * forecast.spreadRadians, -1.2, 1.2);
     const direction = rotate(forecast.direction, offset);
     paths.push({
       position: origin,
