@@ -825,14 +825,14 @@ export class Game {
     const direction = target
       ? new THREE.Vector2(target.x - origin.x, target.y - origin.y).normalize()
       : new THREE.Vector2(0, 1);
-    const count = weapon.id === "prism-laser" ? 1 : Math.min(5, 1 + Math.floor(this.pilotUpgrades.attack / 4) +
+    const count = weapon.id === "prism-laser" || (weapon.homing && weapon.pierce > 0) ? 1 : Math.min(5, 1 + Math.floor(this.pilotUpgrades.attack / 4) +
       (this.multishotTimer > 0 ? 2 : 0));
     const geometry = weapon.id === "prism-laser" ? this.shared.laserGeometry
-      : weapon.id === "comet-homing" ? this.shared.homingGeometry
-        : weapon.id === "nova-piercer" ? this.shared.pierceGeometry : this.shared.bulletGeometry;
+      : weapon.homing ? this.shared.homingGeometry
+        : weapon.pierce > 0 ? this.shared.pierceGeometry : this.shared.bulletGeometry;
     const material = weapon.id === "prism-laser" ? this.materials.laser
-      : weapon.id === "comet-homing" ? this.materials.homing
-        : weapon.id === "nova-piercer" ? this.materials.pierce : this.materials.playerBullet;
+      : weapon.homing ? this.materials.homing
+        : weapon.pierce > 0 ? this.materials.pierce : this.materials.playerBullet;
     for (let index = 0; index < count; index += 1) {
       const spread = (index - (count - 1) / 2) * 0.105;
       const velocity = direction.clone().rotateAround(new THREE.Vector2(), spread).multiplyScalar(weapon.projectileSpeed);
@@ -943,7 +943,7 @@ export class Game {
       const eventSpeed = bullet.owner === "enemy" ? this.enemyProjectileSpeedMultiplier : 1;
       bullet.mesh.position.x += bullet.velocity.x * dt * eventSpeed;
       bullet.mesh.position.y += bullet.velocity.y * dt * eventSpeed;
-      if (bullet.weaponId === "comet-homing" || bullet.weaponId === "prism-laser") {
+      if (bullet.homing || bullet.weaponId === "prism-laser") {
         bullet.mesh.rotation.z = Math.atan2(-bullet.velocity.x, bullet.velocity.y);
       }
       if (bullet.mesh.position.y > WORLD_HEIGHT / 2 + 2 || bullet.mesh.position.y < -WORLD_HEIGHT / 2 - 2 ||
