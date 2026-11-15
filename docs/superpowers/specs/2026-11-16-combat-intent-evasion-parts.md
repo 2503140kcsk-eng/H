@@ -40,6 +40,7 @@ The assessment evaluates five candidate controls: hold, left, right, up and down
 The result reports:
 
 - current risk (`clear`, `watch`, `danger`) if current movement is maintained;
+- movement-direction candidates as deliberate redirections, rather than adding a dodge vector to an old drag velocity;
 - the highest-clearance candidate, only when it materially improves safety;
 - current and recommended clearance, plus a conservative confidence value.
 
@@ -56,7 +57,7 @@ Named modules are independently damaged and are idempotently disabled once destr
 | Shield emitter | Deactivates the target's shield |
 | Core | A damaged core becomes exposed and increases incoming damage |
 
-Part hit selection is based on target-local impact coordinates normalized by collision radius. This gives the game a compact deterministic hit-zone function while avoiding a heavyweight physics dependency.
+Part hit selection is based on target-local impact coordinates normalized by collision radius. World-space projectile impact vectors are inverse-rotated and inverse-scaled before the hit-zone function is called. This gives the game a compact deterministic hit-zone function while avoiding a heavyweight physics dependency.
 
 ## 5. Balance and fairness constraints
 
