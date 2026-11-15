@@ -5,6 +5,7 @@ import { exportBackup, importBackup } from "./persistence/backup";
 import { getSavePersistenceStatus, loadSave, saveProgress } from "./persistence/database";
 import { ALL_PILOT_IDS, PILOT_PROFILES, getPilotProfile, isPilotId } from "./game/pilots";
 import { ALL_SHIP_IDS, SHIP_PROFILES, isShipId } from "./game/ships";
+import { collectDeviceDiagnostics, diagnosticsToCsv, type DeviceDiagnosticsReport, type GameDiagnosticsSnapshot } from "./game/diagnostics";
 import "./style.css";
 
 registerSW({ immediate: true });
@@ -66,6 +67,7 @@ uiRoot.innerHTML = `
         <label>操作感度 <input id="sensitivity" type="range" min="0.35" max="2.5" step="0.05" value="1" /></label>
         <label>効果音 <input id="volume" type="range" min="0" max="1" step="0.05" value="0.65" /></label>
         <p>セーブはこの端末内に保存。機種変更はJSONバックアップで引き継げます。</p>
+        <button id="diagnostics-open" class="sub-button" type="button">📱 iPhone・ブラウザ診断</button>
       </div>
       <p id="save-status" class="save-status" role="status" aria-live="polite">端末内保存：確認中…</p>
       <p class="fine-print">NO ADS · NO GACHA · NO PAY-TO-WIN</p>
@@ -127,6 +129,21 @@ uiRoot.innerHTML = `
     </div>
   </section>
 
+  <section id="diagnostics-modal" class="modal diagnostics-modal" role="dialog" aria-modal="true" aria-labelledby="diagnostics-title" hidden>
+    <div class="modal-card diagnostics-card">
+      <p class="eyebrow">DEVICE QUALITY GATE</p>
+      <h2 id="diagnostics-title">端末診断レポート</h2>
+      <p class="diagnostics-privacy">診断はこの端末内で実行され、外部送信されません。ファイル出力時だけ、内容を確認して共有できます。</p>
+      <p id="diagnostics-status" class="diagnostics-status" role="status" aria-live="polite">「診断を更新」を押してください。</p>
+      <pre id="diagnostics-output" class="diagnostics-output">まだ診断していません。</pre>
+      <div class="diagnostics-actions">
+        <button id="diagnostics-refresh" class="large-button" type="button">診断を更新</button>
+        <button id="diagnostics-json" class="sub-button" type="button" disabled>JSONを書き出す</button>
+        <button id="diagnostics-csv" class="sub-button" type="button" disabled>CSVを書き出す</button>
+        <button id="diagnostics-close" class="sub-button" type="button">閉じる</button>
+      </div>
+    </div>
+  </section>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 `;
 
@@ -145,6 +162,11 @@ const toast = byId<HTMLDivElement>("toast");
 const sensitivityInput = byId<HTMLInputElement>("sensitivity");
 const volumeInput = byId<HTMLInputElement>("volume");
 const saveFileInput = byId<HTMLInputElement>("save-file");
+const diagnosticsModal = byId<HTMLElement>("diagnostics-modal");
+const diagnosticsStatus = byId<HTMLParagraphElement>("diagnostics-status");
+const diagnosticsOutput = byId<HTMLPreElement>("diagnostics-output");
+const diagnosticsJsonButton = byId<HTMLButtonElement>("diagnostics-json");
+const diagnosticsCsvButton = byId<HTMLButtonElement>("diagnostics-csv");
 
 let save: SaveData = createDefaultSave();
 let game: Game | null = null;
@@ -153,6 +175,8 @@ let runActive = false;
 let paused = false;
 let audioContext: AudioContext | null = null;
 let toastTimeout = 0;
+let lastGameDiagnostics: GameDiagnosticsSnapshot | null = null;
+let diagnosticReport: DeviceDiagnosticsReport | null = null;
 
 function showToast(message: string): void {
   toast.textContent = message;
@@ -191,7 +215,9 @@ function formatTime(seconds: number): string {
 function showMenu(): void {
   runActive = false;
   paused = false;
+  retainGameDiagnostics();
   game?.dispose();
+  diagnosticsModal.hidden = true;
   game = null;
   menuScreen.hidden = false;
   gameHud.hidden = true;
@@ -272,6 +298,15 @@ async function persist(): Promise<void> {
   refreshMenu();
 }
 
+function retainGameDiagnostics(): void {
+  if (!game) return;
+  try {
+    lastGameDiagnostics = game.getDiagnosticsSnapshot();
+  } catch {
+    // Diagnostics are optional; renderer teardown must not interrupt navigation.
+  }
+}
+
 function makeGame(): Game {
   return new Game({
     canvas: gameCanvas,
@@ -294,6 +329,7 @@ function makeGame(): Game {
 
 function startRun(mode: GameMode): void {
   try {
+    retainGameDiagnostics();
     game?.dispose();
     game = makeGame();
     currentMode = mode;
@@ -343,6 +379,7 @@ function updateHud(state: HudState): void {
 
 async function handleRunEnd(result: RunResult): Promise<void> {
   if (!runActive) return;
+  retainGameDiagnostics();
   runActive = false;
   paused = false;
   gameHud.hidden = true;
@@ -403,6 +440,37 @@ function resumeGame(): void {
   pauseModal.hidden = true;
   game.resume();
   playTone(520);
+}
+
+async function refreshDiagnostics(): Promise<void> {
+  diagnosticsStatus.textContent = "端末情報と保存領域を確認しています…";
+  diagnosticsJsonButton.disabled = true;
+  diagnosticsCsvButton.disabled = true;
+  try {
+    diagnosticReport = await collectDeviceDiagnostics(getSavePersistenceStatus(), lastGameDiagnostics);
+    diagnosticsOutput.textContent = JSON.stringify(diagnosticReport, null, 2);
+    diagnosticsStatus.textContent = diagnosticReport.game
+      ? "診断を取得しました。直近のプレイ時の描画性能も含みます。"
+      : "診断を取得しました。描画性能は1回プレイすると追加されます。";
+    diagnosticsJsonButton.disabled = false;
+    diagnosticsCsvButton.disabled = false;
+  } catch (error) {
+    diagnosticReport = null;
+    diagnosticsOutput.textContent = "診断情報を取得できませんでした。";
+    diagnosticsStatus.textContent = error instanceof Error ? error.message : "診断に失敗しました。";
+  }
+}
+
+function downloadDiagnostic(content: string, mimeType: string, extension: "json" | "csv"): void {
+  const stamp = new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-");
+  const url = URL.createObjectURL(new Blob([content], { type: mimeType }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `starlight-wing-diagnostics-${stamp}.${extension}`;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 async function initialize(): Promise<void> {
@@ -497,6 +565,20 @@ byId("shield-button").addEventListener("click", () => {
 });
 byId("settings-toggle").addEventListener("click", () => {
   settingsPanel.hidden = !settingsPanel.hidden;
+});
+byId("diagnostics-open").addEventListener("click", () => {
+  diagnosticsModal.hidden = false;
+  void refreshDiagnostics();
+});
+byId("diagnostics-refresh").addEventListener("click", () => { void refreshDiagnostics(); });
+byId("diagnostics-close").addEventListener("click", () => { diagnosticsModal.hidden = true; });
+diagnosticsJsonButton.addEventListener("click", () => {
+  if (!diagnosticReport) return;
+  downloadDiagnostic(JSON.stringify(diagnosticReport, null, 2), "application/json;charset=utf-8", "json");
+});
+diagnosticsCsvButton.addEventListener("click", () => {
+  if (!diagnosticReport) return;
+  downloadDiagnostic(diagnosticsToCsv(diagnosticReport), "text/csv;charset=utf-8", "csv");
 });
 byId("export-save").addEventListener("click", () => {
   exportBackup(save);
