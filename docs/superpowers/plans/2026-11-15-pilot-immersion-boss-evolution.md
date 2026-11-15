@@ -45,9 +45,10 @@ Base: `feat/planetary-combat-expansion`
 - [ ] Add more boss families, new attack telegraphs and a full balance pass based on observed play data.
 
 ### F. Sound and presentation
-- [x] Add combo-tier audio accents to the existing adaptive Web Audio score.
+- [x] Add combo-tier accents and a layered four-chord synthesizer arrangement to the adaptive Web Audio score.
+- [x] Synchronize event-stage, boss-phase and part-destruction cues.
 - [x] Surface boss phase and remaining part counts in the HUD.
-- [ ] Create original recorded/arranged BGM and SFX with clear rights and mix/mastering.
+- [ ] Record, mix and master professional BGM/SFX assets with clear rights.
 
 ### H. Additional customization and balancing
 - [x] Add Astra-Arc as a fourth ship with a distinct resonator silhouette and stat profile.
