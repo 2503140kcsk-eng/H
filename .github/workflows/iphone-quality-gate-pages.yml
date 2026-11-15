@@ -1,0 +1,64 @@
+name: iPhone Quality Gate and GitHub Pages Candidate
+
+on:
+  push:
+    branches: [feat/iphone-quality-gate]
+  pull_request:
+    branches: [feat/pilot-immersion-boss-evolution]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: iphone-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Set up Node.js 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 22
+      - name: Use stable npm dependency resolution
+        run: npm install --global npm@11.21.2
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Run unit and regression tests
+        run: npm test
+      - name: Check default production build
+        run: npm run build
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run iPhone-sized browser tests
+        run: npm run test:e2e
+      - name: Build GitHub Pages candidate
+        env:
+          GITHUB_PAGES: "true"
+        run: npm run build
+      - name: Upload Pages candidate artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9
+        with:
+          path: ./dist
+
+  deploy-candidate:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/feat/iphone-quality-gate'
+    needs: quality
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d
+      - name: Deploy tested candidate
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346

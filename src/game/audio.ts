@@ -28,6 +28,24 @@ export class SoundDirector {
     if (this.master && this.context) this.master.gain.setTargetAtTime(this.volume * 0.34, this.context.currentTime, 0.04);
   }
 
+  getDiagnostics(): { supported: boolean; state: string } {
+    if (typeof window === "undefined" || !("AudioContext" in window)) {
+      return { supported: false, state: "unavailable" };
+    }
+    return { supported: true, state: this.context?.state ?? "not-created" };
+  }
+
+  async resumeFromGesture(): Promise<string> {
+    const context = this.unlock();
+    if (!context) return "unavailable";
+    try {
+      if (context.state === "suspended") await context.resume();
+    } catch {
+      // The browser may still require another direct user gesture.
+    }
+    return context.state;
+  }
+
   private unlock(): AudioContext | null {
     if (!("AudioContext" in window)) return null;
     try {

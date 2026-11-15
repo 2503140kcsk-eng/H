@@ -12,6 +12,7 @@ import { ALL_SHIP_IDS, SHIP_PROFILES, isShipId } from "./game/ships";
 import { ACHIEVEMENTS, evaluateAchievements } from "./game/achievements";
 import { ALL_PLANET_IDS, PLANETS, getPlanetProfile, isPlanetUnlocked, type PlanetId } from "./game/campaign";
 import { SoundDirector } from "./game/audio";
+import { mountIphoneQualityGate } from "./diagnostics/iphone-quality-gate";
 import { ALL_WEAPON_IDS, WEAPON_PROFILES, isWeaponId } from "./game/weapons";
 import "./style.css";
 
@@ -116,6 +117,7 @@ uiRoot.innerHTML = `
         <button id="settings-toggle" class="text-button">⚙ 設定</button>
         <button id="export-save" class="text-button">↓ セーブ書き出し</button>
         <button id="import-save" class="text-button">↑ 読み込み</button>
+        <button id="iphone-quality-open" class="text-button">◎ iPhone診断 / Q-TRACE</button>
         <input id="save-file" type="file" accept=".json,application/json" hidden />
       </div>
       <div id="settings-panel" class="settings-panel" hidden>
@@ -125,6 +127,30 @@ uiRoot.innerHTML = `
       </div>
       <p id="save-status" class="save-status" role="status" aria-live="polite">端末内保存：確認中…</p>
       <p class="fine-print">NO ADS · NO GACHA · NO PAY-TO-WIN</p>
+    </div>
+  </section>
+
+  <section id="iphone-quality-screen" class="iphone-quality-screen" role="dialog" aria-modal="true" aria-labelledby="iphone-quality-title" hidden>
+    <div class="iphone-quality-card">
+      <header class="quality-heading">
+        <div>
+          <h2 id="iphone-quality-title">Q-TRACE · iPhone Quality Gate</h2>
+          <p>機能の申告・実行中の観測・実機での確認を分離した品質パスポートです。</p>
+        </div>
+      </header>
+      <div id="quality-summary" aria-live="polite"></div>
+      <div id="quality-checks" aria-live="polite"></div>
+      <section class="quality-manual-section">
+        <h3>実機で確認した項目</h3>
+        <div id="quality-manual-checks"></div>
+      </section>
+      <footer class="quality-actions">
+        <button id="quality-refresh" type="button">再診断</button>
+        <button id="quality-audio-resume" type="button">音声を再開して確認</button>
+        <button id="quality-export-json" type="button">JSON出力</button>
+        <button id="quality-export-csv" type="button">CSV出力</button>
+        <button id="quality-close" type="button">閉じる</button>
+      </footer>
     </div>
   </section>
 
@@ -224,6 +250,7 @@ let previewPilotId = "";
 let previewSkinId = "";
 let lastComboCue = 0;
 const sound = new SoundDirector();
+mountIphoneQualityGate({ canvas: gameCanvas, getPersistenceStatus: getSavePersistenceStatus, audio: sound });
 let toastTimeout = 0;
 let commsTimeout = 0;
 const commsQueue: Array<{ speaker: string; message: string }> = [];
