@@ -316,7 +316,8 @@ test("upgrades both v1 IndexedDB save stores to v2 without losing progression", 
     return result;
   });
 
-  expect(migrated.version).toBe(2);
+  // Dexie encodes schema version 2 as native IndexedDB version 20.
+  expect(migrated.version).toBe(20);
   expect(migrated.active?.data).toMatchObject({
     version: 2, shards: 1450, selectedShip: "Aqua-Comet"
   });
