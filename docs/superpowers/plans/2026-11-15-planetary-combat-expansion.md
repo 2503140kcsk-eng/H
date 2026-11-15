@@ -61,9 +61,14 @@ Extend the existing iPhone-first Three.js shooter with a meaningful second progr
 3. GitHub Actions: TypeScript production check, Vitest, Vite/PWA production build and iPhone-sized Chromium E2E.
 4. Physical-device checklist below must be completed before calling the build iPhone-certified.
 
+## Preview caveat
+
+The StackBlitz link is a source-backed test route, not a guaranteed iPhone deployment. The current WebContainers browser guide (updated October 2026) lists desktop Chromium as fully supported and Safari as beta; cross-origin-isolation limitations can affect projects in non-Chromium browsers. On iOS, memory limits add another practical risk. A stable static-host preview (for example, Pages) remains a separate deployment task; no Vercel project or paid hosting was created for this milestone.
+
 ## Physical iPhone checklist (not replaced by Chromium CI)
 
-- [ ] Open the branch StackBlitz preview in iPhone Safari; start Vite and open the preview in its own tab.
+- [ ] Attempt the branch StackBlitz preview in iPhone Safari; WebContainer/Safari support is beta, so record whether boot succeeds rather than treating the link as a guaranteed deploy.
+- [ ] If Safari cannot run the WebContainer, use a future static-hosted build URL; do not count the StackBlitz editor itself as iPhone certification.
 - [ ] Drag continuously across the full play area and confirm action buttons do not steal movement touches.
 - [ ] Switch weapon slots while moving; inspect homing target acquisition and pierce behavior.
 - [ ] Observe boss warning line and open/closed weakpoint state through both phases.

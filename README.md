@@ -47,9 +47,9 @@ npm run preview
 
 ## iPhoneでの試遊
 
-**拡張ブランチのブラウザ試遊:** [StackBlitzで feat/planetary-combat-expansion を開く](https://stackblitz.com/github/2503140kcsk-eng/H/tree/feat/planetary-combat-expansion)
+**拡張ブランチの試遊用プレビュー:** [StackBlitzで feat/planetary-combat-expansion を開く](https://stackblitz.com/github/2503140kcsk-eng/H/tree/feat/planetary-combat-expansion)
 
-StackBlitzはこの公開GitHubブランチを読み込むため、`feat/planetary-combat-expansion` のコミットが試遊環境へ反映されます。読み込み後にViteのプレビューを起動し、プレビューを別タブで開くとiPhoneで操作しやすくなります。iOS SafariでのWebContainersはベータ対応で、メモリ制限により大きなプロジェクトで停止する場合があります。まずSafariで試し、プレビューが起動しない場合はPCブラウザでの確認が必要です。iOS版BraveでのStackBlitz開発環境の動作は未検証です。
+StackBlitzはこの公開GitHubブランチを読み込み、Viteプレビューを起動できます。ただしWebContainersのSafari対応はベータ扱いで、iPhoneではメモリ制約やクロスオリジン分離の差により起動できない場合があります。確実なiPhone配布URLはまだ設定していません。ChatGPTの会話本文内でこのThree.js/Viteアプリ自体を直接実行することもできません。読み込み後にViteのプレビューを起動し、プレビューを別タブで開くとiPhoneで操作しやすくなります。iOS SafariでのWebContainersはベータ対応で、メモリ制限により大きなプロジェクトで停止する場合があります。まずSafariで試し、プレビューが起動しない場合はPCブラウザでの確認が必要です。iOS版BraveでのStackBlitz開発環境の動作は未検証です。
 
 このStackBlitz URLは**開発用プレビュー**であり、正式な配布URLやiPhone実機の動作保証ではありません。ゲームのセーブ領域もStackBlitzのプレビューオリジンに属します。実機でのPWAインストール、Safari / BraveのGPU負荷、長時間プレイ、機種変更復元は別途確認が必要です。
 
