@@ -233,7 +233,7 @@ export function createDiagnosticCsv(packet: DiagnosticPacket): string {
   for (const [key, value] of Object.entries(packet.environment)) {
     rows.push([`env:${key}`, "environment", "INFO", key, value, ""]);
   }
-  return rows.map((row) => row.map(escapeCsv).join(",")).join("\r\n");
+  return "\uFEFF" + rows.map((row) => row.map(escapeCsv).join(",")).join("\r\n");
 }
 
 export interface AudioDiagnostics {
@@ -399,7 +399,7 @@ export function mountIphoneQualityGate(options: QualityGateMountOptions): void {
     summaryElement.replaceChildren();
     const score = document.createElement("strong");
     score.className = "quality-score";
-    score.textContent = String(summary.score) + "/100";
+    score.textContent = "自動 " + String(summary.score) + "/100";
     const disposition = document.createElement("span");
     disposition.className = "quality-disposition disposition-" + summary.disposition;
     disposition.textContent = summary.disposition === "ready" ? "自動診断・実機確認: PASS" : summary.disposition === "blocked" ? "自動診断: BLOCKED" : "実機確認が必要";
