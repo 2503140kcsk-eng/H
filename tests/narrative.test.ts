@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getStoryChoiceKey,
   getStoryScene,
+  getStoryCombatBonuses,
   hasSecretStarRoute,
   normalizeStoryChoices
 } from "../src/game/narrative";
@@ -24,6 +25,19 @@ describe("branching pilot narrative", () => {
     const complete = { ...choices, [getStoryChoiceKey("lumi-asteria", "noctis-archive")]: "follow-signal" };
     expect(hasSecretStarRoute("lumi-asteria", complete)).toBe(true);
     expect(getStoryScene("lumi-asteria", "noctis-archive", complete)?.response).toContain("星環ルート");
+  });
+
+
+  it("turns a narrative decision into a distinct sortie preparation bonus", () => {
+    expect(getStoryCombatBonuses("follow-signal")).toEqual({
+      weakpointMultiplier: 1.1, hullBonus: 0, shieldRechargeMultiplier: 1
+    });
+    expect(getStoryCombatBonuses("protect-crew")).toEqual({
+      weakpointMultiplier: 1, hullBonus: 1, shieldRechargeMultiplier: 1.1
+    });
+    expect(getStoryCombatBonuses(undefined)).toEqual({
+      weakpointMultiplier: 1, hullBonus: 0, shieldRechargeMultiplier: 1
+    });
   });
 
   it("drops unknown pilot, planet and branch values", () => {
