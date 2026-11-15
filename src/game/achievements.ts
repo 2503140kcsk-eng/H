@@ -11,7 +11,7 @@ export const ACHIEVEMENTS: readonly AchievementProfile[] = [
   { id: "core-breaker", name: "コアブレイカー", description: "ボスを1体撃破する" },
   { id: "ace-pilot", name: "エースの証", description: "1 sortie で50機撃破する" },
   { id: "star-score", name: "星を越える者", description: "1 sortie で5,000点を獲得する" },
-  { id: "arsenal", name: "全武装解放", description: "4種類の武器をすべて解放する" },
+  { id: "arsenal", name: "全武装解放", description: "5種類の武器をすべて解放する" },
   { id: "galaxy-keeper", name: "銀河の守護者", description: "3惑星のキャンペーンを完了する" }
 ] as const;
 
