@@ -73,6 +73,15 @@ export class SoundDirector {
     }
   }
 
+  playCombo(count: number): void {
+    const tier = Math.max(1, Math.min(8, Math.floor(count / 5)));
+    const root = 392 * Math.pow(2, (tier - 1) / 12);
+    this.note(root, 0.09, "triangle", 0.11 * this.volume);
+    const at = (this.context?.currentTime ?? 0) + 0.055;
+    this.note(root * 1.25, 0.13, "sine", 0.075 * this.volume, at);
+    if (tier >= 4) this.note(root * 1.5, 0.18, "sine", 0.045 * this.volume, at + 0.05);
+  }
+
   setBossMode(active: boolean): void {
     if (this.bossMode === active) return;
     this.bossMode = active;
