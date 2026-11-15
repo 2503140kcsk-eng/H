@@ -225,7 +225,7 @@ test("weapon dock unlocks, persists, exports and equips the selected combat weap
   await page.locator('[data-weapon-id="prism-fan"]').click();
   await expect(page.locator('[data-weapon-id="prism-fan"]')).toHaveAttribute("aria-pressed", "true");
   await page.locator('[data-weapon-id="nova-lance"]').click();
-  await expect(page.locator('[data-weapon-id="nova-lance"]')).toHaveAttribute("aria-pressed", "true');
+  await expect(page.locator('[data-weapon-id="nova-lance"]')).toHaveAttribute("aria-pressed", "true");
 
   await page.reload();
   await expect(page.locator('[data-weapon-id="nova-lance"]')).toHaveAttribute("aria-pressed", "true");
