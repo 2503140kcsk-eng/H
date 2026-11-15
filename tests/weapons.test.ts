@@ -5,11 +5,14 @@ import {
 } from "../src/game/weapons";
 
 describe("weapon lab", () => {
-  it("provides four mechanically distinct weapons with bounded values", () => {
-    expect(ALL_WEAPON_IDS).toHaveLength(4);
+  it("provides five mechanically distinct weapons with bounded values", () => {
+    expect(ALL_WEAPON_IDS).toHaveLength(5);
     expect(WEAPON_PROFILES["prism-laser"].fireIntervalMultiplier).toBeGreaterThan(1);
     expect(WEAPON_PROFILES["comet-homing"].homing).toBe(true);
     expect(WEAPON_PROFILES["nova-piercer"].pierce).toBeGreaterThan(0);
+    expect(WEAPON_PROFILES["eclipse-lance"].homing).toBe(true);
+    expect(WEAPON_PROFILES["eclipse-lance"].pierce).toBe(1);
+    expect(WEAPON_PROFILES["eclipse-lance"].damageMultiplier).toBeGreaterThan(WEAPON_PROFILES["nova-piercer"].damageMultiplier);
     for (const profile of Object.values(WEAPON_PROFILES)) {
       expect(profile.damageMultiplier).toBeGreaterThan(0);
       expect(profile.projectileSpeed).toBeGreaterThan(0);
