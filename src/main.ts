@@ -542,6 +542,8 @@ function makeGame(): Game {
       showToast(message);
       showComms(speaker, message);
       if (message.includes("弱点コア開放")) sound.cue("weakpoint");
+      else if (message.includes("第二段階") || message.includes("を破壊")) sound.cue("special");
+      else if (message.includes("形態")) sound.cue("boss");
       else if (message.includes("撃破")) sound.cue("victory");
       else if (message.includes("達成")) sound.cue("unlock");
     },
