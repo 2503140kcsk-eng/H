@@ -29,6 +29,8 @@ export interface ThreatPath {
   readonly velocity: Vector2Like;
   readonly radius: number;
   readonly source: "forecast" | "projectile";
+  /** Seconds until a telegraphed path becomes an active projectile. */
+  readonly startDelaySeconds?: number;
 }
 
 export interface EvasionBounds {
@@ -108,7 +110,7 @@ export function createAttackForecast(input: AttackForecastInput): AttackForecast
 }
 
 /** Converts a warning into the exact projectile centre-lines used at release. */
-export function forecastPaths(forecast: AttackForecast): ThreatPath[] {
+export function forecastPaths(forecast: AttackForecast, startDelaySeconds = 0): ThreatPath[] {
   const paths: ThreatPath[] = [];
   const count = forecast.pattern === "spread" ? forecast.projectileCount : 1;
   const origin = { ...forecast.origin };
@@ -125,7 +127,8 @@ export function forecastPaths(forecast: AttackForecast): ThreatPath[] {
         y: direction.y * forecast.projectileSpeed
       },
       radius: forecast.projectileRadius,
-      source: "forecast"
+      source: "forecast",
+      startDelaySeconds: clamp(finite(startDelaySeconds, 0), 0, 4)
     });
   }
 
@@ -143,16 +146,20 @@ function closestClearance(
   let minimum = Number.POSITIVE_INFINITY;
 
   for (const threat of threats) {
-    const relativeX = finite(threat.position.x, 0) - playerPosition.x;
-    const relativeY = finite(threat.position.y, 0) - playerPosition.y;
+    const delay = clamp(finite(threat.startDelaySeconds ?? 0, 0), 0, horizon);
     const relativeVelocityX = finite(threat.velocity.x, 0) - playerVelocity.x;
     const relativeVelocityY = finite(threat.velocity.y, 0) - playerVelocity.y;
+    const relativeX = finite(threat.position.x, 0) + finite(threat.velocity.x, 0) * delay
+      - (playerPosition.x + playerVelocity.x * delay);
+    const relativeY = finite(threat.position.y, 0) + finite(threat.velocity.y, 0) * delay
+      - (playerPosition.y + playerVelocity.y * delay);
+    const remainingHorizon = Math.max(0, horizon - delay);
     const speedSquared = relativeVelocityX ** 2 + relativeVelocityY ** 2;
     const closestTime = speedSquared > EPSILON
       ? clamp(
           -(relativeX * relativeVelocityX + relativeY * relativeVelocityY) / speedSquared,
           0,
-          horizon
+          remainingHorizon
         )
       : 0;
     const distance = Math.hypot(
