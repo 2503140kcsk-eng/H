@@ -23,7 +23,7 @@ describe("deterministic attack forecasts", () => {
 
   it("creates a symmetric, reproducible fan preview", () => {
     const forecast = createAttackForecast({
-      origin: { x: 2, y: 4 },
+      origin: { x: 0, y: 4 },
       target: { x: 0, y: 0 },
       pattern: "spread",
       projectileSpeed: 5,
@@ -37,6 +37,7 @@ describe("deterministic attack forecasts", () => {
     expect(first[0].velocity.x).toBeCloseTo(-first[4].velocity.x);
     expect(first[0].velocity.y).toBeCloseTo(first[4].velocity.y);
     expect(first[2].velocity.x).toBeCloseTo(forecast.direction.x * 5);
+    expect(first[2].velocity.y).toBeCloseTo(forecast.direction.y * 5);
   });
 
   it("bounds malformed inputs and handles a zero-length aim vector", () => {
@@ -79,6 +80,25 @@ describe("evasion scoring", () => {
     expect(result.risk).toBe("danger");
     expect(["left", "right", "up", "down"]).toContain(result.recommended);
     expect(result.recommendedClearance).toBeGreaterThan(result.currentClearance);
+  });
+
+  it("does not treat a warning path as active before its release delay", () => {
+    const warning: ThreatPath = {
+      position: { x: 0, y: 0 },
+      velocity: { x: 0, y: -5 },
+      radius: 0.2,
+      source: "forecast",
+      startDelaySeconds: 1
+    };
+    const result = assessEvasion(
+      { x: 0, y: 0 },
+      { x: 0, y: 0 },
+      [warning],
+      bounds,
+      { horizonSeconds: 0.8 }
+    );
+    expect(result.risk).toBe("clear");
+    expect(result.recommended).toBe("hold");
   });
 
   it("returns hold when no hostile paths are present", () => {
