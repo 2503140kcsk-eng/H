@@ -64,6 +64,13 @@ The effects are multiplied with existing ship and pilot coefficients; they are n
 - Mission events, parts, weakpoint windows and victory cues are synchronized to the existing audio director.
 - This is not recorded or arranged high-quality BGM. Recorded/licensed tracks and authored SFX remain a separate production task requiring provenance, license review and audio mixing.
 
+## Additional equipment and cosmetic differentiation
+
+- Add the unlockable `Astra-Arc` resonator ship. It has a unique swept-wing silhouette and resonance ring plus its own stat trade-off: attack 1.12×, fire interval 1.08×, movement 1.02×, zero hull bonus, shield recharge 0.92×, unlock cost 980 shards.
+- Add `Eclipse Lance`, a fifth weapon that combines homing and one-target piercing. It uses a single high-output projectile, damage 1.72×, fire interval 1.92×, speed 12.2 and unlock cost 680 shards.
+- Add the unlockable `Nebula Veil` pilot outfit palette. It recolors the uniform and accessory/trim materials and is stored separately from the chosen pilot identity. Unlock cost: 540 shards.
+- The fifth weapon also updates the arsenal achievement requirement from four to five weapons.
+
 ## Save and backup
 
 - Persist pilot-specific skill IDs, planet/pilot story choices and the Celestial Echo flag in the version-1 save payload.
