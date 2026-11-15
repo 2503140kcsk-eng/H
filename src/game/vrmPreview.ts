@@ -141,8 +141,8 @@ export class VrmPreview {
       this.camera.position.set(0, 0.93, 3.45);
       this.camera.lookAt(0, 0.82, 0);
       this.resize();
-      const modelName = vrm.meta?.name?.trim();
-      return modelName || "VRMパイロット";
+      // VRM 0.x and 1.0 metadata use different schemas; avoid assuming one shared name field.
+      return "VRMパイロット";
     } catch (error) {
       if (gltf) VRMUtils.deepDispose(gltf.scene);
       throw error;
