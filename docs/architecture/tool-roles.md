@@ -1,67 +1,94 @@
-# Tool and Repository Role Allocation
+# Tool and Repository Role Allocation — Pilot Immersion & Boss Evolution
 
-The implementation repository is authoritative. Tool usage is restricted to capabilities already connected and actions that stay within free/no-charge limits. A tool being connected does not imply that every feature or AI-credit allowance in that product is free.
+Updated: 2026-11-15  
+Canonical implementation: this GitHub repository. All usage is limited to currently available connector permissions and genuinely free/no-charge actions. A connected product does **not** imply free access to its paid tiers, AI credits, cloud compute, or storage.
 
-## Connected work roles
+## Operating rules
 
-| Tool | Assigned role | First milestone |
+1. The browser game remains a static, local-first PWA. No login, cloud database, online leaderboard, remote analytics, or paid API is required for the current build.
+2. GitHub is the source of truth. External project boards and document mirrors do not supersede code, tests, and decisions committed here.
+3. Imported art/audio is not shipped until its exact file-level license and redistribution terms are reviewed.
+4. CI and Chromium E2E are not physical iPhone evidence. Real Safari/Brave measurements require a real device and are explicitly recorded in `docs/qa/iphone-field-test.md`.
+5. Paid features, Firefly credits, hosted compute, and external quotas are never assumed to be free.
+
+## Connector responsibility matrix
+
+| Connector / tool | Assigned responsibility | Use in this milestone / cost guardrail |
 |---|---|---|
-| GitHub | Source of truth, branch/commit/PR management, CI and review trail | Active: parent MVP PR plus stacked `feat/planetary-combat-expansion` work branch |
-| Context7 | Verify Three.js animation-loop, dynamic geometry and GPU resource disposal contracts before coding | Active: Three.js documentation checked for this expansion |
-| Superpowers | Process checklist for requirements decomposition, test-first workflow, debugging and review gates | Test-first/design review workflow recorded in GitHub docs; no callable Superpowers connector is exposed in this session |
-| Vercel Hobby | Optional static HTTPS hosting; no server functions or paid add-ons | Connected team is Hobby, but project creation returned 403; no Vercel deployment is claimed. Revisit only after project-creation access is granted |
-| Figma | Touch HUD layout, component states and visual design review | Connected Figma seat is `View` on Starter; review only unless editing access becomes available |
-| Canva | Optional key art, title card and store/promo graphics; never a runtime dependency | Not used for this code milestone; no paid template or AI credits assumed |
-| Adobe | Optional vector cleanup, sprite/texture editing and audio/video polish; never a runtime dependency | Not used for this code milestone; Firefly credits and subscription entitlements are not assumed free |
-| Notion | Optional roadmap and milestone mirror; GitHub docs remain canonical | No workspace write required for this source-of-truth milestone |
-| Supabase | Not used for first milestone: no login/cloud sync is required; avoid introducing a backend bill or a network dependency | Deferred; reconsider only for opt-in cloud sync after explicit scope and free-quota check |
+| GitHub | Source control, branch/PR review, issue trail, Actions, test evidence | **Active.** Changes are committed to `feat/pilot-immersion-boss-evolution`; CI runs on push. |
+| Context7 | Verify current Three.js / three-vrm APIs, loading and resource-disposal practices | **Active.** Checked VRM loader and expression-manager integration before implementation. |
+| Figma | HUD layout review, safe-area/landscape component states, visual hierarchy | Connected seat is View-only in this workspace; review/reference only, no Figma write claimed. |
+| Canva | Optional title art, character cards and store/promo graphics | Not needed by runtime. Use only available free elements; no paid template or AI credits assumed. |
+| Adobe | Offline vector/texture/audio editing and export review | Optional future asset finishing; no paid Firefly generation or subscription assets assumed. |
+| Superpowers | Requirements decomposition, test-first workflow, adversarial review checklist | No callable Superpowers connector is exposed in this session. Its workflow is represented in committed specifications, tests and CI gates; no tool execution claimed. |
+| Vercel | Static HTTPS preview / deployment | Hobby project creation previously returned HTTP 403; no deployment is claimed. Revisit only when the connected account permits a free static deployment. |
+| Supabase | Optional opt-in cloud save synchronization and account recovery | Deferred. The game currently avoids accounts and remote user data; check free quota and privacy design before any future adoption. |
+| Notion | Roadmap mirror, narrative bible, design decision index | Optional mirror only; GitHub docs remain canonical. No paid workspace feature assumed. |
+| Asana | Milestone task list, dependency/acceptance checklist | Optional planning surface; do not duplicate GitHub issues without a concrete need. |
+| Atlassian Rovo | Jira/Confluence discovery, cross-team dependency and decision search | Optional team workflow; no remote Jira/Confluence changes claimed. |
+| Linear | Bug triage and release milestone tracking | Optional issue mirror; GitHub Actions and PRs are the current execution trail. |
+| Slack | Human-readable release notes and CI failure summaries | Optional notification sink; no messages or workspace changes claimed. |
+| Automations | Opt-in scheduled CI/preview checks or release reminders | Not required for this finite implementation. No background monitoring is claimed. |
+| Amplitude | Product funnel and retention analysis | Disabled / not integrated. No analytics SDK, user tracking or remote event transfer in this build. |
+| PostHog | Opt-in product analytics and feature-flag experiments | Disabled / not integrated. Never enable without an explicit privacy and consent decision. |
+| Neon | Future relational service if a separately approved online account system is required | Deferred; no database or paid compute introduced. |
+| Convex | Future real-time cloud state / multiplayer service | Deferred; current game is single-player and local-first. |
+| Parallel Search | Independent research and evidence comparison for technical decisions | Optional, only for research that needs external corroboration; no paid research action assumed. |
+| Sider Scholar | Academic research on mobile rendering, usability and game balancing | Optional research role; not a build dependency. |
+| Wolfram | Numerical balancing, damage/expected-value checks and formula validation | Optional offline/research calculation role; no paid service requirement. |
+| Tavily | Supplemental web research and documentation discovery | Optional research only; Context7 remains the API-doc source for library-specific details. |
+| Malwarebytes | Reputation checking for externally supplied asset/download URLs | Optional defensive review; never treat a scan as proof that a file is safe or licensed. |
+| Plugin Management | Discover connector capabilities and user-controlled installation/permissions | Administrative only; installation/connection always requires user action. |
 
-## Starred repository assignments
+## Starred repository responsibility matrix
 
-| Repository | Assigned role | Adoption rule |
+| Repository | Assigned responsibility | Adoption / state |
 |---|---|---|
-| mrdoob/three.js | 3D scene, camera, materials, render loop and geometry | Core runtime |
-| pmndrs/postprocessing | Bloom, glow and other screen-space effects | Add selectively after mobile FPS budget is measured |
-| dimforge/rapier | Physics/collision for complex moving bodies | Defer; simple bounded hit tests first |
-| tweenjs/tween.js | UI, boss-entry and camera transitions | Introduce when animation sequencing grows |
-| gkjohnson/three-mesh-bvh | Accelerated raycasts and spatial queries | Use only when scene collision/query scale requires it |
-| pixiv/three-vrm | Future full-body VRM pilots, expressions and hangar character display | Current milestone uses lightweight pilot icon/wing animations and data-driven skills; VRM awaits a licensed model and iPhone memory/FPS testing |
-| Hidencod/tge-assets | Candidate game asset source / reference pack | Audit repository contents and each asset license before importing |
-| shorepine/kenney | Candidate game asset pack / reference source | Audit repository identity and per-pack license before shipping |
-| KhronosGroup/glTF-Sample-Assets | glTF importer and material compatibility fixtures | Test fixtures; not automatically production art |
-| Tonejs/Tone.js | Musical sequencing and layered adaptive BGM | Not imported: `src/game/audio.ts` currently uses a small original Web Audio sequencer to avoid another runtime dependency |
-| goldfire/howler.js | Cross-browser playback and audio sprite handling for authored audio files | Not imported: present audio is generated in-browser with Web Audio; evaluate only after authored audio assets are added |
-| KilledByAPixel/ZzFX | Tiny synthesized arcade SFX | Not imported: cue tones and adaptive synthesized music currently share the local Web Audio director |
-| dexie/Dexie.js | IndexedDB persistence and schema evolution | Core persistence |
-| colinhacks/zod | Runtime validation of local saves and imported JSON | Core input boundary |
-| vite-pwa/vite-plugin-pwa | PWA manifest, worker registration and offline precache | Core delivery |
-| GoogleChrome/workbox | Service-worker caching primitives used by the PWA pipeline | Managed through vite-plugin-pwa; avoid a duplicate hand-written worker |
-| donmccurdy/glTF-Transform | glTF pruning, transforms and asset conversion | Build-time asset pipeline |
-| zeux/meshoptimizer | Geometry/mesh compression and optimization | Build-time asset pipeline |
-| google/draco | Optional geometry compression decoder/encoder | Only when model size warrants it |
-| KhronosGroup/glTF-Validator | Validate exported glTF/GLB assets | Asset CI gate |
-| vitest-dev/vitest | Unit tests for deterministic game rules, pilot/ship profiles and backward-compatible save logic | Core CI |
-| microsoft/playwright | Browser smoke tests and interaction regression tests | Core CI |
-| georgealways/lil-gui | Development-only balancing and debug controls | Dev build only; never required for players |
-| codecruzer/webgl-starfield | Starfield rendering reference / optional inspiration | Reimplement as small bounded layers unless its license and fit are verified |
+| [mrdoob/three.js](https://github.com/mrdoob/three.js) | Scene graph, camera, geometry/materials, WebGL renderer and animation | **Core runtime.** Also powers the low-poly pilot showcase and local VRM viewer. |
+| [pixiv/three-vrm](https://github.com/pixiv/three-vrm) | VRM 0.x/1.0 humanoid metadata, expressions and avatar updates | **Optional local import integrated.** User selects a local `.vrm` / compatible `.glb` up to 18 MB; no licensed character model is bundled. |
+| [pmndrs/postprocessing](https://github.com/pmndrs/postprocessing) | Bloom, glow, tone and other screen-space effects | Deferred until physical iPhone frame-time and thermal measurements justify the GPU cost. |
+| [dimforge/rapier](https://github.com/dimforge/rapier) | Rigid-body physics and complex collision queries | Deferred. The current fixed top-down arena is better served by bounded hit tests. |
+| [tweenjs/tween.js](https://github.com/tweenjs/tween.js) | Sequenced transitions, dialogue staging and boss entrance animation | Candidate for later animation orchestration; current motions use delta-time updates. |
+| [gkjohnson/three-mesh-bvh](https://github.com/gkjohnson/three-mesh-bvh) | Accelerated raycasts and spatial queries | Deferred until collision complexity warrants BVH memory/build cost. |
+| [Hidencod/tge-assets](https://github.com/Hidencod/tge-assets) | Candidate asset-source inspection and comparison | Not bundled. Verify repository contents, asset provenance, license and redistribution rights before adoption. |
+| [shorepine/kenney](https://github.com/shorepine/kenney) | Candidate free-game-art reference/source | Not bundled. Audit the exact pack and license; never infer a license from the repository name. |
+| [KhronosGroup/glTF-Sample-Assets](https://github.com/KhronosGroup/glTF-Sample-Assets) | glTF/GLB importer fixtures and material compatibility tests | Test/reference assets only; not production character art by default. |
+| [Tonejs/Tone.js](https://github.com/Tonejs/Tone.js) | Timeline-based music sequencing and authored score playback | Deferred. The existing short original motif is generated with Web Audio and has no Tone.js dependency. |
+| [goldfire/howler.js](https://github.com/goldfire/howler.js) | Reliable playback of authored BGM/SFX files and audio sprites | Deferred until recorded/licensed audio files are ready. Current procedural music must not be described as recorded music. |
+| [KilledByAPixel/ZzFX](https://github.com/KilledByAPixel/ZzFX) | Compact synthesized arcade sound effects | Optional alternative for SFX; current cues are generated by the existing Web Audio director. |
+| [dexie/Dexie.js](https://github.com/dexie/Dexie.js) | IndexedDB local save persistence and schema evolution | **Core runtime.** No cloud account or network round trip. |
+| [colinhacks/zod](https://github.com/colinhacks/zod) | Runtime validation of saves and user-imported JSON | **Core runtime.** Unknown skill/story IDs are normalized before use. |
+| [vite-pwa/vite-plugin-pwa](https://github.com/vite-pwa/vite-plugin-pwa) | PWA manifest, service-worker generation and offline precache | **Core build pipeline.** |
+| [GoogleChrome/workbox](https://github.com/GoogleChrome/workbox) | Service-worker cache strategies and offline asset delivery | Managed through vite-plugin-pwa; avoid a duplicate hand-written service worker. |
+| [donmccurdy/glTF-Transform](https://github.com/donmccurdy/glTF-Transform) | Build-time pruning and conversion of glTF/GLB files | Candidate for a future user-supplied model optimization pipeline; not yet a runtime dependency. |
+| [zeux/meshoptimizer](https://github.com/zeux/meshoptimizer) | Mesh/index/vertex optimization for large characters and ships | Candidate build-time optimization; use only after measuring actual model size. |
+| [google/draco](https://github.com/google/draco) | Optional geometry compression | Deferred; decoder bytes and decode latency must be included in the iPhone budget. |
+| [KhronosGroup/glTF-Validator](https://github.com/KhronosGroup/glTF-Validator) | Validate exported/imported glTF/GLB assets | Recommended asset gate before bundling any third-party or generated model. |
+| [vitest-dev/vitest](https://github.com/vitest-dev/vitest) | Deterministic tests for save migration, skill effects, narrative branches and boss state | **Core CI.** |
+| [microsoft/playwright](https://github.com/microsoft/playwright) | Browser smoke tests, landscape viewport and user-flow regressions | **Core CI.** Chromium is not physical iOS Safari/Brave. |
+| [georgealways/lil-gui](https://github.com/georgealways/lil-gui) | Development-only tuning controls for difficulty, damage and encounter pacing | Not exposed to players; defer until balancing parameters expand. |
+| [codecruzer/webgl-starfield](https://github.com/codecruzer/webgl-starfield) | Starfield rendering reference and alternative benchmark | Reference only; current star layers are kept bounded and original. |
 
-## Current browser-preview route
+## Current architecture and boundaries
 
-- StackBlitz public GitHub import is the current no-project-permission preview path: https://stackblitz.com/github/2503140kcsk-eng/H/tree/feat/planetary-combat-expansion
-- StackBlitz WebContainers are not a substitute for physical iPhone Safari/Brave validation; iOS Safari remains beta and mobile memory is constrained.
-- Vercel project creation was attempted for the connected Hobby team and rejected with HTTP 403. No preview deployment URL was generated.
+- **Pilot rendering:** a self-authored low-poly full-body procedural model is the offline fallback. The optional VRM loader operates on a user-selected file locally. No external character model, voice recording or face likeness is included.
+- **Voice and mouth movement:** browser speech synthesis is used when available; the avatar mouth/VRM `aa` expression is animated while the utterance is active. This is not studio voice acting or phoneme-accurate lip-sync. Availability and voice quality vary by iOS browser.
+- **Story:** pilot × planet scenes are data-driven; selected choices are saved. Following the signal on all three planets unlocks the one-time Celestial Echo bonus. More chapters/choice-dependent mission variants remain future content.
+- **Bosses:** health thresholds drive three phases; destructible ports/armor gate associated attacks. Additional boss families, skins and full balance passes remain future work.
+- **Audio:** adaptive normal/boss motifs and combo-tier cues are synthesized at runtime. Recorded/arranged high-quality BGM and SFX are still an outstanding asset task.
+- **iPhone acceptance:** the checklist defines how to measure FPS/frame-time, missed touches, thermal state, WebGL context loss, PWA offline startup and file-based A↔B backup transfer. No physical measurements are recorded yet.
 
-## Safety and license policy
+## No-cost preview and iPhone verification
 
-- Never bundle an asset merely because its repository is public.
-- Check the exact asset license, attribution terms, model/texture/audio provenance and redistribution rights.
-- Keep procedural MVP assets original and local.
-- No production code depends on a secret, paid API key, online leaderboard, or cloud database.
+- Development preview source: https://stackblitz.com/github/2503140kcsk-eng/H/tree/feat/pilot-immersion-boss-evolution
+- This is a source import / development preview route, not a certified iPhone deployment URL.
+- A previous Vercel Hobby project-creation attempt returned HTTP 403; no Vercel deployment is claimed.
+- ChatGPT's conversation surface cannot run this Vite/Three.js repository as an inline game canvas.
+- Chromium Playwright tests only provide browser-emulation evidence. Follow `docs/qa/iphone-field-test.md` on physical iPhones and record actual results before describing the build as iPhone-certified.
 
+## License, privacy and cost policy
 
-## iPhone preview opened from ChatGPT
-
-- ChatGPT's conversation view is not an execution host for this GitHub Vite application; it cannot run the repository as an inline game canvas.
-- The no-project-permission preview route is the public StackBlitz import above. Open it from the ChatGPT message in iPhone Safari, start the Vite preview, then open the preview in its own tab.
-- This is an external development preview, not an App Store build or a certified PWA installation. iOS Safari / Brave input, GPU context recovery, storage persistence and sustained performance must still be checked on-device.
-- Do not describe Chromium Playwright tests as physical iPhone verification.
+- No external asset is imported merely because it is publicly reachable.
+- Check exact asset license, attribution, voice/music rights and redistribution terms.
+- No paid AI credits, paid templates, online database, user analytics, cloud function, or external API key is required by this branch.
+- Keep user saves and selected VRM files local. Do not upload personal files or identifiers to analytics services.
