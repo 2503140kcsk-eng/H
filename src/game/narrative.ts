@@ -3,6 +3,22 @@ import type { PlanetId } from "./campaign";
 
 export type StoryChoiceId = "follow-signal" | "protect-crew";
 
+export const STORY_DECISION_ID = "planet-opening" as const;
+
+const STORY_DECISION_CHOICES = {
+  [STORY_DECISION_ID]: ["follow-signal", "protect-crew"]
+} as const;
+
+export function isStoryChoiceId(value: string): value is StoryChoiceId {
+  return value === "follow-signal" || value === "protect-crew";
+}
+
+export function isStoryDecisionChoice(decisionId: string, choiceId: string): boolean {
+  const allowed = STORY_DECISION_CHOICES[decisionId as keyof typeof STORY_DECISION_CHOICES] as
+    readonly string[] | undefined;
+  return allowed?.includes(choiceId) ?? false;
+}
+
 export interface StoryChoice {
   id: StoryChoiceId;
   label: string;
