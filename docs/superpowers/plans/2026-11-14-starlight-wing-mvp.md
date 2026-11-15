@@ -221,3 +221,16 @@ Files: src/game/weapons.ts, src/game/core.ts, src/game/Game.ts, src/main.ts, src
 Cost/performance ruling: no new dependencies, network requests, physics engine, post-processing pass or asset downloads. Simple custom hit tests remain sufficient for the bounded 18-enemy / 110-projectile arena.
 
 **Starting weapon values (design constants, not measured balance):** Star Pulse = 1.00× damage / 1.00× interval; Prism Fan = 3 × 0.42× damage / 1.12× interval / 0.16 radian spacing; Nova Lance = 1.75× damage / 1.50× interval / +1 additional target. All share the capped projectile geometry pool and total projectile count remains at most 110. Physical iPhone playtests are still required to tune target acquisition, hit rate and shard costs.
+
+
+### Task 14: Avoid duplicate free CI runs
+
+Files: .github/workflows/ci.yml, README.md, docs/architecture/tool-roles.md.
+
+- [x] Keep `pull_request` as the quality gate for changes proposed into main.
+- [x] Restrict automatic `push` runs to main; add `workflow_dispatch` for manual checks.
+- [x] Update the contributor / tool-role notes to explain why feature branch updates are not double-run.
+- [x] Keep the complete tests, production build, GitHub Pages subpath build and browser E2E within the single PR check.
+- [ ] Verify on the next PR update that only one Quality Gate run is created and it completes successfully.
+
+Cost boundary: this reduces duplicate CI executions on PR pushes; it does not change the tests or require a paid plan.

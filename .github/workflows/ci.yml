@@ -1,10 +1,12 @@
 name: Quality Gate
 
 on:
+  # PR branches run once via pull_request; direct pushes only validate main.
   push:
-    branches: [main, "feature/**"]
+    branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read

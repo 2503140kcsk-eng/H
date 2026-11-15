@@ -2,11 +2,13 @@
 
 The implementation repository is authoritative. Tool usage is restricted to capabilities already connected and actions that stay within free/no-charge limits. A tool being connected does not imply that every feature or AI-credit allowance in that product is free.
 
+The Quality Gate runs on `pull_request` for proposed changes, `push` only for direct updates to `main`, and `workflow_dispatch` for a manual run. Feature-branch pushes already belonging to an open PR are not also run under a separate push trigger, avoiding duplicate GitHub Actions minutes.
+
 ## Connected work roles
 
 | Tool | Assigned role | First milestone |
 |---|---|---|
-| GitHub | Source of truth, branches, commits, CI, issues and review trail | Active: feature branch, CI and free GitHub Pages build/deploy workflow |
+| GitHub | Source of truth, branches, commits, CI, issues and review trail | Active: PR CI, main-branch CI and free GitHub Pages build/deploy workflow |
 | GitHub Pages | Free static HTTPS host for the public project repository | Workflow is prepared; repository Settings must select Pages source = GitHub Actions before the first deployment |
 | GitLab Beta | Optional independent mirror / second CI review | Connector is authenticated; no owned Starlight project exists, so do not create a duplicate project without a selected destination. GitHub stays authoritative |
 | Context7 | Verify current Three.js, PWA, Dexie and testing APIs before coding | Active: implementation references |
