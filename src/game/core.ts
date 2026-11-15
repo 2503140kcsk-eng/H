@@ -4,6 +4,8 @@ import { isPilotId, normalizeSelectedPilotId, normalizeUnlockedPilotIds } from "
 import { isPlanetId } from "./campaign";
 import { normalizeEquippedWeaponIds, normalizeUnlockedWeaponIds, normalizeWeaponSlot } from "./weapons";
 import { normalizeSelectedShipId, normalizeUnlockedShipIds } from "./ships";
+import { normalizePilotSkills, normalizeSkillTreeInput } from "./pilot-skills";
+import { normalizeStoryChoices } from "./narrative";
 import { z } from "zod";
 
 export interface SaveData {
@@ -18,6 +20,9 @@ export interface SaveData {
   unlockedPilots: string[];
   selectedPilot: string;
   pilotProgress: Record<string, { level: number; xp: number }>;
+  pilotSkills: Record<string, string[]>;
+  storyChoices: Record<string, string>;
+  storyFlags: string[];
   pilotLevel: number;
   pilotXp: number;
   unlockedWeapons: string[];
@@ -42,6 +47,9 @@ const DEFAULT_SAVE: SaveData = {
   unlockedPilots: ["lumi-asteria"],
   selectedPilot: "lumi-asteria",
   pilotProgress: { "lumi-asteria": { level: 1, xp: 0 } },
+  pilotSkills: { "lumi-asteria": [] },
+  storyChoices: {},
+  storyFlags: [],
   pilotLevel: 1,
   pilotXp: 0,
   unlockedWeapons: ["photon-pulse"],
@@ -78,6 +86,9 @@ const SaveSchema = z.object({
       xp: z.number().int().min(0).max(1_000_000_000)
     }).strict()
   ).catch({}),
+  pilotSkills: z.record(z.string().min(1).max(48), z.array(z.string().min(1).max(48)).max(12)).catch({}),
+  storyChoices: z.record(z.string().min(1).max(80), z.string().min(1).max(48)).catch({}),
+  storyFlags: z.array(z.string().min(1).max(48)).max(8).catch([]),
   pilotLevel: z.number().int().min(1).max(100).catch(1),
   pilotXp: z.number().int().min(0).max(1_000_000_000).catch(0),
   unlockedWeapons: z.array(z.string().min(1).max(48)).max(12).catch(["photon-pulse"]),
@@ -120,6 +131,9 @@ const BackupPayloadSchema = z.object({
       xp: z.number().int().min(0).max(1_000_000_000)
     }).strict()
   ).optional().default({}),
+  pilotSkills: z.record(z.string().min(1).max(48), z.array(z.string().min(1).max(48)).max(12)).optional().default({}),
+  storyChoices: z.record(z.string().min(1).max(80), z.string().min(1).max(48)).optional().default({}),
+  storyFlags: z.array(z.string().min(1).max(48)).max(8).optional().default([]),
   pilotLevel: z.number().int().min(1).max(100),
   pilotXp: z.number().int().min(0).max(1_000_000_000),
   unlockedWeapons: z.array(z.string().min(1).max(48)).max(12).optional().default(["photon-pulse"]),
@@ -201,6 +215,9 @@ export function sanitizeSaveData(value: unknown): SaveData {
           }
         : { level: 1, xp: 0 };
   }
+  const pilotSkills = normalizePilotSkills(normalizeSkillTreeInput(data.pilotSkills), pilots, pilotProgress);
+  const storyChoices = normalizeStoryChoices(data.storyChoices);
+  const storyFlags = data.storyFlags.includes("celestial-echo") ? ["celestial-echo"] : [];
   const activePilotProgress = pilotProgress[selectedPilot] ?? { level: 1, xp: 0 };
 
   return {
@@ -225,6 +242,9 @@ export function sanitizeSaveData(value: unknown): SaveData {
     unlockedPilots: pilots,
     selectedPilot,
     pilotProgress,
+    pilotSkills,
+    storyChoices,
+    storyFlags,
     totalRuns: clamp(data.totalRuns, 0, 1_000_000),
     pilotLevel: activePilotProgress.level,
     pilotXp: activePilotProgress.xp,
