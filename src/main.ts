@@ -112,6 +112,7 @@ uiRoot.innerHTML = `
     <div class="hud-bottom">
       <div class="special-meter"><div><span>PHOTON BURST</span><b id="special-text">60%</b></div><div class="meter"><i id="special-fill" class="special-fill"></i></div></div>
       <div class="touch-hint">画面をドラッグして移動 · 射撃はオート</div>
+      <div id="dodge-advice" class="dodge-advice" role="status" aria-live="polite" hidden></div>
     </div>
     <div class="action-controls">
       <button id="special-button" class="action-button special-action"><span>✦</span><b>BURST</b><small>60%</small></button>
@@ -492,6 +493,20 @@ function updateHud(state: HudState): void {
     byId("boss-fill").setAttribute("style", "width:" + Math.max(0, state.bossHp / state.bossMaxHp * 100) + "%");
     byId("boss-phase").textContent = state.bossHp <= state.bossMaxHp * 0.5 ? "II" : "I";
   }
+  const advice = byId<HTMLDivElement>("dodge-advice");
+  const directionLabels: Record<HudState["evasion"]["recommended"], string> = {
+    hold: "そのまま",
+    left: "左",
+    right: "右",
+    up: "上",
+    down: "下"
+  };
+  advice.hidden = state.evasion.risk === "clear";
+  advice.dataset.risk = state.evasion.risk;
+  advice.textContent = state.evasion.recommended === "hold"
+    ? (state.evasion.risk === "danger" ? "危険予測 · 進路を変えて！" : "弾道接近 · 周囲を確認")
+    : (state.evasion.risk === "danger" ? "危険 · " : "注意 · ") + directionLabels[state.evasion.recommended] + "へ回避";
+
   const combo = byId<HTMLElement>("combo-label");
   combo.hidden = state.combo < 2;
   byId("combo-value").textContent = String(state.combo);
