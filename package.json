@@ -15,7 +15,8 @@
   "dependencies": {
     "dexie": "^4.2.1",
     "three": "^0.186.0",
-    "zod": "^4.1.12"
+    "zod": "^4.1.12",
+    "@pixiv/three-vrm": "3.5.5"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1",
