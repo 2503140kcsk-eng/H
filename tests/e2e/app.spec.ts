@@ -10,6 +10,22 @@ test("title screen fits a landscape iPhone viewport", async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test("shows the 3D pilot preview and persists a meaningful narrative branch", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  await expect(page.locator("#pilot-preview-canvas")).toBeVisible();
+  await expect(page.locator("#pilot-skill-list [data-skill-id]")).toHaveCount(3);
+  await expect(page.locator("#pilot-story-choices [data-story-choice]")).toHaveCount(2);
+  await page.locator('#pilot-story-choices [data-story-choice="follow-signal"]').click();
+  await expect(page.locator("#pilot-story-response")).toContainText("星図の断片");
+  await expect(page.locator('#pilot-story-choices [data-story-choice="follow-signal"]')).toBeDisabled();
+  await page.reload();
+  await expect(page.locator("#pilot-story-response")).toContainText("星図の断片");
+  await expect(page.locator('#pilot-story-choices [data-story-choice="follow-signal"]')).toHaveClass(/selected/);
+  expect(errors).toEqual([]);
+});
+
 test("starts a 3D run and supports pause and resume", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
