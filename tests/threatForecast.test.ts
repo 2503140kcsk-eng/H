@@ -99,6 +99,7 @@ describe("evasion scoring", () => {
     );
     expect(result.risk).toBe("clear");
     expect(result.recommended).toBe("hold");
+    expect(result.confidence).toBe(0);
   });
 
   it("checks the launch point at release, not a projectile that moved during wind-up", () => {
