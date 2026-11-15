@@ -113,6 +113,10 @@ h1 span { color: var(--pink); }
 .special-meter > div:first-child { display: flex; justify-content: space-between; margin-bottom: 5px; color: #b6b2ff; font-size: 8px; letter-spacing: .1em; }
 .special-meter b { color: #fff; font-variant-numeric: tabular-nums; }
 .touch-hint { padding-bottom: 3px; color: rgba(204,220,255,.66); font-size: 9px; text-shadow: 0 2px 6px #05081b; }
+.dodge-advice { max-width: 210px; margin: 0 0 2px auto; padding: 6px 10px; border: 1px solid rgba(255,190,111,.48); border-radius: 10px; color: #ffe4bb; background: rgba(66,31,24,.78); font-size: 9px; font-weight: 900; letter-spacing: .06em; text-align: center; text-shadow: 0 1px 3px #24121b; }
+.dodge-advice[data-risk="danger"] { border-color: rgba(255,105,143,.82); color: #fff0f5; background: rgba(107,22,53,.9); animation: threat-pulse .48s ease-in-out infinite alternate; }
+.dodge-advice[data-risk="watch"] { border-color: rgba(255,190,111,.62); }
+@keyframes threat-pulse { from { opacity: .78; } to { opacity: 1; } }
 .action-controls { position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: max(14px, env(safe-area-inset-bottom)); display: flex; gap: 10px; pointer-events: auto; }
 .action-button { width: clamp(63px, 9vw, 82px); height: clamp(63px, 9vw, 82px); display: grid; place-content: center; gap: 2px; border-radius: 50%; border: 1px solid rgba(169,229,255,.6); color: white; background: radial-gradient(circle at 35% 20%, rgba(133,225,255,.4), rgba(65,70,155,.64)); box-shadow: 0 4px 22px rgba(49,153,219,.18), inset 0 0 16px rgba(255,255,255,.1); cursor: pointer; }
 .action-button span { font-size: 19px; }
