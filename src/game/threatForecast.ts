@@ -57,6 +57,7 @@ export interface EvasionAssessment {
   readonly recommended: DodgeDirection;
   readonly currentClearance: number;
   readonly recommendedClearance: number;
+  /** Normalized clearance-improvement hint (0–1), not a probability. */
   readonly confidence: number;
   readonly candidates: readonly DodgeCandidateScore[];
 }
