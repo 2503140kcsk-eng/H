@@ -764,6 +764,7 @@ export class Game {
         enemy.attackForecast = this.createEnemyForecast(enemy);
       }
 
+      if (!effects.canAttack && enemy.attackForecast) enemy.attackForecast = null;
       if (enemy.attackForecast) {
         const direction = enemy.attackForecast.direction;
         enemy.warning.visible = true;
@@ -1194,6 +1195,7 @@ export class Game {
 
     const phaseTwo = boss.hp <= boss.maxHp * 0.5;
     const effects = getBodyIntegrityEffects(boss.integrity);
+    if (!effects.canAttack && boss.attackForecast) boss.attackForecast = null;
     if (!boss.entering && effects.canAttack && boss.fireTimer <= 0.55 && !boss.attackForecast) {
       boss.attackForecast = createAttackForecast({
         origin: { x: boss.mesh.position.x, y: boss.mesh.position.y - 1 },
@@ -1229,9 +1231,7 @@ export class Game {
           projectileRadius: 0.19
         });
         const releaseY = boss.mesh.position.y - 1;
-        for (const path of forecastPaths(forecast)) {
-          if (path.velocity.x < -0.05 && !effects.leftVolleyEnabled) continue;
-          if (path.velocity.x > 0.05 && !effects.rightVolleyEnabled) continue;
+        for (const path of this.getBossForecastPaths(forecast)) {
           this.addProjectile(
             boss.mesh.position.x,
             releaseY,
@@ -1341,6 +1341,16 @@ export class Game {
     this.projectiles.splice(index, 1);
   }
 
+  private getBossForecastPaths(forecast: AttackForecast, delaySeconds = 0): ThreatPath[] {
+    if (!this.boss) return [];
+    const effects = getBodyIntegrityEffects(this.boss.integrity);
+    return forecastPaths(forecast, delaySeconds).filter((path) => {
+      if (path.velocity.x < -0.05 && !effects.leftVolleyEnabled) return false;
+      if (path.velocity.x > 0.05 && !effects.rightVolleyEnabled) return false;
+      return true;
+    });
+  }
+
   private getEvasionAssessment(): EvasionAssessment {
     const threats: ThreatPath[] = this.projectiles
       .filter((projectile) => projectile.owner === "enemy")
@@ -1352,13 +1362,17 @@ export class Game {
       }));
 
     for (const enemy of this.enemies) {
-      if (enemy.attackForecast) threats.push(...forecastPaths(enemy.attackForecast));
+      if (enemy.attackForecast && getBodyIntegrityEffects(enemy.integrity).canAttack) {
+        threats.push(...forecastPaths(enemy.attackForecast, enemy.fireTimer));
+      }
     }
-    if (this.boss?.attackForecast) threats.push(...forecastPaths(this.boss.attackForecast));
+    if (this.boss?.attackForecast && getBodyIntegrityEffects(this.boss.integrity).canAttack) {
+      threats.push(...this.getBossForecastPaths(this.boss.attackForecast, this.boss.fireTimer));
+    }
 
     return assessEvasion(
       { x: this.player.position.x, y: this.player.position.y },
-      { x: 0, y: 0 },
+      { x: this.playerVelocity.x, y: this.playerVelocity.y },
       threats,
       {
         minX: -this.world.width / 2 + 0.55,
