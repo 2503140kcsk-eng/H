@@ -6,6 +6,7 @@ import { normalizeEquippedWeaponIds, normalizeUnlockedWeaponIds, normalizeWeapon
 import { normalizeSelectedShipId, normalizeUnlockedShipIds } from "./ships";
 import { normalizePilotSkills, normalizeSkillTreeInput } from "./pilot-skills";
 import { normalizeStoryChoices } from "./narrative";
+import { normalizeSelectedPilotSkinId, normalizeUnlockedPilotSkinIds } from "./pilot-skins";
 import { z } from "zod";
 
 export interface SaveData {
@@ -23,6 +24,8 @@ export interface SaveData {
   pilotSkills: Record<string, string[]>;
   storyChoices: Record<string, string>;
   storyFlags: string[];
+  unlockedPilotSkins: string[];
+  selectedPilotSkin: string;
   pilotLevel: number;
   pilotXp: number;
   unlockedWeapons: string[];
@@ -50,6 +53,8 @@ const DEFAULT_SAVE: SaveData = {
   pilotSkills: { "lumi-asteria": [] },
   storyChoices: {},
   storyFlags: [],
+  unlockedPilotSkins: ["standard"],
+  selectedPilotSkin: "standard",
   pilotLevel: 1,
   pilotXp: 0,
   unlockedWeapons: ["photon-pulse"],
@@ -89,6 +94,8 @@ const SaveSchema = z.object({
   pilotSkills: z.record(z.string().min(1).max(48), z.array(z.string().min(1).max(48)).max(12)).catch({}),
   storyChoices: z.record(z.string().min(1).max(80), z.string().min(1).max(48)).catch({}),
   storyFlags: z.array(z.string().min(1).max(48)).max(8).catch([]),
+  unlockedPilotSkins: z.array(z.string().min(1).max(48)).max(8).catch(["standard"]),
+  selectedPilotSkin: z.string().min(1).max(48).catch("standard"),
   pilotLevel: z.number().int().min(1).max(100).catch(1),
   pilotXp: z.number().int().min(0).max(1_000_000_000).catch(0),
   unlockedWeapons: z.array(z.string().min(1).max(48)).max(12).catch(["photon-pulse"]),
@@ -134,6 +141,8 @@ const BackupPayloadSchema = z.object({
   pilotSkills: z.record(z.string().min(1).max(48), z.array(z.string().min(1).max(48)).max(12)).optional().default({}),
   storyChoices: z.record(z.string().min(1).max(80), z.string().min(1).max(48)).optional().default({}),
   storyFlags: z.array(z.string().min(1).max(48)).max(8).optional().default([]),
+  unlockedPilotSkins: z.array(z.string().min(1).max(48)).max(8).optional().default(["standard"]),
+  selectedPilotSkin: z.string().min(1).max(48).optional().default("standard"),
   pilotLevel: z.number().int().min(1).max(100),
   pilotXp: z.number().int().min(0).max(1_000_000_000),
   unlockedWeapons: z.array(z.string().min(1).max(48)).max(12).optional().default(["photon-pulse"]),
@@ -218,6 +227,8 @@ export function sanitizeSaveData(value: unknown): SaveData {
   const pilotSkills = normalizePilotSkills(normalizeSkillTreeInput(data.pilotSkills), pilots, pilotProgress);
   const storyChoices = normalizeStoryChoices(data.storyChoices);
   const storyFlags = data.storyFlags.includes("celestial-echo") ? ["celestial-echo"] : [];
+  const unlockedPilotSkins = normalizeUnlockedPilotSkinIds(data.unlockedPilotSkins);
+  const selectedPilotSkin = normalizeSelectedPilotSkinId(data.selectedPilotSkin, unlockedPilotSkins);
   const activePilotProgress = pilotProgress[selectedPilot] ?? { level: 1, xp: 0 };
 
   return {
@@ -245,6 +256,8 @@ export function sanitizeSaveData(value: unknown): SaveData {
     pilotSkills,
     storyChoices,
     storyFlags,
+    unlockedPilotSkins,
+    selectedPilotSkin,
     totalRuns: clamp(data.totalRuns, 0, 1_000_000),
     pilotLevel: activePilotProgress.level,
     pilotXp: activePilotProgress.xp,
