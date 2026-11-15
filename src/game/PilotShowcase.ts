@@ -1,7 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import type { PilotProfile } from "./pilots";
-import { getPilotProfile } from "./pilots";
 
 type VrmRuntime = {
   scene: THREE.Object3D;
@@ -32,6 +31,8 @@ export class PilotShowcase {
   private elapsed = 0;
   private speaking = false;
   private disposed = false;
+  private animationStyle: PilotProfile["animationStyle"] = "guide";
+  private renderAccumulator = 0;
   private resizeObserver: ResizeObserver | null = null;
   private modelRoot: THREE.Group | null = null;
   private vrm: VrmRuntime | null = null;
@@ -72,6 +73,7 @@ export class PilotShowcase {
   setPilot(profile: PilotProfile): void {
     this.clearModel();
     this.speaking = false;
+    this.animationStyle = profile.animationStyle;
     this.modelRoot = this.createProceduralPilot(profile);
     this.scene.add(this.modelRoot);
   }
@@ -214,14 +216,21 @@ export class PilotShowcase {
   private animate = (): void => {
     if (this.disposed) return;
     this.animationFrame = requestAnimationFrame(this.animate);
-    const delta = Math.min(0.05, this.clock.getDelta());
+    const frameDelta = Math.min(0.05, this.clock.getDelta());
+    this.renderAccumulator += frameDelta;
+    if (this.renderAccumulator < 1 / 30) return;
+    const delta = Math.min(0.08, this.renderAccumulator);
+    this.renderAccumulator = 0;
     this.elapsed += delta;
     const mouthAmount = this.speaking ? 0.18 + Math.abs(Math.sin(this.elapsed * 17)) * 0.52 : 0.015;
     if (this.modelRoot) {
       this.modelRoot.position.y = -1.36 + Math.sin(this.elapsed * 1.6) * 0.035;
-      this.modelRoot.rotation.y = Math.sin(this.elapsed * 0.42) * 0.12;
-      if (this.leftArm) this.leftArm.rotation.z = -0.12 + Math.sin(this.elapsed * 1.8) * 0.08;
-      if (this.rightArm) this.rightArm.rotation.z = 0.12 + Math.sin(this.elapsed * 1.8 + Math.PI) * 0.08;
+      this.modelRoot.rotation.y = Math.sin(this.elapsed * (this.animationStyle === "ace" ? 0.75 : 0.42)) *
+        (this.animationStyle === "guardian" ? 0.06 : 0.12);
+      const armSpeed = this.animationStyle === "ace" ? 3.2 : this.animationStyle === "guardian" ? 1.1 : 1.8;
+      const armRange = this.animationStyle === "guardian" ? 0.035 : this.animationStyle === "ace" ? 0.14 : 0.08;
+      if (this.leftArm) this.leftArm.rotation.z = -0.12 + Math.sin(this.elapsed * armSpeed) * armRange;
+      if (this.rightArm) this.rightArm.rotation.z = 0.12 + Math.sin(this.elapsed * armSpeed + Math.PI) * armRange;
       if (this.mouth) this.mouth.scale.y = 0.12 + mouthAmount * 0.72;
     }
     if (this.vrm) {
