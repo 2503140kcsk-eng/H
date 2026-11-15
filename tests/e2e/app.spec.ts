@@ -94,3 +94,42 @@ test("hangar shows three distinct ships and locks unaffordable ships", async ({ 
   await expect(page.locator('[data-pilot-id="rin-vega"]')).toBeDisabled();
   await expect(page.locator("#save-status")).toContainText("端末内保存");
 });
+
+
+test("iPhone diagnostics stay local and export JSON and CSV reports", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  await page.locator("#settings-toggle").click();
+  await page.locator("#diagnostics-open").click();
+  await expect(page.locator("#diagnostics-modal")).toBeVisible();
+  await page.locator("#diagnostics-refresh").click();
+  await expect(page.locator("#diagnostics-status")).toContainText("診断を取得しました");
+  await expect(page.locator("#diagnostics-json")).toBeEnabled();
+
+  const jsonPromise = page.waitForEvent("download");
+  await page.locator("#diagnostics-json").click();
+  const jsonDownload = await jsonPromise;
+  expect(jsonDownload.suggestedFilename()).toMatch(/^starlight-wing-diagnostics-.*\.json$/);
+  const jsonStream = await jsonDownload.createReadStream();
+  let jsonText = "";
+  for await (const chunk of jsonStream ?? []) jsonText += chunk.toString();
+  const report = JSON.parse(jsonText) as { format: string; version: number; storage: { persistenceStatus: string } };
+  expect(report.format).toBe("starlight-wing-diagnostics");
+  expect(report.version).toBe(1);
+  expect(report.storage.persistenceStatus).toBe("persistent");
+
+  const csvPromise = page.waitForEvent("download");
+  await page.locator("#diagnostics-csv").click();
+  const csvDownload = await csvPromise;
+  expect(csvDownload.suggestedFilename()).toMatch(/^starlight-wing-diagnostics-.*\.csv$/);
+  const csvStream = await csvDownload.createReadStream();
+  let csvText = "";
+  for await (const chunk of csvStream ?? []) csvText += chunk.toString();
+  expect(csvText).toContain('"path","value"');
+  expect(csvText).toContain('"device.viewport.width"');
+
+  await page.locator("#diagnostics-close").click();
+  await expect(page.locator("#diagnostics-modal")).toBeHidden();
+  expect(errors).toEqual([]);
+});
