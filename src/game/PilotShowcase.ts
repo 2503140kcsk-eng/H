@@ -66,7 +66,6 @@ export class PilotShowcase {
     this.resizeObserver?.observe(canvas);
     window.addEventListener("resize", this.resize);
     this.resize();
-    this.setPilot(getPilotProfile("lumi-asteria"));
     this.animate();
   }
 
