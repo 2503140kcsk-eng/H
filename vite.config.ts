@@ -20,7 +20,6 @@ export default defineConfig({
         background_color: "#080d27",
         display: "fullscreen",
         orientation: "landscape",
-        start_url: "/",
         icons: [
           { src: `${base}icon.svg`, sizes: "any", type: "image/svg+xml", purpose: "any maskable" }
         ]
