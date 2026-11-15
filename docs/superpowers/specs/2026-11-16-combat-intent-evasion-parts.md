@@ -42,7 +42,7 @@ The result reports:
 - current risk (`clear`, `watch`, `danger`) if current movement is maintained;
 - movement-direction candidates as deliberate redirections, rather than adding a dodge vector to an old drag velocity;
 - the highest-clearance candidate, only when it materially improves safety;
-- current and recommended clearance, plus a conservative confidence value.
+- current and recommended clearance, plus a normalized 0–1 improvement hint. This is a heuristic, not a calibrated probability.
 
 This is advisory. It does not issue input events, change player coordinates, guarantee survival, or claim perfect interception prediction. Homing projectiles and future enemy movement remain model uncertainty.
 
