@@ -195,10 +195,10 @@ export function evaluateQualityGate(snapshot: QualityGateSnapshot): QualityCheck
   return checks;
 }
 
-export function summarizeQualityGate(checks: QualityCheck[]): QualitySummary {
+export function summarizeQualityGate(checks: QualityCheck[], uncheckedFieldChecks = 0): QualitySummary {
   const blockingFailures = checks.filter((check) => check.status === "fail").length;
   const warnings = checks.filter((check) => check.status === "warn").length;
-  const manualPending = checks.filter((check) => check.status === "manual").length;
+  const manualPending = checks.filter((check) => check.status === "manual").length + Math.max(0, uncheckedFieldChecks);
   const measured = checks.filter((check) => check.status !== "manual");
   const passed = measured.filter((check) => check.status === "pass").length;
   const score = measured.length === 0 ? 0 : Math.round((passed / measured.length) * 100);
@@ -218,6 +218,12 @@ function escapeCsv(value: unknown): string {
 
 export function createDiagnosticCsv(packet: DiagnosticPacket): string {
   const rows: unknown[][] = [["id", "category", "status", "title", "detail", "action"]];
+  rows.push(["meta:schema", "metadata", "INFO", "Schema", packet.schema, ""]);
+  rows.push(["meta:version", "metadata", "INFO", "Version", packet.version, ""]);
+  rows.push(["meta:generated-at", "metadata", "INFO", "Generated at", packet.generatedAt, ""]);
+  rows.push(["summary:score", "summary", "INFO", "Automated score", packet.summary.score, ""]);
+  rows.push(["summary:disposition", "summary", "INFO", "Disposition", packet.summary.disposition, ""]);
+  rows.push(["summary:manual-pending", "summary", "INFO", "Manual pending", packet.summary.manualPending, ""]);
   for (const check of packet.checks) {
     rows.push([check.id, check.category, statusLabel[check.status], check.title, check.detail, check.action]);
   }
@@ -370,7 +376,17 @@ export function mountIphoneQualityGate(options: QualityGateMountOptions): void {
       const input = document.createElement("input");
       input.type = "checkbox";
       input.checked = item.verified;
-      input.addEventListener("change", () => { item.verified = input.checked; });
+      input.addEventListener("change", () => {
+        item.verified = input.checked;
+        if (latestPacket) {
+          latestPacket.manualChecks = manualChecks.map((entry) => ({ ...entry }));
+          latestPacket.summary = summarizeQualityGate(
+            latestPacket.checks,
+            manualChecks.filter((entry) => !entry.verified).length
+          );
+          renderSummary(latestPacket.summary);
+        }
+      });
       const text = document.createElement("span");
       text.textContent = item.label;
       label.append(input, text);
@@ -379,12 +395,26 @@ export function mountIphoneQualityGate(options: QualityGateMountOptions): void {
   };
 
   let latestPacket: DiagnosticPacket | null = null;
+  const renderSummary = (summary: QualitySummary) => {
+    summaryElement.replaceChildren();
+    const score = document.createElement("strong");
+    score.className = "quality-score";
+    score.textContent = String(summary.score) + "/100";
+    const disposition = document.createElement("span");
+    disposition.className = "quality-disposition disposition-" + summary.disposition;
+    disposition.textContent = summary.disposition === "ready" ? "自動診断・実機確認: PASS" : summary.disposition === "blocked" ? "自動診断: BLOCKED" : "実機確認が必要";
+    const counts = document.createElement("p");
+    counts.textContent = "FAIL " + summary.blockingFailures + " · WARN " + summary.warnings + " · 未確認 " + summary.manualPending;
+    const caveat = document.createElement("small");
+    caveat.textContent = "自動スコアはブラウザー内の観測値です。実機で全項目を確認するまでは候補版のままです。";
+    summaryElement.append(score, disposition, counts, caveat);
+  };
   const refresh = async () => {
     refreshButton.disabled = true;
     try {
       const { snapshot, environment } = await collectSnapshot();
       const checks = evaluateQualityGate(snapshot);
-      const summary = summarizeQualityGate(checks);
+      const summary = summarizeQualityGate(checks, manualChecks.filter((item) => !item.verified).length);
       latestPacket = {
         schema: "starlight-wing-q-trace",
         version: 1,
@@ -394,18 +424,7 @@ export function mountIphoneQualityGate(options: QualityGateMountOptions): void {
         manualChecks: manualChecks.map((item) => ({ ...item })),
         environment
       };
-      summaryElement.replaceChildren();
-      const score = document.createElement("strong");
-      score.className = "quality-score";
-      score.textContent = `${summary.score}/100`;
-      const disposition = document.createElement("span");
-      disposition.className = `quality-disposition disposition-${summary.disposition}`;
-      disposition.textContent = summary.disposition === "ready" ? "自動診断: PASS" : summary.disposition === "blocked" ? "自動診断: BLOCKED" : "実機確認が必要";
-      const counts = document.createElement("p");
-      counts.textContent = `FAIL ${summary.blockingFailures} · WARN ${summary.warnings} · 未観測 ${summary.manualPending}`;
-      const caveat = document.createElement("small");
-      caveat.textContent = "このスコアはブラウザー内の自動観測値です。実機認証・FPS保証・App Store審査を意味しません。";
-      summaryElement.append(score, disposition, counts, caveat);
+      renderSummary(summary);
       renderChecks(checks);
       renderManualChecks();
     } finally {
