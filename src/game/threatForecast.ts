@@ -228,7 +228,7 @@ export function assessEvasion(
     best.clearance > score[0].clearance + 0.08;
   const recommended = recommendationIsUseful ? best.direction : "hold";
   const recommendedClearance = recommendationIsUseful ? best.clearance : score[0].clearance;
-  const confidence = threats.length === 0
+  const confidence = !Number.isFinite(currentClearance) || !Number.isFinite(recommendedClearance)
     ? 0
     : clamp(Math.max(0, recommendedClearance - currentClearance) / 2.5, 0, 1);
 
