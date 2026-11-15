@@ -2,6 +2,12 @@ export type AudioCue = "launch" | "pause" | "resume" | "boss" | "weakpoint" | "s
 
 const NORMAL_MELODY = [0, 4, 7, 9, 7, 4, 2, 4, 0, 4, 7, 11, 9, 7, 4, 2];
 const BOSS_MELODY = [0, 3, 7, 10, 7, 3, 12, 10, 0, 5, 8, 12, 10, 8, 5, 3];
+const NORMAL_HARMONY = [
+  [0, 4, 7], [7, 11, 14], [9, 12, 16], [5, 9, 12]
+] as const;
+const BOSS_HARMONY = [
+  [0, 3, 7], [10, 14, 17], [5, 8, 12], [7, 10, 14]
+] as const;
 const CUE_FREQUENCIES: Record<AudioCue, number> = {
   launch: 660, pause: 280, resume: 520, boss: 180, weakpoint: 1040,
   shield: 470, special: 880, victory: 990, defeat: 150, unlock: 760
@@ -105,8 +111,17 @@ export class SoundDirector {
     const root = this.bossMode ? 146.83 : 196;
     this.note(root * Math.pow(2, semitone / 12), 0.16, this.bossMode ? "sawtooth" : "triangle", 0.035 * this.volume, now);
     if (this.step % 4 === 0) {
-      this.note(root / 2, 0.3, "sine", 0.055 * this.volume, now);
-      this.note(root * Math.pow(2, (this.bossMode ? 7 : 4) / 12), 0.26, "sine", 0.018 * this.volume, now);
+      const chords = this.bossMode ? BOSS_HARMONY : NORMAL_HARMONY;
+      const chord = chords[Math.floor(this.step / 4) % chords.length];
+      // Sustained triads form a four-bar harmonic bed under the original lead motif.
+      for (const interval of chord) {
+        this.note(root * Math.pow(2, interval / 12), 0.82, "sine", 0.012 * this.volume, now);
+      }
+      this.note(root / 2, 0.34, "sine", 0.045 * this.volume, now);
+      this.note(root * 3, 0.055, "square", 0.007 * this.volume, now + 0.025);
+    } else if (this.step % 2 === 1) {
+      const counter = this.bossMode ? 17 : 16;
+      this.note(root * Math.pow(2, counter / 12), 0.12, "triangle", 0.009 * this.volume, now + 0.035);
     }
     this.step += 1;
   }
