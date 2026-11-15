@@ -191,3 +191,16 @@ Files: src/game/diagnostics.ts, src/game/Game.ts, src/main.ts, src/style.css, te
 Metric boundary: Three.js renderer.info resets at each render() call by default. The current game performs one render per animation frame and reads counters immediately afterward. If post-processing adds multiple render passes, set autoReset to false, reset once per frame, and then read the aggregate. Frame-time values are requestAnimationFrame interval estimates, not direct GPU timings.
 
 Privacy boundary: diagnostic collection is local-only; User-Agent is included in exported files and should be reviewed before sharing. The app does not read location, camera, microphone, contacts, battery or device temperature.
+### Task 12: Free GitHub Pages deployment path
+
+Files: vite.config.ts, package.json, scripts/verify-pages-build.mjs, .github/workflows/ci.yml, .github/workflows/deploy-pages.yml, README.md, docs/architecture/tool-roles.md.
+
+- [x] Derive the production base path from GITHUB_REPOSITORY and use /H/ for this repository's project site.
+- [x] Scope the PWA manifest id, start_url, scope, icon URL and Workbox navigation fallback to the repository base.
+- [x] Add a build-artifact verifier for HTML asset URLs, manifest scope, icon files and service-worker navigation fallback.
+- [x] Run the subpath build and verifier in the quality-gate workflow.
+- [x] Add a main-only GitHub Pages build/upload/deploy workflow using the official Pages artifact/deploy actions.
+- [x] Document that feature branches and pull requests never publish and that the public Pages URL is provisional until enabled.
+- [ ] A repository administrator selects Settings > Pages > Build and deployment > Source > GitHub Actions; then merge to main and verify the first deployment URL.
+
+Cost/security boundary: the Pages workflow uses GitHub Actions' hosted runner and GitHub's Pages artifact/deploy actions; it adds no runtime server, database, secret, third-party asset or paid API. The deployment job requires pages:write and id-token:write, is gated to refs/heads/main, and does not run for this draft PR's feature branch.

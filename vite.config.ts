@@ -1,13 +1,19 @@
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
+const pagesBase = process.env.GITHUB_PAGES === "true"
+  ? `/${process.env.GITHUB_REPOSITORY?.split("/")[1] ?? "H"}/`
+  : "/";
+const withBase = (path: string): string => `${pagesBase}${path.replace(/^\/+/, "")}`;
+
 export default defineConfig({
+  base: pagesBase,
   plugins: [
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["icon.svg"],
       manifest: {
-        id: "/",
+        id: pagesBase,
         name: "Starlight Wing — 星の翼",
         short_name: "Starlight Wing",
         description: "かわいさ×本格SFの3D宇宙シューティング",
@@ -15,14 +21,15 @@ export default defineConfig({
         background_color: "#080d27",
         display: "fullscreen",
         orientation: "landscape",
-        start_url: "/",
+        scope: pagesBase,
+        start_url: pagesBase,
         icons: [
-          { src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }
+          { src: withBase("icon.svg"), sizes: "any", type: "image/svg+xml", purpose: "any maskable" }
         ]
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,webmanifest}"],
-        navigateFallback: "/index.html"
+        navigateFallback: withBase("index.html")
       }
     })
   ],

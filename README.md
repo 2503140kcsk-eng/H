@@ -39,8 +39,16 @@ npm run dev
 ```bash
 npm test
 npm run build
+GITHUB_PAGES=true GITHUB_REPOSITORY=2503140kcsk-eng/H npm run build
+npm run verify:pages
 npm run preview
 ```
+
+## 無料のGitHub Pages配布
+
+公開リポジトリ向けのGitHub Pages用Actionsワークフローを追加しています。Vite・PWAのパスはリポジトリ型サイト（`/H/`）としてビルド・検査し、`main` ブランチへの反映後だけデプロイします。想定URLは `https://2503140kcsk-eng.github.io/H/` ですが、これはPagesを有効化して初回デプロイが成功するまで未公開です。
+
+初回だけGitHubの **Settings → Pages → Build and deployment → Source → GitHub Actions** を選択してください。PRやfeatureブランチからは公開されず、`main` へのマージ後にデプロイが実行されます。GitHub Pagesは公開リポジトリでGitHub Freeから利用できますが、リポジトリ設定をこの作業環境から変更できないため、設定選択はリポジトリ管理者側で必要です。
 
 ## iPhoneでの試遊
 

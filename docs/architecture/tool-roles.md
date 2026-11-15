@@ -6,7 +6,8 @@ The implementation repository is authoritative. Tool usage is restricted to capa
 
 | Tool | Assigned role | First milestone |
 |---|---|---|
-| GitHub | Source of truth, branches, commits, CI, issues and review trail | Active: feature branch and CI |
+| GitHub | Source of truth, branches, commits, CI, issues and review trail | Active: feature branch, CI and free GitHub Pages build/deploy workflow |
+| GitHub Pages | Free static HTTPS host for the public project repository | Workflow is prepared; repository Settings must select Pages source = GitHub Actions before the first deployment |
 | GitLab Beta | Optional independent mirror / second CI review | Connector is authenticated; no owned Starlight project exists, so do not create a duplicate project without a selected destination. GitHub stays authoritative |
 | Context7 | Verify current Three.js, PWA, Dexie and testing APIs before coding | Active: implementation references |
 | Superpowers | Process checklist for requirements decomposition, test-first workflow, debugging and review gates | Workflow represented in repo docs; no callable Superpowers connector is exposed in this session |
@@ -50,7 +51,8 @@ The implementation repository is authoritative. Tool usage is restricted to capa
 
 - StackBlitz public GitHub import is the current no-project-permission preview path: https://stackblitz.com/github/2503140kcsk-eng/H/tree/feature/starlight-wing-mvp
 - StackBlitz WebContainers are not a substitute for physical iPhone Safari/Brave validation; iOS Safari remains beta and mobile memory is constrained.
-- Vercel project creation was attempted for the connected Hobby team and rejected with HTTP 403. No preview deployment URL was generated.
+- Vercel project creation was attempted for the connected Hobby team and rejected with HTTP 403. No Vercel preview deployment URL was generated.
+- GitHub Pages is the planned no-additional-cost static host. Its workflow deploys only `main`; a repository administrator must enable Pages with the GitHub Actions source once.
 
 ## Safety and license policy
 
