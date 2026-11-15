@@ -97,3 +97,23 @@ iOSブラウザが画面向きの強制固定を受け付けない場合があ�
 ## ChatGPTからiPhoneで試遊する場合
 
 この会話の中でGitHub上のViteアプリを直接ゲームとして実行することはできません。ChatGPTから上のStackBlitzリンクを開き、iPhone SafariでViteのプレビューを起動して別タブで試遊してください。これは開発プレビューであり、iOS Safari / Braveの実機互換性やPWAインストールを保証するものではありません。
+
+
+## iPhone Quality Gate と GitHub Pages 配布候補
+
+iPhone向け診断はハンガーの「◎ iPhone診断 / Q-TRACE」から開けます。Q-TRACE（Quality Trace）は、ブラウザー能力の確認、ゲーム実行中のイベント観測、利用者が実機で確認した項目を分離した診断パスポートです。結果は端末内で生成し、JSON / CSVとして書き出します。診断内容を外部サーバーへ送信しません。
+
+- `Q-TRACE` はHTTPS、WebGL 2、Pointer Events、タッチ能力、横画面、PWA / Service Worker、IndexedDB、Web Audio、WebGL復旧、キャンバス入力、ページ復帰を検査します。
+- WebGL context lost / restored、キャンバス pointer down / up / cancel、visibilitychange / pagehide / pageshow は画面を開いている間も継続して観測します。観測していない項目はPASSにせず「実機確認」と表示します。
+- JSON / CSVには判定状態、根拠、次の確認方法、ブラウザー環境、実機確認チェックを含めます。スコアはブラウザー内の自動検査結果であり、実機認証やFPS保証ではありません。
+- 旧version 1セーブの移行と、チェックサム不一致・切断・サイズ超過バックアップの拒否を回帰テストします。
+
+### GitHub Pages 候補
+
+GitHub Pagesのproject site URLは `https://2503140kcsk-eng.github.io/H/` です。候補版は `feat/iphone-quality-gate` のQuality Gateが通った場合だけGitHub PagesへデプロイするWorkflowを追加しました。初回のみリポジトリの **Settings → Pages → Build and deployment → Source → GitHub Actions** を選択してください。Pages設定が完了し、Actionsのdeploy jobが成功するまでは、このURLの公開済み動作を保証しません。
+
+PagesビルドではViteのbase、PWA manifestのid / scope / start_url、Workboxのfallbackを `/H/` に統一します。通常の開発・既定ビルドは `/` のままです。VercelやSupabaseの有料枠、APIキー、バックエンドは必要ありません。
+
+### 実機検証の境界
+
+PlaywrightのiPhone viewport / touch emulationは自動回帰検査用です。iOS Safari / Brave実機のGPU、音声ポリシー、PWAインストール、熱・持続FPS、Files / AirDrop / iCloud Drive経由の端末間復元を代替しません。実機チェックは `docs/qa/iphone-quality-gate.md` を参照してください。
