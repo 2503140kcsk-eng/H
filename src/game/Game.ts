@@ -5,6 +5,7 @@ import { TouchInput } from "./input";
 import { getPilotGrowthStats, getPilotProfile, type PilotProfile } from "./pilots";
 import { PICKUP_EFFECTS, selectPickupKind, type PickupKind } from "./pickups";
 import { getShipProfile, type ShipProfile } from "./ships";
+import { createWeaponShotSpecs, getWeaponFireInterval, getWeaponProfile, type WeaponProfile, type WeaponShotSpec } from "./weapons";
 import { getActiveFrameIntervalMs, summarizeFrameTimes, type GameDiagnosticsSnapshot } from "./diagnostics";
 
 export type GameMode = "story" | "stage" | "endless";
@@ -41,6 +42,9 @@ type Projectile = {
   damage: number;
   radius: number;
   homing?: boolean;
+  pierceRemaining: number;
+  hitEnemies?: Set<Enemy>;
+  hitBoss: boolean;
 };
 type Enemy = {
   mesh: THREE.Group;
@@ -101,7 +105,8 @@ export class Game {
     enemyBulletGeometry: new THREE.SphereGeometry(0.12, 8, 8),
     particleGeometry: new THREE.IcosahedronGeometry(0.09, 0),
     shardGeometry: new THREE.OctahedronGeometry(0.24, 0),
-    ringGeometry: new THREE.TorusGeometry(0.56, 0.045, 6, 24)
+    ringGeometry: new THREE.TorusGeometry(0.56, 0.045, 6, 24),
+    lanceGeometry: new THREE.CylinderGeometry(0.075, 0.12, 0.72, 6)
   };
   private readonly materials = {
     player: new THREE.MeshStandardMaterial({ color: 0xf7f3ff, metalness: 0.55, roughness: 0.3, emissive: 0x251a53 }),
@@ -121,6 +126,8 @@ export class Game {
     boss: new THREE.MeshStandardMaterial({ color: 0x8c7bff, metalness: 0.68, roughness: 0.25, emissive: 0x38267f }),
     bossCore: new THREE.MeshStandardMaterial({ color: 0xff83dc, metalness: 0.15, roughness: 0.2, emissive: 0xb20a71 }),
     playerBullet: new THREE.MeshBasicMaterial({ color: 0x8cf5ff }),
+    playerBulletFan: new THREE.MeshBasicMaterial({ color: 0xffdc83 }),
+    playerBulletLance: new THREE.MeshBasicMaterial({ color: 0xff91e8 }),
     enemyBullet: new THREE.MeshBasicMaterial({ color: 0xff72a9 }),
     shard: new THREE.MeshStandardMaterial({ color: 0x7deeff, emissive: 0x176c91, metalness: 0.25 }),
     repair: new THREE.MeshStandardMaterial({ color: 0xffa2c8, emissive: 0x8e2758 }),
@@ -154,6 +161,7 @@ export class Game {
   private readonly pilotUpgrades: { attack: number; hull: number };
   private readonly shipProfile: ShipProfile;
   private readonly pilotProfile: PilotProfile;
+  private readonly weaponProfile: WeaponProfile;
   private readonly pilotGrowth: ReturnType<typeof getPilotGrowthStats>;
   private readonly pilotCockpitMaterial: THREE.MeshStandardMaterial;
   private sensitivityValue: number;
@@ -192,6 +200,7 @@ export class Game {
     shipId?: string;
     pilotId?: string;
     pilotLevel?: number;
+    weaponId?: string;
     onHudUpdate: (state: HudState) => void;
     onRunEnd: (result: RunResult) => void;
     onGraphicsContextLost: () => void;
@@ -207,6 +216,7 @@ export class Game {
     this.sensitivityValue = options.sensitivity ?? 1;
     this.shipProfile = getShipProfile(options.shipId ?? "Lumen-01");
     this.pilotProfile = getPilotProfile(options.pilotId ?? "lumi-asteria");
+    this.weaponProfile = getWeaponProfile(options.weaponId ?? "star-pulse");
     this.pilotGrowth = getPilotGrowthStats(options.pilotLevel ?? 1);
     this.pilotCockpitMaterial = new THREE.MeshStandardMaterial({
       color: this.pilotProfile.accentColor,
@@ -517,10 +527,9 @@ export class Game {
     this.fireTimer -= dt;
     if (this.fireTimer <= 0) {
       this.firePlayerShots();
-      this.fireTimer = this.overdriveTimer > 0
-        ? 0.095 * this.shipProfile.fireIntervalMultiplier * this.pilotProfile.fireIntervalMultiplier
-        : Math.max(0.12, 0.23 - this.pilotUpgrades.attack * 0.004) *
-          this.shipProfile.fireIntervalMultiplier * this.pilotProfile.fireIntervalMultiplier;
+      const baseFireInterval = Math.max(0.12, 0.23 - this.pilotUpgrades.attack * 0.004);
+      this.fireTimer = getWeaponFireInterval(this.weaponProfile.id, baseFireInterval, this.overdriveTimer > 0) *
+        this.shipProfile.fireIntervalMultiplier * this.pilotProfile.fireIntervalMultiplier;
     }
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0 && this.enemies.length < MAX_ENEMIES && !this.boss) {
@@ -712,27 +721,19 @@ export class Game {
     const direction = target
       ? new THREE.Vector2(target.x - origin.x, target.y - origin.y).normalize()
       : new THREE.Vector2(0, 1);
-    const count = Math.min(5, 1 + Math.floor(this.pilotUpgrades.attack / 4) +
-      (this.multishotTimer > 0 ? 2 : 0));
-    for (let index = 0; index < count; index += 1) {
-      const spread = (index - (count - 1) / 2) * 0.105;
-      const velocity = direction.clone().rotateAround(new THREE.Vector2(), spread).multiplyScalar(15.5);
-      const mesh = new THREE.Mesh(this.shared.bulletGeometry, this.materials.playerBullet);
-      mesh.position.set(origin.x, origin.y, 0.55);
-      this.scene.add(mesh);
-      this.projectiles.push({
-        mesh,
-        velocity,
-        owner: "player",
-        damage: Math.max(0.1,
-          ((this.overdriveTimer > 0 ? 2 : 1) + Math.floor(this.pilotUpgrades.attack / 3)) *
-          this.shipProfile.attackMultiplier * this.pilotProfile.attackMultiplier *
-          this.pilotGrowth.attackMultiplier
-        ),
-        radius: 0.14
-      });
+    const bonusProjectiles = Math.floor(this.pilotUpgrades.attack / 4) + (this.multishotTimer > 0 ? 2 : 0);
+    const baseDamage = Math.max(0.1,
+      ((this.overdriveTimer > 0 ? 2 : 1) + Math.floor(this.pilotUpgrades.attack / 3)) *
+      this.shipProfile.attackMultiplier * this.pilotProfile.attackMultiplier *
+      this.pilotGrowth.attackMultiplier
+    );
+    const originVector = new THREE.Vector2();
+    for (const shot of createWeaponShotSpecs(this.weaponProfile.id, bonusProjectiles)) {
+      const velocity = direction.clone()
+        .rotateAround(originVector, shot.spreadRadians)
+        .multiplyScalar(shot.projectileSpeed);
+      this.addProjectile(origin.x, origin.y, velocity, "player", baseDamage * shot.damageMultiplier, false, shot);
     }
-    if (this.projectiles.length > MAX_PROJECTILES) this.removeProjectile(0);
   }
 
   private findTarget(): THREE.Vector2 | null {
@@ -771,14 +772,40 @@ export class Game {
     this.addProjectile(x, y, direction.multiplyScalar(4.4), "enemy", 1, true);
   }
 
-  private addProjectile(x: number, y: number, velocity: THREE.Vector2, owner: BulletOwner, damage: number, homing = false): void {
-    const mesh = new THREE.Mesh(
-      owner === "player" ? this.shared.bulletGeometry : this.shared.enemyBulletGeometry,
-      owner === "player" ? this.materials.playerBullet : this.materials.enemyBullet
-    );
+  private addProjectile(
+    x: number,
+    y: number,
+    velocity: THREE.Vector2,
+    owner: BulletOwner,
+    damage: number,
+    homing = false,
+    weaponShot?: WeaponShotSpec
+  ): void {
+    const geometry = owner === "player" && weaponShot?.visual === "lance"
+      ? this.shared.lanceGeometry
+      : owner === "player"
+        ? this.shared.bulletGeometry
+        : this.shared.enemyBulletGeometry;
+    const material = owner !== "player"
+      ? this.materials.enemyBullet
+      : weaponShot?.visual === "fan"
+        ? this.materials.playerBulletFan
+        : weaponShot?.visual === "lance"
+          ? this.materials.playerBulletLance
+          : this.materials.playerBullet;
+    const mesh = new THREE.Mesh(geometry, material);
     mesh.position.set(x, y, owner === "player" ? 0.55 : 0.4);
+    if (weaponShot?.visual === "lance") mesh.rotation.z = -Math.atan2(velocity.x, velocity.y);
     this.scene.add(mesh);
-    this.projectiles.push({ mesh, velocity, owner, damage, radius: owner === "player" ? 0.14 : 0.19, homing });
+    const projectile: Projectile = {
+      mesh, velocity, owner, damage,
+      radius: weaponShot?.projectileRadius ?? (owner === "player" ? 0.14 : 0.19),
+      homing,
+      pierceRemaining: weaponShot?.pierceTargets ?? 0,
+      hitBoss: false
+    };
+    if (projectile.pierceRemaining > 0) projectile.hitEnemies = new Set<Enemy>();
+    this.projectiles.push(projectile);
     if (this.projectiles.length > MAX_PROJECTILES) this.removeProjectile(0);
   }
 
@@ -802,20 +829,32 @@ export class Game {
         continue;
       }
       if (bullet.owner === "player") {
-        let hit = false;
+        let removeAfterHit = false;
         for (let enemyIndex = this.enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
           const enemy = this.enemies[enemyIndex];
+          if (bullet.hitEnemies?.has(enemy)) continue;
           if (bullet.mesh.position.distanceTo(enemy.mesh.position) < enemy.radius + bullet.radius) {
             this.damageEnemy(enemyIndex, bullet.damage);
-            hit = true;
+            if (bullet.hitEnemies && bullet.pierceRemaining > 0) {
+              bullet.hitEnemies.add(enemy);
+              bullet.pierceRemaining -= 1;
+            } else {
+              removeAfterHit = true;
+            }
             break;
           }
         }
-        if (!hit && this.boss && bullet.mesh.position.distanceTo(this.boss.mesh.position) < 2.15) {
+        if (!removeAfterHit && this.boss && !bullet.hitBoss &&
+            bullet.mesh.position.distanceTo(this.boss.mesh.position) < 2.15) {
           this.damageBoss(bullet.damage);
-          hit = true;
+          if (bullet.hitEnemies && bullet.pierceRemaining > 0) {
+            bullet.hitBoss = true;
+            bullet.pierceRemaining -= 1;
+          } else {
+            removeAfterHit = true;
+          }
         }
-        if (hit) this.removeProjectile(index);
+        if (removeAfterHit) this.removeProjectile(index);
       } else if (bullet.mesh.position.distanceTo(this.player.position) < 0.54 + bullet.radius) {
         this.damagePlayer(bullet.damage);
         this.removeProjectile(index);
@@ -1168,7 +1207,8 @@ export class Game {
             object.geometry !== this.shared.enemyBulletGeometry &&
             object.geometry !== this.shared.particleGeometry &&
             object.geometry !== this.shared.shardGeometry &&
-            object.geometry !== this.shared.ringGeometry) object.geometry.dispose();
+            object.geometry !== this.shared.ringGeometry &&
+            object.geometry !== this.shared.lanceGeometry) object.geometry.dispose();
       }
     });
     for (const layer of this.stars) {

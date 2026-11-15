@@ -4,7 +4,9 @@ import {
   ALL_WEAPON_IDS,
   DEFAULT_WEAPON_ID,
   WEAPON_PROFILES,
+  getWeaponFireInterval,
   getWeaponProfile,
+  createWeaponShotSpecs,
   normalizeSelectedWeaponId,
   normalizeUnlockedWeaponIds
 } from "../src/game/weapons";
@@ -42,6 +44,14 @@ describe("weapon roster", () => {
       projectileCount: 1,
       pierceTargets: 1
     });
+    const fanShots = createWeaponShotSpecs("prism-fan");
+    expect(fanShots).toHaveLength(3);
+    expect(fanShots.map((shot) => shot.spreadRadians)).toEqual([-0.16, 0, 0.16]);
+    expect(fanShots.every((shot) => shot.visual === "fan" && shot.damageMultiplier === 0.42)).toBe(true);
+    const lance = createWeaponShotSpecs("nova-lance")[0];
+    expect(lance).toMatchObject({ pierceTargets: 1, visual: "lance", damageMultiplier: 1.75 });
+    expect(createWeaponShotSpecs("star-pulse", 20)).toHaveLength(5);
+
     for (const weapon of Object.values(WEAPON_PROFILES)) {
       expect(weapon.projectileCount).toBeGreaterThanOrEqual(1);
       expect(weapon.projectileCount).toBeLessThanOrEqual(3);
@@ -51,6 +61,13 @@ describe("weapon roster", () => {
       expect(weapon.projectileRadius).toBeGreaterThan(0);
       expect(weapon.pierceTargets).toBeGreaterThanOrEqual(0);
     }
+  });
+
+  it("scales fire cadence by weapon and keeps overdrive bounded", () => {
+    expect(getWeaponFireInterval("star-pulse", 0.2)).toBeCloseTo(0.2);
+    expect(getWeaponFireInterval("nova-lance", 0.2)).toBeCloseTo(0.3);
+    expect(getWeaponFireInterval("nova-lance", 0.2, true)).toBeCloseTo(0.1425);
+    expect(getWeaponFireInterval("prism-fan", Number.NaN)).toBeCloseTo(0.2576);
   });
 
   it("filters forged and duplicate weapon identifiers and always retains the default", () => {

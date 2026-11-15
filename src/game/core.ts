@@ -1,5 +1,6 @@
 import { normalizeSelectedPilotId, normalizeUnlockedPilotIds } from "./pilots";
 import { normalizeSelectedShipId, normalizeUnlockedShipIds } from "./ships";
+import { DEFAULT_WEAPON_ID, normalizeSelectedWeaponId, normalizeUnlockedWeaponIds } from "./weapons";
 import { z } from "zod";
 
 export interface SaveData {
@@ -16,6 +17,8 @@ export interface SaveData {
   pilotProgress: Record<string, { level: number; xp: number }>;
   pilotLevel: number;
   pilotXp: number;
+  unlockedWeapons: string[];
+  selectedWeapon: string;
 }
 
 const DEFAULT_SAVE: SaveData = {
@@ -31,7 +34,9 @@ const DEFAULT_SAVE: SaveData = {
   selectedPilot: "lumi-asteria",
   pilotProgress: { "lumi-asteria": { level: 1, xp: 0 } },
   pilotLevel: 1,
-  pilotXp: 0
+  pilotXp: 0,
+  unlockedWeapons: [DEFAULT_WEAPON_ID],
+  selectedWeapon: DEFAULT_WEAPON_ID
 };
 
 const SaveSchema = z.object({
@@ -59,7 +64,9 @@ const SaveSchema = z.object({
     }).strict()
   ).catch({}),
   pilotLevel: z.number().int().min(1).max(100).catch(1),
-  pilotXp: z.number().int().min(0).max(1_000_000_000).catch(0)
+  pilotXp: z.number().int().min(0).max(1_000_000_000).catch(0),
+  unlockedWeapons: z.array(z.string().min(1).max(48)).max(8).catch([DEFAULT_WEAPON_ID]),
+  selectedWeapon: z.string().min(1).max(48).catch(DEFAULT_WEAPON_ID)
 });
 
 const BackupPayloadSchema = z.object({
@@ -87,7 +94,9 @@ const BackupPayloadSchema = z.object({
     }).strict()
   ).optional().default({}),
   pilotLevel: z.number().int().min(1).max(100),
-  pilotXp: z.number().int().min(0).max(1_000_000_000)
+  pilotXp: z.number().int().min(0).max(1_000_000_000),
+  unlockedWeapons: z.array(z.string().min(1).max(48)).max(8).optional().default([DEFAULT_WEAPON_ID]),
+  selectedWeapon: z.string().min(1).max(48).optional().default(DEFAULT_WEAPON_ID)
 }).strict();
 
 export function clamp(value: number, min: number, max: number): number {
@@ -127,6 +136,8 @@ export function sanitizeSaveData(value: unknown): SaveData {
   const selectedShip = normalizeSelectedShipId(data.selectedShip, ships);
   const pilots = normalizeUnlockedPilotIds(data.unlockedPilots);
   const selectedPilot = normalizeSelectedPilotId(data.selectedPilot, pilots);
+  const weapons = normalizeUnlockedWeaponIds(data.unlockedWeapons);
+  const selectedWeapon = normalizeSelectedWeaponId(data.selectedWeapon, weapons);
   const pilotProgress: Record<string, { level: number; xp: number }> = {};
   for (const id of pilots) {
     const stored = data.pilotProgress[id];
@@ -165,6 +176,8 @@ export function sanitizeSaveData(value: unknown): SaveData {
     selectedShip,
     unlockedPilots: pilots,
     selectedPilot,
+    unlockedWeapons: weapons,
+    selectedWeapon,
     pilotProgress,
     totalRuns: clamp(data.totalRuns, 0, 1_000_000),
     pilotLevel: activePilotProgress.level,
