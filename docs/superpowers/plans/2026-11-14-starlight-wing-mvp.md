@@ -227,10 +227,10 @@ Cost/performance ruling: no new dependencies, network requests, physics engine, 
 
 Files: .github/workflows/ci.yml, README.md, docs/architecture/tool-roles.md.
 
-- [x] Keep `pull_request` as the quality gate for changes proposed into main.
-- [x] Restrict automatic `push` runs to main; add `workflow_dispatch` for manual checks.
-- [x] Update the contributor / tool-role notes to explain why feature branch updates are not double-run.
-- [x] Keep the complete tests, production build, GitHub Pages subpath build and browser E2E within the single PR check.
-- [ ] Verify on the next PR update that only one Quality Gate run is created and it completes successfully.
+- [x] Use one `push` trigger for `main` and repository-owned `feature/**` branches; omit the separate `pull_request` trigger.
+- [x] Add `workflow_dispatch` for manual checks.
+- [x] Update the contributor / tool-role notes to explain that the push-associated commit check is shown on the PR and prevents a second run.
+- [x] Keep the complete tests, production build, GitHub Pages subpath build and browser E2E within one Quality Gate.
+- [ ] Verify on the next PR update that exactly one Quality Gate run is created and it completes successfully.
 
 Cost boundary: this reduces duplicate CI executions on PR pushes; it does not change the tests or require a paid plan.

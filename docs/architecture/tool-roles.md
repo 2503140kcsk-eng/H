@@ -2,7 +2,7 @@
 
 The implementation repository is authoritative. Tool usage is restricted to capabilities already connected and actions that stay within free/no-charge limits. A tool being connected does not imply that every feature or AI-credit allowance in that product is free.
 
-The Quality Gate runs on `pull_request` for proposed changes, `push` only for direct updates to `main`, and `workflow_dispatch` for a manual run. Feature-branch pushes already belonging to an open PR are not also run under a separate push trigger, avoiding duplicate GitHub Actions minutes.
+The Quality Gate runs once on `push` for `main` and repository-owned `feature/**` branches, plus `workflow_dispatch` for manual runs. A push to an open PR head still attaches its commit check to the PR; omitting a second `pull_request` trigger avoids duplicate GitHub Actions minutes.
 
 ## Connected work roles
 

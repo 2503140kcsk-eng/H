@@ -1,11 +1,9 @@
 name: Quality Gate
 
 on:
-  # PR branches run once via pull_request; direct pushes only validate main.
+  # A single push check covers main and repository-owned PR head branches.
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+    branches: [main, "feature/**"]
   workflow_dispatch:
 
 permissions:
