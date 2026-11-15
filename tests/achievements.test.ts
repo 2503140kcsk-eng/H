@@ -14,7 +14,7 @@ describe("achievement unlock rules", () => {
       totalRuns: 1, kills: 55, score: 6200,
       bossesDefeated: ["nebula-empress"],
       completedPlanets: ["aurora-prime", "pyra-reach", "noctis-archive"],
-      unlockedWeapons: ["photon-pulse", "prism-laser", "comet-homing", "nova-piercer"]
+      unlockedWeapons: ["photon-pulse", "prism-laser", "comet-homing", "nova-piercer", "eclipse-lance"]
     }, ["first-flight"]);
     expect(result).toContain("core-breaker");
     expect(result).toContain("ace-pilot");
