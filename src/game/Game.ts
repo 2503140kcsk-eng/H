@@ -164,6 +164,7 @@ export class Game {
   };
   private playerTarget = new THREE.Vector2(0, -5.8);
   private playerVelocity = new THREE.Vector2();
+  private playerMotionVelocity = new THREE.Vector2();
   private running = false;
   private disposed = false;
   private animationFrame = 0;
@@ -371,6 +372,7 @@ export class Game {
     this.player.position.set(0, -5.8, 0.6);
     this.playerTarget.set(0, -5.8);
     this.playerVelocity.set(0, 0);
+    this.playerMotionVelocity.set(0, 0);
     this.running = true;
     this.callbacks.onHudUpdate(this.getHudState());
   }
@@ -540,6 +542,8 @@ export class Game {
     const smoothing = 1 - Math.exp(-13 * this.shipProfile.movementMultiplier *
       this.pilotProfile.movementMultiplier * speedBoost * dt);
     this.playerVelocity.set(dx * smoothing, dy * smoothing);
+    if (dt > 1e-5) this.playerMotionVelocity.copy(this.playerVelocity).multiplyScalar(1 / dt);
+    else this.playerMotionVelocity.set(0, 0);
     this.player.position.x += this.playerVelocity.x;
     this.player.position.y += this.playerVelocity.y;
     this.player.rotation.z = clamp(-this.playerVelocity.x * 0.12, -0.32, 0.32);
@@ -927,6 +931,15 @@ export class Game {
     if (this.projectiles.length > MAX_PROJECTILES) this.removeProjectile(0);
   }
 
+  private worldImpactToLocal(target: THREE.Object3D, worldX: number, worldY: number): THREE.Vector2 {
+    const local = new THREE.Vector2(
+      worldX - target.position.x,
+      worldY - target.position.y
+    ).rotateAround(new THREE.Vector2(), -target.rotation.z);
+    const scale = Math.max(0.05, Math.abs(target.scale.x));
+    return local.multiplyScalar(1 / scale);
+  }
+
   private updateProjectiles(dt: number): void {
     for (let index = this.projectiles.length - 1; index >= 0; index -= 1) {
       const bullet = this.projectiles[index];
@@ -955,12 +968,12 @@ export class Game {
             ? registerProjectileHit(bullet as Projectile & { hitTargets: Set<object> }, enemy)
             : "remove";
           if (decision === "duplicate") continue;
-          this.damageEnemy(
-            enemyIndex,
-            bullet.damage,
-            bullet.mesh.position.x - enemy.mesh.position.x,
-            bullet.mesh.position.y - enemy.mesh.position.y
+          const localHit = this.worldImpactToLocal(
+            enemy.mesh,
+            bullet.mesh.position.x,
+            bullet.mesh.position.y
           );
+          this.damageEnemy(enemyIndex, bullet.damage, localHit.x, localHit.y);
           if (decision === "remove") removeAfterHit = true;
           break;
         }
@@ -970,11 +983,12 @@ export class Game {
             ? registerProjectileHit(bullet as Projectile & { hitTargets: Set<object> }, this.boss)
             : "remove";
           if (decision !== "duplicate") {
-            this.damageBoss(
-              bullet.damage,
-              bullet.mesh.position.x - this.boss.mesh.position.x,
-              bullet.mesh.position.y - this.boss.mesh.position.y
+            const localHit = this.worldImpactToLocal(
+              this.boss.mesh,
+              bullet.mesh.position.x,
+              bullet.mesh.position.y
             );
+            this.damageBoss(bullet.damage, localHit.x, localHit.y);
             if (decision === "remove") removeAfterHit = true;
           }
         }
@@ -1372,7 +1386,7 @@ export class Game {
 
     return assessEvasion(
       { x: this.player.position.x, y: this.player.position.y },
-      { x: this.playerVelocity.x, y: this.playerVelocity.y },
+      { x: this.playerMotionVelocity.x, y: this.playerMotionVelocity.y },
       threats,
       {
         minX: -this.world.width / 2 + 0.55,
