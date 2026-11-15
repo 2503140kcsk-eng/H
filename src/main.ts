@@ -1,5 +1,6 @@
 import { registerSW } from "virtual:pwa-register";
 import { PilotShowcase } from "./game/PilotShowcase";
+import { ALL_PILOT_SKIN_IDS, PILOT_SKINS, isPilotSkinId } from "./game/pilot-skins";
 import { canUnlockPilotSkill, getPilotSkills, getUnspentSkillPoints } from "./game/pilot-skills";
 import { getStoryChoiceKey, getStoryScene, hasSecretStarRoute, type StoryChoiceId } from "./game/narrative";
 import { Game, type GameMode, type HudState, type RunResult } from "./game/Game";
@@ -83,6 +84,10 @@ uiRoot.innerHTML = `
                 <small id="pilot-story-secret" class="pilot-story-secret"></small>
               </section>
             </div>
+            <section class="pilot-skin-dock">
+              <div class="pilot-dock-heading"><strong>パイロット衣装</strong><span>カラーと装飾を変更</span></div>
+              <div id="pilot-skin-list" class="pilot-skin-options" aria-label="パイロット衣装"></div>
+            </section>
           </div>
         </div>
         <div class="expansion-dock">
@@ -216,6 +221,7 @@ let runActive = false;
 let paused = false;
 let pilotShowcase: PilotShowcase | null = null;
 let previewPilotId = "";
+let previewSkinId = "";
 let lastComboCue = 0;
 const sound = new SoundDirector();
 let toastTimeout = 0;
@@ -269,7 +275,8 @@ function ensurePilotShowcase(): void {
   try {
     pilotShowcase = new PilotShowcase(byId<HTMLCanvasElement>("pilot-preview-canvas"));
     previewPilotId = save.selectedPilot;
-    pilotShowcase.setPilot(getPilotProfile(save.selectedPilot));
+    previewSkinId = save.selectedPilotSkin;
+    pilotShowcase.setPilot(getPilotProfile(save.selectedPilot), save.selectedPilotSkin);
     byId("pilot-avatar").hidden = true;
   } catch (error) {
     byId("pilot-avatar").hidden = false;
@@ -370,6 +377,20 @@ function renderPilotSkills(): void {
   }).join("");
 }
 
+function renderPilotSkins(): void {
+  byId<HTMLDivElement>("pilot-skin-list").innerHTML = ALL_PILOT_SKIN_IDS.map((id) => {
+    const skin = PILOT_SKINS[id];
+    const unlocked = save.unlockedPilotSkins.includes(id);
+    const selected = save.selectedPilotSkin === id;
+    const disabled = !unlocked && save.shards < skin.unlockCost;
+    const action = unlocked ? (selected ? "装着中" : "装着") : `解放 ${skin.unlockCost.toLocaleString("ja-JP")} ✦`;
+    return `<button type="button" class="pilot-skin-option ${selected ? "selected" : ""} ${unlocked ? "unlocked" : "locked"}"
+      data-pilot-skin-id="${id}" ${disabled ? "disabled" : ""} aria-pressed="${selected}">
+      <b>${skin.name}</b><small>${skin.description}</small><span>${action}</span>
+    </button>`;
+  }).join("");
+}
+
 function renderPilotStory(): void {
   const scene = getStoryScene(save.selectedPilot, save.selectedPlanet, save.storyChoices);
   const title = byId<HTMLElement>("pilot-story-title");
@@ -462,9 +483,10 @@ function refreshMenu(): void {
   byId("pilot-name").textContent = selectedPilot.name;
   byId("pilot-role").textContent = selectedPilot.className + " · Lv." + selectedProgress.level;
   byId("pilot-avatar").textContent = selectedPilot.avatar;
-  if (pilotShowcase && previewPilotId !== save.selectedPilot) {
-    pilotShowcase.setPilot(selectedPilot);
+  if (pilotShowcase && (previewPilotId !== save.selectedPilot || previewSkinId !== save.selectedPilotSkin)) {
+    pilotShowcase.setPilot(selectedPilot, save.selectedPilotSkin);
     previewPilotId = save.selectedPilot;
+    previewSkinId = save.selectedPilotSkin;
   }
   byId("currency").textContent = save.shards.toLocaleString("en-US") + " ✦";
   byId("attack-level").textContent = "Lv. " + save.upgrades.attack;
@@ -481,6 +503,7 @@ function refreshMenu(): void {
   renderPilotChoices();
   renderPilotSkills();
   renderPilotStory();
+  renderPilotSkins();
   renderPlanetChoices();
   renderWeaponChoices();
   renderCollection();
@@ -541,6 +564,7 @@ function startRun(mode: GameMode): void {
     pilotShowcase?.dispose();
     pilotShowcase = null;
     previewPilotId = "";
+    previewSkinId = "";
     game?.dispose();
     game = makeGame();
     currentMode = mode;
@@ -830,6 +854,21 @@ byId("weapon-list").addEventListener("click", async (event) => {
   await persist();
   showToast("SLOT " + (save.activeWeaponSlot + 1) + " に " + weapon.name + " を装備！");
   playTone(780, 0.12);
+});
+byId("pilot-skin-list").addEventListener("click", async (event) => {
+  if (!(event.target instanceof Element)) return;
+  const skinId = event.target.closest<HTMLButtonElement>("[data-pilot-skin-id]")?.dataset.pilotSkinId;
+  if (!skinId || !isPilotSkinId(skinId)) return;
+  const skin = PILOT_SKINS[skinId];
+  if (!save.unlockedPilotSkins.includes(skinId)) {
+    if (save.shards < skin.unlockCost) { showToast("シャードが足りないよ！"); return; }
+    save.shards -= skin.unlockCost;
+    save.unlockedPilotSkins.push(skinId);
+  }
+  save.selectedPilotSkin = skinId;
+  await persist();
+  showToast(`${skin.name}を装着したよ！`);
+  sound.cue("unlock");
 });
 byId("ship-list").addEventListener("click", async (event) => {
   if (!(event.target instanceof Element)) return;
