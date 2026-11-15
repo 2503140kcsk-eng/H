@@ -3,6 +3,8 @@ import { clamp } from "./core";
 import { absorbGuardianShield, ENEMY_PROFILES, selectEnemyKind, type EnemyKind } from "./enemies";
 import { TouchInput } from "./input";
 import { getPilotGrowthStats, getPilotProfile, type PilotProfile } from "./pilots";
+import { getPilotSkillBonuses, type PilotSkillBonuses } from "./pilot-skills";
+import { getBossAttackInterval, getBossPhase, getBossVolleyCount, isBossWeakpointOpen, type BossPhase } from "./boss-mechanics";
 import { PICKUP_EFFECTS, selectPickupKind, type PickupKind } from "./pickups";
 import { getShipProfile, type ShipProfile } from "./ships";
 import { getEndlessBossProfile, getPlanetProfile, type BossProfile, type PlanetEventKind, type PlanetId, type PlanetProfile } from "./campaign";
@@ -38,6 +40,9 @@ export type HudState = {
   weaponName: string;
   weaponSlot: 0 | 1;
   bossWeakpointOpen: boolean;
+  bossPhase: BossPhase;
+  bossPartsRemaining: number;
+  bossPartCount: number;
 };
 
 type BulletOwner = "player" | "enemy";
@@ -77,8 +82,17 @@ type Particle = {
   life: number;
   maxLife: number;
 };
+type BossPart = {
+  id: "port-left" | "port-right" | "armor-plate";
+  mesh: THREE.Mesh;
+  hp: number;
+  maxHp: number;
+  destroyed: boolean;
+};
 type Boss = {
   mesh: THREE.Group;
+  parts: BossPart[];
+  phase: BossPhase;
   hp: number;
   maxHp: number;
   fireTimer: number;
@@ -176,6 +190,8 @@ export class Game {
   private readonly shipProfile: ShipProfile;
   private readonly pilotProfile: PilotProfile;
   private readonly pilotGrowth: ReturnType<typeof getPilotGrowthStats>;
+  private readonly pilotSkillBonuses: PilotSkillBonuses;
+  private readonly bossPartHitPosition = new THREE.Vector3();
   private readonly pilotCockpitMaterial: THREE.MeshStandardMaterial;
   private readonly invulnerableForTest: boolean;
   private readonly planetProfile: PlanetProfile;
@@ -223,6 +239,7 @@ export class Game {
     shipId?: string;
     pilotId?: string;
     pilotLevel?: number;
+    pilotSkills?: readonly string[];
     planetId?: string;
     weaponIds?: readonly string[];
     activeWeaponSlot?: number;
@@ -249,6 +266,7 @@ export class Game {
     this.shipProfile = getShipProfile(options.shipId ?? "Lumen-01");
     this.pilotProfile = getPilotProfile(options.pilotId ?? "lumi-asteria");
     this.pilotGrowth = getPilotGrowthStats(options.pilotLevel ?? 1);
+    this.pilotSkillBonuses = getPilotSkillBonuses(this.pilotProfile.id, options.pilotSkills ?? []);
     this.invulnerableForTest = import.meta.env.DEV && options.invulnerableForTest === true;
     this.pilotCockpitMaterial = new THREE.MeshStandardMaterial({
       color: this.pilotProfile.accentColor,
@@ -331,7 +349,7 @@ export class Game {
     this.callbacks.onMissionEvent(pilotBriefing, this.pilotProfile.name);
     this.callbacks.onMissionEvent(this.planetProfile.event, "MISSION CONTROL");
     this.hp = 3 + this.pilotUpgrades.hull + this.shipProfile.hullBonus +
-      this.pilotProfile.hullBonus + this.pilotGrowth.hullBonus;
+      this.pilotProfile.hullBonus + this.pilotGrowth.hullBonus + this.pilotSkillBonuses.hullBonus;
     this.maxHp = this.hp;
     this.shield = 100;
     this.special = 60;
@@ -389,7 +407,8 @@ export class Game {
     }
     const shipDamage = this.shipProfile.attackMultiplier *
       this.pilotProfile.attackMultiplier * this.pilotProfile.specialMultiplier *
-      this.pilotGrowth.attackMultiplier;
+      this.pilotGrowth.attackMultiplier * this.pilotSkillBonuses.attackMultiplier *
+      this.pilotSkillBonuses.specialMultiplier;
     for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
       this.damageEnemy(index, (5 + this.pilotUpgrades.attack) * shipDamage);
     }
@@ -526,14 +545,15 @@ export class Game {
     this.multishotTimer = Math.max(0, this.multishotTimer - dt);
     this.speedBoostTimer = Math.max(0, this.speedBoostTimer - dt);
     this.shield = Math.min(100, this.shield + dt * 2.5 *
-      this.shipProfile.shieldRechargeMultiplier * this.pilotProfile.shieldRechargeMultiplier);
+      this.shipProfile.shieldRechargeMultiplier * this.pilotProfile.shieldRechargeMultiplier *
+      this.pilotSkillBonuses.shieldRechargeMultiplier);
     this.special = Math.min(100, this.special + dt * 1.1);
 
     const dx = this.playerTarget.x - this.player.position.x;
     const dy = this.playerTarget.y - this.player.position.y;
     const speedBoost = this.speedBoostTimer > 0 ? 1.32 : 1;
     const smoothing = 1 - Math.exp(-13 * this.shipProfile.movementMultiplier *
-      this.pilotProfile.movementMultiplier * speedBoost * dt);
+      this.pilotProfile.movementMultiplier * this.pilotSkillBonuses.movementMultiplier * speedBoost * dt);
     this.playerVelocity.set(dx * smoothing, dy * smoothing);
     this.player.position.x += this.playerVelocity.x;
     this.player.position.y += this.playerVelocity.y;
@@ -561,7 +581,8 @@ export class Game {
       this.fireTimer = this.overdriveTimer > 0
         ? 0.095 * this.shipProfile.fireIntervalMultiplier * this.pilotProfile.fireIntervalMultiplier * weaponInterval
         : Math.max(0.12, 0.23 - this.pilotUpgrades.attack * 0.004) *
-          this.shipProfile.fireIntervalMultiplier * this.pilotProfile.fireIntervalMultiplier * weaponInterval;
+          this.shipProfile.fireIntervalMultiplier * this.pilotProfile.fireIntervalMultiplier *
+          this.pilotSkillBonuses.fireIntervalMultiplier * weaponInterval;
     }
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0 && this.enemies.length < MAX_ENEMIES && !this.boss) {
@@ -930,17 +951,34 @@ export class Game {
           }
         }
         if (!consumed && this.boss && !bullet.bossHit) {
-          const corePosition = this.boss.core.getWorldPosition(new THREE.Vector3());
-          if (bullet.mesh.position.distanceTo(corePosition) < 0.84) {
-            this.damageBoss(bullet.damage, this.boss.weakpointOpen);
+          const boss = this.boss;
+          let struckPart: BossPart | undefined;
+          for (const part of boss.parts) {
+            if (part.destroyed) continue;
+            part.mesh.getWorldPosition(this.bossPartHitPosition);
+            if (bullet.mesh.position.distanceTo(this.bossPartHitPosition) < 0.72 + bullet.radius) {
+              struckPart = part;
+              break;
+            }
+          }
+          if (struckPart) {
+            this.damageBossPart(struckPart, bullet.damage);
             bullet.bossHit = true;
             consumed = (bullet.pierceRemaining ?? 0) <= 0;
             if (!consumed) bullet.pierceRemaining = (bullet.pierceRemaining ?? 0) - 1;
-          } else if (bullet.mesh.position.distanceTo(this.boss.mesh.position) < 2.15) {
-            this.damageBoss(bullet.damage, false);
-            bullet.bossHit = true;
-            consumed = (bullet.pierceRemaining ?? 0) <= 0;
-            if (!consumed) bullet.pierceRemaining = (bullet.pierceRemaining ?? 0) - 1;
+          } else {
+            const corePosition = boss.core.getWorldPosition(this.bossPartHitPosition);
+            if (bullet.mesh.position.distanceTo(corePosition) < 0.84) {
+              this.damageBoss(bullet.damage, boss.weakpointOpen);
+              bullet.bossHit = true;
+              consumed = (bullet.pierceRemaining ?? 0) <= 0;
+              if (!consumed) bullet.pierceRemaining = (bullet.pierceRemaining ?? 0) - 1;
+            } else if (bullet.mesh.position.distanceTo(boss.mesh.position) < 2.15) {
+              this.damageBoss(bullet.damage, false);
+              bullet.bossHit = true;
+              consumed = (bullet.pierceRemaining ?? 0) <= 0;
+              if (!consumed) bullet.pierceRemaining = (bullet.pierceRemaining ?? 0) - 1;
+            }
           }
         }
         if (consumed) this.removeProjectile(index);
@@ -1000,7 +1038,7 @@ export class Game {
       this.kills += 1;
       this.combo += 1;
       this.comboTimer = 2.2;
-      this.score += enemy.score * Math.min(5, 1 + this.combo * 0.08);
+      this.score += enemy.score * Math.min(5, 1 + this.combo * 0.08) * this.pilotSkillBonuses.comboMultiplier;
       this.shards += enemy.shards;
       const burstColor = enemy.kind === "guardian" ? 0x79ecff
         : enemy.kind === "elite" ? 0xffa5e9
@@ -1107,9 +1145,16 @@ export class Game {
     const left = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.55, 0.35), this.materials.enemyFast);
     left.position.set(-2.05, -0.12, 0);
     left.rotation.z = -0.2;
+    left.name = "boss-port-left";
     const right = left.clone();
     right.position.x = 2.05;
     right.rotation.z = 0.2;
+    right.name = "boss-port-right";
+    const partHealth = Math.max(18, Math.round(profile.maxHp * 0.11));
+    const parts: BossPart[] = [
+      { id: "port-left", mesh: left, hp: partHealth, maxHp: partHealth, destroyed: false },
+      { id: "port-right", mesh: right, hp: partHealth, maxHp: partHealth, destroyed: false }
+    ];
     const core = new THREE.Mesh(new THREE.SphereGeometry(0.55, 18, 14), this.materials.bossCore);
     core.position.set(0, -0.38, 1);
     core.name = "boss-weakpoint";
@@ -1119,12 +1164,15 @@ export class Game {
     if (profile.id === "aegis-colossus") {
       const armor = new THREE.Mesh(new THREE.BoxGeometry(4.1, 0.38, 0.5), this.materials.enemyGuardian);
       armor.position.y = -0.95;
+      armor.name = "boss-armor-plate";
       mesh.add(armor);
+      const armorHealth = Math.max(22, Math.round(profile.maxHp * 0.14));
+      parts.push({ id: "armor-plate", mesh: armor, hp: armorHealth, maxHp: armorHealth, destroyed: false });
     }
     mesh.position.set(0, WORLD_HEIGHT / 2 + 3, 0.3);
     this.scene.add(mesh);
     this.boss = {
-      mesh, core, profile, hp: profile.maxHp, maxHp: profile.maxHp,
+      mesh, core, profile, parts, phase: 1, hp: profile.maxHp, maxHp: profile.maxHp,
       fireTimer: 2.5, age: 0, entering: true, weakpointOpen: false
     };
     this.spawnBurst(mesh.position, 0xff92de, 34);
@@ -1143,13 +1191,21 @@ export class Game {
       boss.mesh.position.y = 5 + Math.sin(boss.age * 0.8) * 0.22;
     }
     boss.mesh.rotation.z = Math.sin(boss.age * 0.65) * 0.08;
-    const weakpointOpen = !boss.entering && (boss.age % 7) < 2.2;
+    const phase = getBossPhase(boss.hp, boss.maxHp);
+    if (phase > boss.phase) {
+      boss.phase = phase;
+      this.callbacks.onMissionEvent(`ボス第${phase}形態！ 攻撃パターンが複合化した！`);
+    }
+    const weakpointOpen = isBossWeakpointOpen(boss.age, phase, boss.entering);
     if (weakpointOpen && !boss.weakpointOpen) this.callbacks.onMissionEvent("弱点コア開放！ 今が攻撃のチャンス！");
     boss.weakpointOpen = weakpointOpen;
     boss.core.scale.setScalar(weakpointOpen ? 1.22 : 0.82);
     (boss.core.material as THREE.MeshStandardMaterial).emissiveIntensity = weakpointOpen ? 1.7 : 0.45;
     boss.fireTimer -= dt;
-    const phaseTwo = boss.hp <= boss.maxHp * 0.5;
+    const phaseTwo = phase >= 2;
+    const phaseThree = phase === 3;
+    const leftPortActive = boss.parts.some((part) => part.id === "port-left" && !part.destroyed);
+    const rightPortActive = boss.parts.some((part) => part.id === "port-right" && !part.destroyed);
     this.bossTelegraph.visible = !boss.entering && boss.fireTimer < 0.62;
     if (this.bossTelegraph.visible) {
       this.bossTelegraph.position.set(boss.mesh.position.x, boss.mesh.position.y - 4.1, 0.2);
@@ -1160,33 +1216,58 @@ export class Game {
     }
     if (boss.fireTimer <= 0 && !boss.entering) {
       if (boss.profile.attackPattern === "seeker") {
-        const missileCount = phaseTwo ? 2 : 1;
+        const missileCount = phaseThree ? 3 : phaseTwo ? 2 : 1;
         for (let index = 0; index < missileCount; index += 1) {
-          this.addProjectile(boss.mesh.position.x + (index ? 1.1 : -1.1), boss.mesh.position.y - 1,
+          const useLeftPort = index % 2 === 0;
+          if ((useLeftPort && !leftPortActive) || (!useLeftPort && !rightPortActive)) continue;
+          this.addProjectile(boss.mesh.position.x + (useLeftPort ? -1.1 : 1.1), boss.mesh.position.y - 1,
             new THREE.Vector2((this.player.position.x - boss.mesh.position.x) * 0.18, -7.2), "enemy", 1, true);
         }
       } else {
-        const shots = phaseTwo ? 7 : 3;
+        const shots = getBossVolleyCount(phase);
         for (let index = 0; index < shots; index += 1) {
-          const angle = (index - (shots - 1) / 2) * (phaseTwo ? 0.22 : 0.3);
+          const useLeftPort = index < Math.ceil(shots / 2);
+          if ((useLeftPort && !leftPortActive) || (!useLeftPort && !rightPortActive)) continue;
+          const angle = (index - (shots - 1) / 2) * (phaseThree ? 0.16 : phaseTwo ? 0.22 : 0.3);
           const direction = new THREE.Vector2(this.player.position.x - boss.mesh.position.x, this.player.position.y - boss.mesh.position.y)
             .normalize().rotateAround(new THREE.Vector2(), angle);
           this.addProjectile(boss.mesh.position.x, boss.mesh.position.y - 1, direction.multiplyScalar(phaseTwo ? 6.8 : 5.9), "enemy", 1);
-          if (boss.profile.attackPattern === "cross" && phaseTwo && index === Math.floor(shots / 2)) {
+          if (boss.profile.attackPattern === "cross" && phaseTwo && index === Math.floor(shots / 2) && leftPortActive && rightPortActive) {
             this.addProjectile(boss.mesh.position.x, boss.mesh.position.y - 1, new THREE.Vector2(6.5, -0.8), "enemy", 1);
             this.addProjectile(boss.mesh.position.x, boss.mesh.position.y - 1, new THREE.Vector2(-6.5, -0.8), "enemy", 1);
           }
         }
       }
-      boss.fireTimer = phaseTwo ? 0.95 : 1.5;
+      if (phaseThree && boss.profile.attackPattern !== "seeker" && (leftPortActive || rightPortActive)) {
+        this.addProjectile(boss.mesh.position.x, boss.mesh.position.y - 1,
+          new THREE.Vector2((this.player.position.x - boss.mesh.position.x) * 0.14, -6.6), "enemy", 1, true);
+      }
+      boss.fireTimer = getBossAttackInterval(phase);
       this.bossTelegraph.visible = false;
+    }
+  }
+
+  private damageBossPart(part: BossPart, damage: number): void {
+    if (part.destroyed || !Number.isFinite(damage) || damage <= 0) return;
+    part.hp = Math.max(0, part.hp - damage);
+    part.mesh.getWorldPosition(this.bossPartHitPosition);
+    this.spawnBurst(this.bossPartHitPosition, part.hp <= 0 ? 0xffd78c : 0x9ceaff, part.hp <= 0 ? 18 : 4);
+    if (part.hp <= 0) {
+      part.destroyed = true;
+      part.mesh.visible = false;
+      this.score += 320;
+      this.shards += 6;
+      this.combo += 1;
+      this.comboTimer = 2.2;
+      this.callbacks.onMissionEvent(`${part.id === "armor-plate" ? "装甲プレート" : part.id === "port-left" ? "左砲塔" : "右砲塔"}を破壊！ ボスの攻撃能力が低下した！`);
     }
   }
 
   private damageBoss(damage: number, weakpoint = false): void {
     if (!this.boss) return;
     const boss = this.boss;
-    const multiplier = weakpoint && boss.weakpointOpen ? boss.profile.weakpointMultiplier : 1;
+    const multiplier = weakpoint && boss.weakpointOpen
+      ? boss.profile.weakpointMultiplier * this.pilotSkillBonuses.weakpointMultiplier : 1;
     boss.hp -= Math.max(0, damage) * multiplier;
     this.triggerCameraShake(weakpoint && boss.weakpointOpen ? 0.55 : 0.16, 0.42);
     this.spawnBurst(new THREE.Vector3(boss.mesh.position.x, boss.mesh.position.y - 0.4, 0.9),
@@ -1291,6 +1372,9 @@ export class Game {
       bossHp: this.boss?.hp ?? 0,
       bossMaxHp: this.boss?.maxHp ?? 0,
       bossName: this.boss?.profile.name ?? "",
+      bossPhase: this.boss ? getBossPhase(this.boss.hp, this.boss.maxHp) : 1,
+      bossPartsRemaining: this.boss?.parts.filter((part) => !part.destroyed).length ?? 0,
+      bossPartCount: this.boss?.parts.length ?? 0,
       mode: this.mode,
       combo: this.combo,
       planetName: this.planetProfile.name,
