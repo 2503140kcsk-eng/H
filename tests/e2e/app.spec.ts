@@ -200,7 +200,7 @@ test("exports a backup and restores it in a fresh browser context for device mig
 
 
 test("shows pilot radio dialogue and completes the selected planet event", async ({ page }) => {
-  test.setTimeout(35_000);
+  test.setTimeout(45_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   // The debug invulnerability switch is enabled only by Vite development mode
@@ -212,6 +212,7 @@ test("shows pilot radio dialogue and completes the selected planet event", async
   await page.clock.install();
   await page.goto("/?test=mission-events");
   await page.bringToFront();
+  await page.locator('#pilot-story-choices [data-story-choice="follow-signal"]').click();
   await page.locator('[data-mode="stage"]').click();
   await expect(page.locator("#pause-modal")).toBeHidden();
   await expect(page.locator("#comms-panel")).toBeVisible();
@@ -228,5 +229,11 @@ test("shows pilot radio dialogue and completes the selected planet event", async
   await page.clock.runFor(8_000);
   await expect(page.locator("#result-modal")).toBeHidden();
   await expect(page.locator("#comms-message")).toContainText("達成！ +650 SCORE / +12 ✦");
+
+  // The selected first-act choice changes the second timed event and reward.
+  await page.clock.runFor(10_000);
+  await expect(page.locator("#comms-message")).toContainText("星図逆照準");
+  await page.clock.runFor(7_000);
+  await expect(page.locator("#comms-message")).toContainText("第二段階達成！ +900 SCORE / +18 ✦");
   expect(errors).toEqual([]);
 });
