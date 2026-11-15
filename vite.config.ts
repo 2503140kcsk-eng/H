@@ -21,7 +21,7 @@ export default defineConfig({
         display: "fullscreen",
         orientation: "landscape",
         icons: [
-          { src: `${base}icon.svg`, sizes: "any", type: "image/svg+xml", purpose: "any maskable" }
+          { src: "icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }
         ]
       },
       workbox: {
