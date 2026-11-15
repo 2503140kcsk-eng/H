@@ -277,10 +277,8 @@ function ensurePilotShowcase(): void {
   }
 }
 
-let activeVoice: SpeechSynthesisUtterance | null = null;
 function stopPilotSpeech(): void {
   if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-  activeVoice = null;
   pilotShowcase?.setSpeaking(false);
 }
 
@@ -298,9 +296,8 @@ function speakCurrentPilot(): void {
   utterance.rate = 0.96;
   utterance.pitch = pilot.id === "rin-vega" ? 1.12 : pilot.id === "noa-celeste" ? 0.92 : 1.04;
   utterance.onstart = () => pilotShowcase?.setSpeaking(true);
-  utterance.onend = () => { pilotShowcase?.setSpeaking(false); activeVoice = null; };
-  utterance.onerror = () => { pilotShowcase?.setSpeaking(false); activeVoice = null; };
-  activeVoice = utterance;
+  utterance.onend = () => { pilotShowcase?.setSpeaking(false); };
+  utterance.onerror = () => { pilotShowcase?.setSpeaking(false); };
   window.speechSynthesis.speak(utterance);
 }
 
