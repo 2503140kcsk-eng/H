@@ -74,10 +74,9 @@ Each planet now has two timed event stages during a sortie. Stage II is selected
 
 ## Audio and effects
 
-- Normal and boss melodies remain original Web Audio synthesis.
-- Every fifth combo tier plays a short harmonic accent with additional notes at higher tiers.
-- Mission events, parts, weakpoint windows and victory cues are synchronized to the existing audio director.
-- This is not recorded or arranged high-quality BGM. Recorded/licensed tracks and authored SFX remain a separate production task requiring provenance, license review and audio mixing.
+- Normal and boss melodies remain original Web Audio synthesis, arranged over a four-chord progression with sustained triads, bass roots, counter-line and light pulse.
+- Every fifth combo tier plays a short harmonic accent; Stage II events, boss phases and part breaks have dedicated cues.
+- This is an original procedural synthesizer arrangement, not a recorded performance or studio-mastered BGM. Recorded/licensed tracks and authored SFX remain a separate production task requiring provenance, license review and audio mixing.
 
 ## Additional equipment and cosmetic differentiation
 
