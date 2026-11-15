@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { summarizeFrameTimes, diagnosticsToCsv, type DeviceDiagnosticsReport } from "../src/game/diagnostics";
+import { summarizeFrameTimes, diagnosticsToCsv, getActiveFrameIntervalMs, type DeviceDiagnosticsReport } from "../src/game/diagnostics";
 
 describe("summarizeFrameTimes", () => {
   it("reports average, p95 and estimated FPS from finite positive samples", () => {
@@ -57,5 +57,23 @@ describe("diagnosticsToCsv", () => {
     expect(csv).toContain('"device.userAgent","iPhone ""Test"", Mobile"');
     expect(csv).toContain('"device.viewport.width","844"');
     expect(csv.startsWith('"path","value"')).toBe(true);
+  });
+});
+
+
+describe("getActiveFrameIntervalMs", () => {
+  it("does not count the first animation frame because no previous timestamp exists", () => {
+    expect(getActiveFrameIntervalMs(null, 8200, true)).toBeNull();
+  });
+
+  it("returns the real interval only while gameplay is active", () => {
+    expect(getActiveFrameIntervalMs(8200, 8216.7, true)).toBeCloseTo(16.7);
+    expect(getActiveFrameIntervalMs(8200, 8216.7, false)).toBeNull();
+  });
+
+  it("rejects non-finite and non-monotonic timestamps", () => {
+    expect(getActiveFrameIntervalMs(8200, Number.NaN, true)).toBeNull();
+    expect(getActiveFrameIntervalMs(8200, Number.POSITIVE_INFINITY, true)).toBeNull();
+    expect(getActiveFrameIntervalMs(8200, 8199, true)).toBeNull();
   });
 });
