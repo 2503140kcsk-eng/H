@@ -259,3 +259,6 @@ h1 span { color: var(--pink); }
   .planet-option, .weapon-option { padding: 5px; gap: 2px; }
   .mission-briefing { padding: 5px; font-size: 7px; }
 }
+
+/* Three touch actions occupy the lower-right corner after the weapon-slot control was added. */
+.hud-bottom { right: max(270px, calc(env(safe-area-inset-right) + 270px)); }
