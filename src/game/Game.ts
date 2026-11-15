@@ -5,6 +5,7 @@ import { TouchInput } from "./input";
 import { getPilotGrowthStats, getPilotProfile, type PilotProfile } from "./pilots";
 import { PICKUP_EFFECTS, selectPickupKind, type PickupKind } from "./pickups";
 import { getShipProfile, type ShipProfile } from "./ships";
+import { summarizeFrameTimes, type GameDiagnosticsSnapshot } from "./diagnostics";
 
 export type GameMode = "story" | "stage" | "endless";
 export type RunResult = {
@@ -136,6 +137,8 @@ export class Game {
   private disposed = false;
   private animationFrame = 0;
   private lastFrame = 0;
+  private readonly frameTimeSamples: number[] = [];
+  private lastRenderMetrics = { renderCalls: 0, triangles: 0, geometries: 0, textures: 0 };
   private elapsed = 0;
   private hudTimer = 0;
   private spawnTimer = 0.6;
@@ -268,6 +271,45 @@ export class Game {
 
   setSensitivity(value: number): void {
     this.sensitivityValue = clamp(value, 0.35, 2.5);
+  }
+
+  getDiagnosticsSnapshot(): GameDiagnosticsSnapshot {
+    const summary = summarizeFrameTimes(this.frameTimeSamples);
+    const drawingBuffer = this.renderer.getDrawingBufferSize(new THREE.Vector2());
+    let webgl: GameDiagnosticsSnapshot["webgl"] = null;
+
+    try {
+      const context = this.renderer.getContext() as WebGL2RenderingContext;
+      const viewport = context.getParameter(context.MAX_VIEWPORT_DIMS) as ArrayLike<number>;
+      const attributes = this.renderer.getContextAttributes();
+      webgl = {
+        version: "WebGL 2",
+        maxTextureSize: context.getParameter(context.MAX_TEXTURE_SIZE),
+        maxRenderbufferSize: context.getParameter(context.MAX_RENDERBUFFER_SIZE),
+        maxViewportWidth: Number(viewport[0]),
+        maxViewportHeight: Number(viewport[1]),
+        contextAttributes: attributes ? {
+          alpha: attributes.alpha,
+          antialias: attributes.antialias,
+          depth: attributes.depth,
+          stencil: attributes.stencil,
+          preserveDrawingBuffer: attributes.preserveDrawingBuffer
+        } : null
+      };
+    } catch {
+      // A lost WebGL context is reported as unavailable; diagnostics must never break the game.
+    }
+
+    return {
+      ...summary,
+      ...this.lastRenderMetrics,
+      pixelRatio: this.renderer.getPixelRatio(),
+      drawingBuffer: {
+        width: Math.round(drawingBuffer.x),
+        height: Math.round(drawingBuffer.y)
+      },
+      webgl
+    };
   }
 
   start(mode: GameMode): void {
@@ -422,10 +464,26 @@ export class Game {
 
   private animate = (now: number): void => {
     if (this.disposed) return;
-    const dt = Math.min(0.04, Math.max(0, (now - this.lastFrame) / 1000));
+    const rawFrameMs = Math.max(0, now - this.lastFrame);
+    const dt = Math.min(0.04, rawFrameMs / 1000);
     this.lastFrame = now;
-    if (this.running) this.update(dt);
+    const wasRunning = this.running;
+    if (wasRunning) this.update(dt);
     this.renderer.render(this.scene, this.camera);
+
+    const render = this.renderer.info.render;
+    const memory = this.renderer.info.memory;
+    this.lastRenderMetrics = {
+      renderCalls: render.calls,
+      triangles: render.triangles,
+      geometries: memory.geometries,
+      textures: memory.textures
+    };
+    if (wasRunning && rawFrameMs > 0 && Number.isFinite(rawFrameMs)) {
+      this.frameTimeSamples.push(rawFrameMs);
+      if (this.frameTimeSamples.length > 600) this.frameTimeSamples.shift();
+    }
+
     this.animationFrame = requestAnimationFrame(this.animate);
   };
 
