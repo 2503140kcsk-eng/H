@@ -92,3 +92,42 @@ Canonical implementation: this GitHub repository. All usage is limited to curren
 - Check exact asset license, attribution, voice/music rights and redistribution terms.
 - No paid AI credits, paid templates, online database, user analytics, cloud function, or external API key is required by this branch.
 - Keep user saves and selected VRM files local. Do not upload personal files or identifiers to analytics services.
+
+
+## iPhone Quality Gate delivery roles
+
+This milestone uses only existing repository dependencies and GitHub's free static Pages path; plugin connectivity is not treated as proof that premium AI credits, seats, or hosting quotas are free.
+
+| Tool / plugin | Quality Gate responsibility | Usage boundary |
+|---|---|---|
+| GitHub | Feature branch, immutable PR history, reviewable commits, Actions tests and Pages candidate artifact/deploy | PR #1 remains untouched; no merge or force-push |
+| Context7 | Verify Vite base-path, vite-plugin-pwa manifest / Workbox and Playwright mobile-test APIs | Documentation lookup only; avoid adding runtime dependencies |
+| Figma | Review diagnostic screen hierarchy, compact landscape layout, safe-area and touch target spacing | Existing view-only access; no paid editing seat assumed |
+| Canva | Optional export/report cover sheet for sharing field-test results | Not part of runtime or CI; use only explicitly free elements |
+| Adobe | Optional crop/annotation of physical-device screenshots and report assets | Not part of runtime or CI; no Firefly / subscription credits assumed |
+| Superpowers | Requirement shaping, test-first sequencing, implementation plan, verification checklist | Process guidance; not an independently callable build service |
+| Vercel | No deployment role in this milestone | GitHub Pages replaces the prior blocked Hobby project-creation route; do not add paid functions |
+| Supabase | No runtime or persistence role | Keep save data local / offline; no authentication or cloud database is needed |
+| Notion | Optional mirror of release notes and manual QA findings | GitHub docs remain canonical; no required paid workspace feature |
+
+### Starred repositories assigned to this milestone
+
+| Repository | Concrete Q-TRACE responsibility | Adoption decision |
+|---|---|---|
+| `mrdoob/three.js` | Existing WebGL 2 renderer and context-loss / restore event source | Keep existing renderer; diagnostics observe its canvas |
+| `vitest-dev/vitest` | Pure status, score, CSV escaping and save-migration unit tests | Core gate |
+| `microsoft/playwright` | iPhone-sized touch / menu / export smoke tests | Emulation evidence only, not physical iOS certification |
+| `dexie/Dexie.js` + `colinhacks/zod` | Persistence availability and legacy / malformed backup boundaries | Existing core; no schema-version bump |
+| `vitejs/vite` (via repo config) + `vite-pwa/vite-plugin-pwa` + `GoogleChrome/workbox` | `/H/` project base, PWA scope, service worker and offline fallback | Existing PWA plugin; no second hand-written service worker |
+| `Tonejs/Tone.js`, `goldfire/howler.js`, `KilledByAPixel/ZzFX` | Candidate audio alternatives if browser tests expose a real compatibility defect | No extra audio engine added; existing Web Audio synthesizer remains |
+| `KhronosGroup/glTF-Validator`, `donmccurdy/glTF-Transform`, `zeux/meshoptimizer`, `google/draco`, `KhronosGroup/glTF-Sample-Assets` | Optional later asset validation / compression if an actual field result shows load or memory pressure | Not added to the Quality Gate critical path |
+| `pixiv/three-vrm` | Existing optional user-selected pilot model compatibility | Not a gating dependency; model licensing and memory remain separate checks |
+| `pmndrs/postprocessing`, `dimforge/rapier`, `tweenjs/tween.js`, `gkjohnson/three-mesh-bvh`, `georgealways/lil-gui`, `codecruzer/webgl-starfield`, `Hidencod/tge-assets`, `shorepine/kenney` | Effects, physics, animation, acceleration, development controls and candidate content sources | No new dependencies or unreviewed assets; only adopt after measured need and license review |
+
+### Q-TRACE data contract
+
+- The diagnostic is local-only and versioned as `starlight-wing-q-trace@1`.
+- A browser capability probe is not the same as an observed runtime event.
+- Unobserved WebGL restoration, canvas pointer input, AudioContext unlock, or page lifecycle transitions remain `manual`, not `pass`.
+- Physical checks (touch drag, app switch / return, Add to Home Screen, cross-device backup restore, sustained thermal / FPS test) are explicitly user-confirmed and included in exports.
+- Automated checks are fail-closed for HTTPS, WebGL 2 and Pointer Events. A warning or manual item prevents the report from describing the candidate as fully ready.
