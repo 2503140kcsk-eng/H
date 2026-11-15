@@ -101,6 +101,24 @@ describe("evasion scoring", () => {
     expect(result.recommended).toBe("hold");
   });
 
+  it("evaluates a dodge as a deliberate change of movement direction", () => {
+    const crossing: ThreatPath = {
+      position: { x: 2.5, y: 0 },
+      velocity: { x: -5, y: 0 },
+      radius: 0.18,
+      source: "projectile"
+    };
+    const result = assessEvasion(
+      { x: 0, y: 0 },
+      { x: 4, y: 0 },
+      [crossing],
+      bounds,
+      { candidateSpeed: 4.5, horizonSeconds: 1 }
+    );
+    expect(result.recommended).not.toBe("hold");
+    expect(result.recommendedClearance).toBeGreaterThan(result.currentClearance);
+  });
+
   it("returns hold when no hostile paths are present", () => {
     const result = assessEvasion({ x: 0, y: 0 }, { x: 0, y: 0 }, [], bounds);
     expect(result.risk).toBe("clear");
