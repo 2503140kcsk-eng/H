@@ -48,6 +48,23 @@ export function createBodyIntegrity(archetype: BodyArchetype): BodyIntegrity {
 }
 
 /**
+ * Selects the next functional module for the existing auto-fire system.
+ * It prioritizes attack suppression, then an active shield, then mobility,
+ * and finally the core.
+ */
+export function selectAimPart(integrity: BodyIntegrity, shieldActive: boolean): BodyPartId {
+  const available = integrity.parts;
+  const intact = (id: BodyPartId): boolean => Boolean(available[id] && !available[id]?.destroyed);
+  if (intact("weapon")) return "weapon";
+  if (shieldActive && intact("shieldEmitter")) return "shieldEmitter";
+  if (intact("leftWing")) return "leftWing";
+  if (intact("rightWing")) return "rightWing";
+  if (intact("core")) return "core";
+  return (["core", "weapon", "shieldEmitter", "leftWing", "rightWing"] as BodyPartId[])
+    .find((id) => Boolean(available[id])) ?? "core";
+}
+
+/**
  * Maps a projectile impact in target-local coordinates to a named module.
  * Coordinates are normalized by the target's collision radius.
  */
