@@ -5,7 +5,7 @@ import { TouchInput } from "./input";
 import { getPilotGrowthStats, getPilotProfile, type PilotProfile } from "./pilots";
 import { PICKUP_EFFECTS, selectPickupKind, type PickupKind } from "./pickups";
 import { getShipProfile, type ShipProfile } from "./ships";
-import { summarizeFrameTimes, type GameDiagnosticsSnapshot } from "./diagnostics";
+import { getActiveFrameIntervalMs, summarizeFrameTimes, type GameDiagnosticsSnapshot } from "./diagnostics";
 
 export type GameMode = "story" | "stage" | "endless";
 export type RunResult = {
@@ -136,7 +136,7 @@ export class Game {
   private running = false;
   private disposed = false;
   private animationFrame = 0;
-  private lastFrame = 0;
+  private lastFrame: number | null = null;
   private readonly frameTimeSamples: number[] = [];
   private lastRenderMetrics = { renderCalls: 0, triangles: 0, geometries: 0, textures: 0 };
   private elapsed = 0;
@@ -464,10 +464,10 @@ export class Game {
 
   private animate = (now: number): void => {
     if (this.disposed) return;
-    const rawFrameMs = Math.max(0, now - this.lastFrame);
-    const dt = Math.min(0.04, rawFrameMs / 1000);
-    this.lastFrame = now;
     const wasRunning = this.running;
+    const frameIntervalMs = getActiveFrameIntervalMs(this.lastFrame, now, wasRunning);
+    const dt = Math.min(0.04, (frameIntervalMs ?? 0) / 1000);
+    this.lastFrame = now;
     if (wasRunning) this.update(dt);
     this.renderer.render(this.scene, this.camera);
 
@@ -479,8 +479,8 @@ export class Game {
       geometries: memory.geometries,
       textures: memory.textures
     };
-    if (wasRunning && rawFrameMs > 0 && Number.isFinite(rawFrameMs)) {
-      this.frameTimeSamples.push(rawFrameMs);
+    if (frameIntervalMs !== null) {
+      this.frameTimeSamples.push(frameIntervalMs);
       if (this.frameTimeSamples.length > 600) this.frameTimeSamples.shift();
     }
 

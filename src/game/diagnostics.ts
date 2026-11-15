@@ -63,6 +63,23 @@ export interface DeviceDiagnosticsReport {
   game: GameDiagnosticsSnapshot | null;
 }
 
+export function getActiveFrameIntervalMs(
+  previousTimestampMs: number | null,
+  currentTimestampMs: number,
+  isGameplayActive: boolean
+): number | null {
+  if (
+    !isGameplayActive ||
+    previousTimestampMs === null ||
+    !Number.isFinite(previousTimestampMs) ||
+    !Number.isFinite(currentTimestampMs) ||
+    currentTimestampMs <= previousTimestampMs
+  ) {
+    return null;
+  }
+  return currentTimestampMs - previousTimestampMs;
+}
+
 export function summarizeFrameTimes(samples: readonly number[]): FrameTimeSummary {
   const valid = samples.filter((value) => Number.isFinite(value) && value > 0).sort((a, b) => a - b);
   if (valid.length === 0) {

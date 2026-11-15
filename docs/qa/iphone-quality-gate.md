@@ -28,7 +28,7 @@ Collect a repeatable, local-only snapshot of browser, storage and recent game-re
 | game.webgl | WebGL2 limits and selected context attributes | Capability report, not a performance score |
 | storage | Browser-exposed usage / quota estimates and persistence flags | Approximate and browser-dependent |
 
-Three.js renderer.info resets at every render by default. The game currently renders once per animation frame and reads the counters immediately after renderer.render(). When multiple post-processing passes are introduced, set renderer.info.autoReset to false, reset once per frame, and then read the aggregate.
+The first animation callback is excluded because there is no previous timestamp to measure. Samples are accepted only while gameplay is active and when timestamps are finite and strictly increasing. Three.js renderer.info resets at every render by default. The game currently renders once per animation frame and reads the counters immediately after renderer.render(). When multiple post-processing passes are introduced, set renderer.info.autoReset to false, reset once per frame, and then read the aggregate.
 
 ## Manual acceptance checklist
 

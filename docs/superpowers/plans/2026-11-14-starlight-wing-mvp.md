@@ -181,6 +181,7 @@ Files: src/game/diagnostics.ts, src/game/Game.ts, src/main.ts, src/style.css, te
 - [x] Add unit coverage for frame-time summary edge cases and CSV escaping.
 - [x] Add a local-only device diagnostics panel with JSON / CSV export.
 - [x] Capture up to 600 active-gameplay frame intervals and summarize average, p95, worst and estimated FPS.
+- [x] Ignore the first animation callback (no prior timestamp) and all inactive / invalid intervals so page uptime is never counted as one frame.
 - [x] Capture the latest Three.js draw calls, triangles, geometry / texture counts, drawing-buffer size and WebGL2 limits.
 - [x] Capture browser viewport, touch / PWA capability and Storage API / IndexedDB persistence information.
 - [x] Verify the full flow in Playwright: start a real sortie, collect a non-empty frame sample, return to hangar, and export JSON and CSV with non-zero rendering data.
