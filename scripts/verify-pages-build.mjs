@@ -26,7 +26,7 @@ assert.ok(Array.isArray(manifest.icons) && manifest.icons.length > 0, "Manifest 
 for (const icon of manifest.icons) {
   const pathname = new URL(icon.src, "https://pages.example.invalid" + base).pathname;
   assert.ok(pathname.startsWith(base), `Manifest icon escaped repository scope: ${icon.src}`);
-  assert.ok(existsSync(resolve(dist, pathname.replace(/^\\/H\\//, ""))), `Missing manifest icon: ${icon.src}`);
+  assert.ok(existsSync(resolve(dist, pathname.slice(base.length))), `Missing manifest icon: ${icon.src}`);
 }
 assert.ok(worker.includes(base + "index.html"), "Service worker navigation fallback must target /H/index.html.");
 console.log("GitHub Pages artifact verified for /H/: HTML assets, manifest scope/start URL, icons and service-worker fallback.");
