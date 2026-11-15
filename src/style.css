@@ -227,6 +227,7 @@ h1 span { color: var(--pink); }
 .pilot-story-choices { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 5px; }
 .pilot-story-choice { min-height: 30px; padding: 5px; border: 1px solid rgba(180,197,255,.22); border-radius: 7px; color: #e9eaff; background: rgba(83,82,154,.22); font-size: 7px; cursor: pointer; }
 .pilot-story-choice.selected { border-color: rgba(142,255,220,.7); color: #9dffe2; }
+.pilot-story-choice small { display: block; margin-top: 3px; color: #a9c2ef; font-size: 6px; line-height: 1.35; }
 .pilot-story-choice:disabled { opacity: .76; cursor: default; }
 .pilot-story-response { color: #ffdcac; }
 .pilot-story-secret { display: block; margin-top: 4px; color: #c1aaff; font-size: 7px; line-height: 1.45; }
