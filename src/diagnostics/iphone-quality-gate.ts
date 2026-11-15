@@ -344,6 +344,7 @@ export function mountIphoneQualityGate(options: QualityGateMountOptions): void {
     for (const check of checks) {
       const card = document.createElement("article");
       card.className = `quality-check status-${check.status}`;
+      card.dataset.qualityId = check.id;
       const header = document.createElement("div");
       header.className = "quality-check-header";
       const title = document.createElement("strong");
