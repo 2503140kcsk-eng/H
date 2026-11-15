@@ -389,6 +389,7 @@ function makeGame(): Game {
     planetId: save.selectedPlanet,
     weaponIds: save.equippedWeapons,
     activeWeaponSlot: save.activeWeaponSlot,
+    invulnerableForTest: import.meta.env.DEV && new URLSearchParams(window.location.search).get("test") === "mission-events",
     onMissionEvent: (message, speaker = "MISSION CONTROL") => {
       showToast(message);
       showComms(speaker, message);

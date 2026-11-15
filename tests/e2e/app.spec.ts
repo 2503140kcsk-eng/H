@@ -179,14 +179,14 @@ test("shows pilot radio dialogue and completes the selected planet event", async
   test.setTimeout(35_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  // Game time is requestAnimationFrame-driven; Playwright Clock advances RAF,
-  // performance.now and app timers together without relying on CI wall time.
+  // The debug invulnerability switch is enabled only by Vite development mode
+  // and this explicit query. Game time itself still advances through RAF.
   await page.addInitScript(() => {
     Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
     Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
   });
   await page.clock.install();
-  await page.goto("/");
+  await page.goto("/?test=mission-events");
   await page.bringToFront();
   await page.locator('[data-mode="stage"]').click();
   await expect(page.locator("#pause-modal")).toBeHidden();
@@ -194,21 +194,15 @@ test("shows pilot radio dialogue and completes the selected planet event", async
   await expect(page.locator("#comms-speaker")).toContainText("ルミ");
   await expect(page.locator("#comms-message")).toContainText("星の地図");
 
-  const canvas = page.locator("#game-canvas");
-  const bounds = await canvas.boundingBox();
-  if (!bounds) throw new Error("The play canvas has no visible bounds.");
-  await page.mouse.move(bounds.x + bounds.width * 0.25, bounds.y + bounds.height * 0.78);
-  await page.mouse.down();
-  for (const fraction of [0.75, 0.25, 0.82, 0.18, 0.72, 0.28, 0.8, 0.2]) {
-    await page.mouse.move(bounds.x + bounds.width * fraction, bounds.y + bounds.height * 0.8, { steps: 3 });
-    await page.clock.runFor(2_000);
-    await expect(page.locator("#pause-modal")).toBeHidden();
-    await expect(page.locator("#result-modal")).toBeHidden();
-  }
-  await page.mouse.up();
-
+  // Run the real game loop to the 16s event trigger; the test-only guard
+  // prevents combat RNG from ending the run before event rewards are observed.
+  await page.clock.runFor(16_000);
+  await expect(page.locator("#pause-modal")).toBeHidden();
+  await expect(page.locator("#result-modal")).toBeHidden();
   await expect(page.locator("#comms-message")).toContainText("星灯り共鳴");
+
   await page.clock.runFor(8_000);
+  await expect(page.locator("#result-modal")).toBeHidden();
   await expect(page.locator("#comms-message")).toContainText("達成！ +650 SCORE / +12 ✦");
   expect(errors).toEqual([]);
 });

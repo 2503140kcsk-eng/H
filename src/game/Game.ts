@@ -177,6 +177,7 @@ export class Game {
   private readonly pilotProfile: PilotProfile;
   private readonly pilotGrowth: ReturnType<typeof getPilotGrowthStats>;
   private readonly pilotCockpitMaterial: THREE.MeshStandardMaterial;
+  private readonly invulnerableForTest: boolean;
   private readonly planetProfile: PlanetProfile;
   private readonly weaponIds: [WeaponId, WeaponId];
   private activeWeaponSlot: 0 | 1;
@@ -225,6 +226,7 @@ export class Game {
     planetId?: string;
     weaponIds?: readonly string[];
     activeWeaponSlot?: number;
+    invulnerableForTest?: boolean;
     onMissionEvent?: (message: string, speaker?: string) => void;
     onHudUpdate: (state: HudState) => void;
     onRunEnd: (result: RunResult) => void;
@@ -247,6 +249,7 @@ export class Game {
     this.shipProfile = getShipProfile(options.shipId ?? "Lumen-01");
     this.pilotProfile = getPilotProfile(options.pilotId ?? "lumi-asteria");
     this.pilotGrowth = getPilotGrowthStats(options.pilotLevel ?? 1);
+    this.invulnerableForTest = import.meta.env.DEV && options.invulnerableForTest === true;
     this.pilotCockpitMaterial = new THREE.MeshStandardMaterial({
       color: this.pilotProfile.accentColor,
       metalness: 0.2,
@@ -1208,7 +1211,7 @@ export class Game {
   }
 
   private damagePlayer(damage: number): void {
-    if (this.damageCooldown > 0) return;
+    if (this.invulnerableForTest || this.damageCooldown > 0) return;
     this.damageCooldown = 0.72;
     if (this.shieldTimer > 0) {
       this.spawnBurst(this.player.position, 0x70efff, 10);
