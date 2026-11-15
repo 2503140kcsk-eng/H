@@ -179,8 +179,17 @@ test("shows pilot radio dialogue and completes the selected planet event", async
   test.setTimeout(45_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
+  // The game deliberately pauses when document.hidden is true. Keep this
+  // long-running deterministic test in the visible-page state even when the
+  // CI runner backgrounds parallel browser workers.
+  await page.addInitScript(() => {
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
+  });
   await page.goto("/");
+  await page.bringToFront();
   await page.locator('[data-mode="stage"]').click();
+  await expect(page.locator("#pause-modal")).toBeHidden();
   await expect(page.locator("#comms-panel")).toBeVisible();
   await expect(page.locator("#comms-speaker")).toContainText("ルミ");
   await expect(page.locator("#comms-message")).toContainText("星の地図");
