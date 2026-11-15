@@ -20,7 +20,7 @@ export interface PilotSkillBonuses {
   fireIntervalMultiplier: number;
   movementMultiplier: number;
   shieldRechargeMultiplier: number;
-  specialMultiplier: number;
+  shieldSpecialMultiplier: number;
   comboMultiplier: number;
   weakpointMultiplier: number;
   hullBonus: number;
@@ -49,7 +49,7 @@ const EMPTY_BONUSES: PilotSkillBonuses = {
   fireIntervalMultiplier: 1,
   movementMultiplier: 1,
   shieldRechargeMultiplier: 1,
-  specialMultiplier: 1,
+  shieldSpecialMultiplier: 1,
   comboMultiplier: 1,
   weakpointMultiplier: 1,
   hullBonus: 0
@@ -110,7 +110,7 @@ export function getPilotSkillBonuses(pilotId: string, unlocked: readonly string[
       case "lumi-orbit-reader": bonuses.weakpointMultiplier *= 1.2; break;
       case "noa-aegis-frame": bonuses.hullBonus += 1; break;
       case "noa-resonance-guard": bonuses.shieldRechargeMultiplier *= 1.25; break;
-      case "noa-last-sanctuary": bonuses.specialMultiplier *= 1.25; break;
+      case "noa-last-sanctuary": bonuses.shieldSpecialMultiplier *= 1.25; break;
       case "rin-comet-vector": bonuses.movementMultiplier *= 1.08; break;
       case "rin-afterburn": bonuses.fireIntervalMultiplier *= 0.92; break;
       case "rin-ace-instinct": bonuses.attackMultiplier *= 1.1; break;
