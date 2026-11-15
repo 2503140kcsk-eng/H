@@ -6,14 +6,14 @@ The implementation repository is authoritative. Tool usage is restricted to capa
 
 | Tool | Assigned role | First milestone |
 |---|---|---|
-| GitHub | Source of truth, branches, commits, CI, issues and review trail | Active: feature branch and CI |
-| Context7 | Verify current Three.js, PWA, Dexie and testing APIs before coding | Active: implementation references |
-| Superpowers | Process checklist for requirements decomposition, test-first workflow, debugging and review gates | Workflow represented in repo docs; no callable Superpowers connector is exposed in this session |
+| GitHub | Source of truth, branch/commit/PR management, CI and review trail | Active: parent MVP PR plus stacked `feat/planetary-combat-expansion` work branch |
+| Context7 | Verify Three.js animation-loop, dynamic geometry and GPU resource disposal contracts before coding | Active: Three.js documentation checked for this expansion |
+| Superpowers | Process checklist for requirements decomposition, test-first workflow, debugging and review gates | Test-first/design review workflow recorded in GitHub docs; no callable Superpowers connector is exposed in this session |
 | Vercel Hobby | Optional static HTTPS hosting; no server functions or paid add-ons | Connected team is Hobby, but project creation returned 403; no Vercel deployment is claimed. Revisit only after project-creation access is granted |
 | Figma | Touch HUD layout, component states and visual design review | Connected Figma seat is `View` on Starter; review only unless editing access becomes available |
-| Canva | Optional key art, title card and store/promo graphics; never a runtime dependency | Deferred; use only clearly free templates/assets and no paid generation |
-| Adobe | Optional vector cleanup, sprite/texture editing and audio/video polish; never a runtime dependency | Deferred; Firefly credits and subscription entitlements are not assumed free |
-| Notion | Optional roadmap and milestone mirror; GitHub docs remain canonical | Later; not a runtime dependency |
+| Canva | Optional key art, title card and store/promo graphics; never a runtime dependency | Not used for this code milestone; no paid template or AI credits assumed |
+| Adobe | Optional vector cleanup, sprite/texture editing and audio/video polish; never a runtime dependency | Not used for this code milestone; Firefly credits and subscription entitlements are not assumed free |
+| Notion | Optional roadmap and milestone mirror; GitHub docs remain canonical | No workspace write required for this source-of-truth milestone |
 | Supabase | Not used for first milestone: no login/cloud sync is required; avoid introducing a backend bill or a network dependency | Deferred; reconsider only for opt-in cloud sync after explicit scope and free-quota check |
 
 ## Starred repository assignments
@@ -25,13 +25,13 @@ The implementation repository is authoritative. Tool usage is restricted to capa
 | dimforge/rapier | Physics/collision for complex moving bodies | Defer; simple bounded hit tests first |
 | tweenjs/tween.js | UI, boss-entry and camera transitions | Introduce when animation sequencing grows |
 | gkjohnson/three-mesh-bvh | Accelerated raycasts and spatial queries | Use only when scene collision/query scale requires it |
-| pixiv/three-vrm | VRM pilot models and hangar character display | Current pilots are data-driven profiles and cockpit accents; integrate VRM only with measured mobile memory budget and a redistributable model license |
+| pixiv/three-vrm | Future full-body VRM pilots, expressions and hangar character display | Current milestone uses lightweight pilot icon/wing animations and data-driven skills; VRM awaits a licensed model and iPhone memory/FPS testing |
 | Hidencod/tge-assets | Candidate game asset source / reference pack | Audit repository contents and each asset license before importing |
 | shorepine/kenney | Candidate game asset pack / reference source | Audit repository identity and per-pack license before shipping |
 | KhronosGroup/glTF-Sample-Assets | glTF importer and material compatibility fixtures | Test fixtures; not automatically production art |
-| Tonejs/Tone.js | Musical sequencing and layered adaptive BGM | Later; heavier than needed for the first SFX pass |
-| goldfire/howler.js | Cross-browser audio playback and audio sprite handling | Optional when authored music/audio files arrive |
-| KilledByAPixel/ZzFX | Tiny synthesized arcade SFX | Candidate SFX layer; current MVP uses simple Web Audio tones |
+| Tonejs/Tone.js | Musical sequencing and layered adaptive BGM | Not imported: `src/game/audio.ts` currently uses a small original Web Audio sequencer to avoid another runtime dependency |
+| goldfire/howler.js | Cross-browser playback and audio sprite handling for authored audio files | Not imported: present audio is generated in-browser with Web Audio; evaluate only after authored audio assets are added |
+| KilledByAPixel/ZzFX | Tiny synthesized arcade SFX | Not imported: cue tones and adaptive synthesized music currently share the local Web Audio director |
 | dexie/Dexie.js | IndexedDB persistence and schema evolution | Core persistence |
 | colinhacks/zod | Runtime validation of local saves and imported JSON | Core input boundary |
 | vite-pwa/vite-plugin-pwa | PWA manifest, worker registration and offline precache | Core delivery |
@@ -47,7 +47,7 @@ The implementation repository is authoritative. Tool usage is restricted to capa
 
 ## Current browser-preview route
 
-- StackBlitz public GitHub import is the current no-project-permission preview path: https://stackblitz.com/github/2503140kcsk-eng/H/tree/feature/starlight-wing-mvp
+- StackBlitz public GitHub import is the current no-project-permission preview path: https://stackblitz.com/github/2503140kcsk-eng/H/tree/feat/planetary-combat-expansion
 - StackBlitz WebContainers are not a substitute for physical iPhone Safari/Brave validation; iOS Safari remains beta and mobile memory is constrained.
 - Vercel project creation was attempted for the connected Hobby team and rejected with HTTP 403. No preview deployment URL was generated.
 

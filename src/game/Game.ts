@@ -5,6 +5,8 @@ import { TouchInput } from "./input";
 import { getPilotGrowthStats, getPilotProfile, type PilotProfile } from "./pilots";
 import { PICKUP_EFFECTS, selectPickupKind, type PickupKind } from "./pickups";
 import { getShipProfile, type ShipProfile } from "./ships";
+import { getEndlessBossProfile, getPlanetProfile, type BossProfile, type PlanetEventKind, type PlanetId, type PlanetProfile } from "./campaign";
+import { getWeaponProfile, normalizeEquippedWeaponIds, normalizeUnlockedWeaponIds, normalizeWeaponSlot, type WeaponId } from "./weapons";
 
 export type GameMode = "story" | "stage" | "endless";
 export type RunResult = {
@@ -14,6 +16,8 @@ export type RunResult = {
   kills: number;
   shards: number;
   duration: number;
+  planetId: PlanetId;
+  bossesDefeated: string[];
 };
 
 export type HudState = {
@@ -30,6 +34,10 @@ export type HudState = {
   bossName: string;
   mode: GameMode;
   combo: number;
+  planetName: string;
+  weaponName: string;
+  weaponSlot: 0 | 1;
+  bossWeakpointOpen: boolean;
 };
 
 type BulletOwner = "player" | "enemy";
@@ -40,6 +48,9 @@ type Projectile = {
   damage: number;
   radius: number;
   homing?: boolean;
+  pierceRemaining?: number;
+  weaponId?: WeaponId;
+  bossHit?: boolean;
 };
 type Enemy = {
   mesh: THREE.Group;
@@ -73,6 +84,9 @@ type Boss = {
   fireTimer: number;
   age: number;
   entering: boolean;
+  profile: BossProfile;
+  core: THREE.Mesh;
+  weakpointOpen: boolean;
 };
 
 const WORLD_HEIGHT = 16;
@@ -100,7 +114,10 @@ export class Game {
     enemyBulletGeometry: new THREE.SphereGeometry(0.12, 8, 8),
     particleGeometry: new THREE.IcosahedronGeometry(0.09, 0),
     shardGeometry: new THREE.OctahedronGeometry(0.24, 0),
-    ringGeometry: new THREE.TorusGeometry(0.56, 0.045, 6, 24)
+    ringGeometry: new THREE.TorusGeometry(0.56, 0.045, 6, 24),
+    laserGeometry: new THREE.CylinderGeometry(0.085, 0.085, 1.25, 6),
+    homingGeometry: new THREE.ConeGeometry(0.15, 0.42, 6),
+    pierceGeometry: new THREE.OctahedronGeometry(0.2, 0)
   };
   private readonly materials = {
     player: new THREE.MeshStandardMaterial({ color: 0xf7f3ff, metalness: 0.55, roughness: 0.3, emissive: 0x251a53 }),
@@ -120,6 +137,9 @@ export class Game {
     boss: new THREE.MeshStandardMaterial({ color: 0x8c7bff, metalness: 0.68, roughness: 0.25, emissive: 0x38267f }),
     bossCore: new THREE.MeshStandardMaterial({ color: 0xff83dc, metalness: 0.15, roughness: 0.2, emissive: 0xb20a71 }),
     playerBullet: new THREE.MeshBasicMaterial({ color: 0x8cf5ff }),
+    laser: new THREE.MeshBasicMaterial({ color: 0xffe58e }),
+    homing: new THREE.MeshBasicMaterial({ color: 0xffa1e5 }),
+    pierce: new THREE.MeshBasicMaterial({ color: 0x9b9dff }),
     enemyBullet: new THREE.MeshBasicMaterial({ color: 0xff72a9 }),
     shard: new THREE.MeshStandardMaterial({ color: 0x7deeff, emissive: 0x176c91, metalness: 0.25 }),
     repair: new THREE.MeshStandardMaterial({ color: 0xffa2c8, emissive: 0x8e2758 }),
@@ -137,6 +157,10 @@ export class Game {
   private animationFrame = 0;
   private lastFrame = 0;
   private elapsed = 0;
+  private planetEventTriggered = false;
+  private planetEventRemaining = 0;
+  private eventDamageMultiplier = 1;
+  private enemyProjectileSpeedMultiplier = 1;
   private hudTimer = 0;
   private spawnTimer = 0.6;
   private fireTimer = 0;
@@ -153,6 +177,15 @@ export class Game {
   private readonly pilotProfile: PilotProfile;
   private readonly pilotGrowth: ReturnType<typeof getPilotGrowthStats>;
   private readonly pilotCockpitMaterial: THREE.MeshStandardMaterial;
+  private readonly invulnerableForTest: boolean;
+  private readonly planetProfile: PlanetProfile;
+  private readonly weaponIds: [WeaponId, WeaponId];
+  private activeWeaponSlot: 0 | 1;
+  private bossSequence = 0;
+  private readonly defeatedBosses: string[] = [];
+  private pilotAnimationTime = 0;
+  private cameraShakeTime = 0;
+  private cameraShakeStrength = 0;
   private sensitivityValue: number;
   private mode: GameMode = "story";
   private hp = 3;
@@ -169,6 +202,7 @@ export class Game {
     onRunEnd: (result: RunResult) => void;
     onGraphicsContextLost: () => void;
     onGraphicsContextRestored: () => void;
+    onMissionEvent: (message: string, speaker?: string) => void;
   };
   private readonly handleWebGLContextLost = (event: Event): void => {
     // Three.js also listens for this event and restores its renderer when the browser does.
@@ -189,6 +223,11 @@ export class Game {
     shipId?: string;
     pilotId?: string;
     pilotLevel?: number;
+    planetId?: string;
+    weaponIds?: readonly string[];
+    activeWeaponSlot?: number;
+    invulnerableForTest?: boolean;
+    onMissionEvent?: (message: string, speaker?: string) => void;
     onHudUpdate: (state: HudState) => void;
     onRunEnd: (result: RunResult) => void;
     onGraphicsContextLost: () => void;
@@ -199,12 +238,18 @@ export class Game {
       onHudUpdate: options.onHudUpdate,
       onRunEnd: options.onRunEnd,
       onGraphicsContextLost: options.onGraphicsContextLost,
-      onGraphicsContextRestored: options.onGraphicsContextRestored
+      onGraphicsContextRestored: options.onGraphicsContextRestored,
+      onMissionEvent: options.onMissionEvent ?? (() => undefined)
     };
     this.sensitivityValue = options.sensitivity ?? 1;
+    this.planetProfile = getPlanetProfile(options.planetId ?? "aurora-prime");
+    const suppliedWeapons = options.weaponIds ?? ["photon-pulse"];
+    this.weaponIds = normalizeEquippedWeaponIds(suppliedWeapons, normalizeUnlockedWeaponIds(suppliedWeapons));
+    this.activeWeaponSlot = normalizeWeaponSlot(options.activeWeaponSlot ?? 0);
     this.shipProfile = getShipProfile(options.shipId ?? "Lumen-01");
     this.pilotProfile = getPilotProfile(options.pilotId ?? "lumi-asteria");
     this.pilotGrowth = getPilotGrowthStats(options.pilotLevel ?? 1);
+    this.invulnerableForTest = import.meta.env.DEV && options.invulnerableForTest === true;
     this.pilotCockpitMaterial = new THREE.MeshStandardMaterial({
       color: this.pilotProfile.accentColor,
       metalness: 0.2,
@@ -230,8 +275,8 @@ export class Game {
     this.renderer.setClearColor(0x05091f, 1);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.scene.background = new THREE.Color(0x05091f);
-    this.scene.fog = new THREE.FogExp2(0x10133f, 0.008);
+    this.scene.background = new THREE.Color(this.planetProfile.backgroundColor);
+    this.scene.fog = new THREE.FogExp2(this.planetProfile.fogColor, 0.008);
     this.camera.position.set(0, 0, 32);
     this.camera.lookAt(0, 0, 0);
 
@@ -274,6 +319,17 @@ export class Game {
     this.clearRunObjects();
     this.mode = mode;
     this.elapsed = 0;
+    this.bossSequence = 0;
+    this.defeatedBosses.length = 0;
+    this.planetEventTriggered = false;
+    this.planetEventRemaining = 0;
+    this.eventDamageMultiplier = 1;
+    this.enemyProjectileSpeedMultiplier = 1;
+    this.scene.background = new THREE.Color(this.planetProfile.backgroundColor);
+    this.scene.fog = new THREE.FogExp2(this.planetProfile.fogColor, 0.008);
+    const pilotBriefing = this.planetProfile.pilotBriefings[this.pilotProfile.id] ?? this.pilotProfile.storyIntro;
+    this.callbacks.onMissionEvent(pilotBriefing, this.pilotProfile.name);
+    this.callbacks.onMissionEvent(this.planetProfile.event, "MISSION CONTROL");
     this.hp = 3 + this.pilotUpgrades.hull + this.shipProfile.hullBonus +
       this.pilotProfile.hullBonus + this.pilotGrowth.hullBonus;
     this.maxHp = this.hp;
@@ -296,6 +352,11 @@ export class Game {
     this.playerTarget.set(0, -5.8);
     this.playerVelocity.set(0, 0);
     this.running = true;
+    this.callbacks.onHudUpdate(this.getHudState());
+  }
+
+  switchWeaponSlot(): void {
+    this.activeWeaponSlot = this.activeWeaponSlot === 0 ? 1 : 0;
     this.callbacks.onHudUpdate(this.getHudState());
   }
 
@@ -333,6 +394,13 @@ export class Game {
       this.damageEnemy(index, (5 + this.pilotUpgrades.attack) * shipDamage);
     }
     if (this.boss) this.damageBoss((10 + this.pilotUpgrades.attack * 2) * shipDamage);
+    if (this.pilotProfile.skillType === "aegis") {
+      this.shield = Math.min(100, this.shield + 35);
+      this.shieldTimer = Math.max(this.shieldTimer, 1.4);
+    } else if (this.pilotProfile.skillType === "comet") {
+      this.overdriveTimer = Math.max(this.overdriveTimer, 3.5);
+      this.speedBoostTimer = Math.max(this.speedBoostTimer, 3.5);
+    }
   }
 
   private createPlayer(): void {
@@ -352,13 +420,16 @@ export class Game {
     const leftWing = new THREE.Mesh(wingGeometry, this.materials.wing);
     leftWing.position.set(-wingOffset, -0.28, 0.02);
     leftWing.rotation.z = visual === "speed" ? -0.36 : -0.24;
+    leftWing.name = "wing-left";
     const rightWing = new THREE.Mesh(wingGeometry, this.materials.wing);
     rightWing.position.set(wingOffset, -0.28, 0.02);
     rightWing.rotation.z = visual === "speed" ? 0.36 : 0.24;
+    rightWing.name = "wing-right";
     const engineGeometry = new THREE.CylinderGeometry(visual === "heavy" ? 0.16 : 0.12, 0.2, visual === "speed" ? 0.66 : 0.5, 8);
     const engineOffset = visual === "heavy" ? 0.38 : 0.27;
     const engineLeft = new THREE.Mesh(engineGeometry, this.materials.glow);
     engineLeft.position.set(-engineOffset, -0.8, 0.04);
+    engineLeft.name = "engine-left";
     const engineRight = engineLeft.clone();
     engineRight.position.x = engineOffset;
     if (visual === "heavy") {
@@ -425,12 +496,28 @@ export class Game {
     const dt = Math.min(0.04, Math.max(0, (now - this.lastFrame) / 1000));
     this.lastFrame = now;
     if (this.running) this.update(dt);
+    this.cameraShakeTime = Math.max(0, this.cameraShakeTime - dt);
+    if (this.cameraShakeTime > 0) {
+      const fade = this.cameraShakeTime / 0.42;
+      this.camera.position.x = Math.sin(now * 0.047) * this.cameraShakeStrength * fade;
+      this.camera.position.y = Math.cos(now * 0.061) * this.cameraShakeStrength * fade * 0.6;
+    } else {
+      this.camera.position.x = 0;
+      this.camera.position.y = 0;
+    }
     this.renderer.render(this.scene, this.camera);
     this.animationFrame = requestAnimationFrame(this.animate);
   };
 
   private update(dt: number): void {
     this.elapsed += dt;
+    if (!this.planetEventTriggered && this.elapsed >= this.planetProfile.missionEvent.triggerAtSeconds) {
+      this.activatePlanetEvent();
+    }
+    if (this.planetEventRemaining > 0) {
+      this.planetEventRemaining = Math.max(0, this.planetEventRemaining - dt);
+      if (this.planetEventRemaining === 0) this.completePlanetEvent();
+    }
     this.damageCooldown = Math.max(0, this.damageCooldown - dt);
     this.comboTimer = Math.max(0, this.comboTimer - dt);
     if (this.comboTimer <= 0) this.combo = 0;
@@ -450,6 +537,17 @@ export class Game {
     this.playerVelocity.set(dx * smoothing, dy * smoothing);
     this.player.position.x += this.playerVelocity.x;
     this.player.position.y += this.playerVelocity.y;
+    this.pilotAnimationTime += dt;
+    const animationAmount = this.pilotProfile.animationStyle === "ace" ? 0.2
+      : this.pilotProfile.animationStyle === "guardian" ? 0.055 : 0.12;
+    const leftWing = this.player.getObjectByName("wing-left");
+    const rightWing = this.player.getObjectByName("wing-right");
+    if (leftWing && rightWing) {
+      const wingBeat = Math.sin(this.pilotAnimationTime * (this.pilotProfile.animationStyle === "ace" ? 8 : 3.5)) * animationAmount;
+      leftWing.rotation.y = wingBeat;
+      rightWing.rotation.y = -wingBeat;
+    }
+    this.pilotCockpitMaterial.emissiveIntensity = 0.18 + (Math.sin(this.pilotAnimationTime * 2.4) + 1) * 0.055;
     this.player.rotation.z = clamp(-this.playerVelocity.x * 0.12, -0.32, 0.32);
     const aura = this.player.getObjectByName("shieldAura");
     if (aura) aura.visible = this.shieldTimer > 0;
@@ -458,11 +556,12 @@ export class Game {
     this.updateStars(dt);
     this.fireTimer -= dt;
     if (this.fireTimer <= 0) {
+      const weaponInterval = getWeaponProfile(this.weaponIds[this.activeWeaponSlot]).fireIntervalMultiplier;
       this.firePlayerShots();
       this.fireTimer = this.overdriveTimer > 0
-        ? 0.095 * this.shipProfile.fireIntervalMultiplier * this.pilotProfile.fireIntervalMultiplier
+        ? 0.095 * this.shipProfile.fireIntervalMultiplier * this.pilotProfile.fireIntervalMultiplier * weaponInterval
         : Math.max(0.12, 0.23 - this.pilotUpgrades.attack * 0.004) *
-          this.shipProfile.fireIntervalMultiplier * this.pilotProfile.fireIntervalMultiplier;
+          this.shipProfile.fireIntervalMultiplier * this.pilotProfile.fireIntervalMultiplier * weaponInterval;
     }
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0 && this.enemies.length < MAX_ENEMIES && !this.boss) {
@@ -483,6 +582,40 @@ export class Game {
       this.callbacks.onHudUpdate(this.getHudState());
       this.hudTimer = 0.08;
     }
+  }
+
+  private activatePlanetEvent(): void {
+    const event = this.planetProfile.missionEvent;
+    this.planetEventTriggered = true;
+    this.planetEventRemaining = event.durationSeconds;
+    const dialogue = event.pilotDialogue[this.pilotProfile.id] ?? event.name;
+    this.callbacks.onMissionEvent(`【${event.name}】${dialogue}`, this.pilotProfile.name);
+
+    if (event.kind === "resonance") {
+      this.eventDamageMultiplier = 1.28;
+      this.spawnBurst(this.player.position, 0x9dfff2, 32);
+    } else if (event.kind === "gravity-shear") {
+      this.enemyProjectileSpeedMultiplier = 1.28;
+      this.spawnBurst(this.player.position, 0xff9a73, 26);
+    } else if (event.kind === "archive-ward") {
+      this.shieldTimer = Math.max(this.shieldTimer, event.durationSeconds);
+      for (let index = this.projectiles.length - 1; index >= 0; index -= 1) {
+        if (this.projectiles[index].owner === "enemy") this.removeProjectile(index);
+      }
+      this.spawnBurst(this.player.position, 0x8cecff, 44);
+    }
+  }
+
+  private completePlanetEvent(): void {
+    this.eventDamageMultiplier = 1;
+    this.enemyProjectileSpeedMultiplier = 1;
+    this.score += 650;
+    this.shards += 12;
+    this.callbacks.onMissionEvent(
+      `惑星イベント「${this.planetProfile.missionEvent.name}」達成！ +650 SCORE / +12 ✦`,
+      "MISSION CONTROL"
+    );
+    this.spawnBurst(this.player.position, 0xffe7a1, 24);
   }
 
   private updateStars(dt: number): void {
@@ -649,32 +782,61 @@ export class Game {
   }
 
   private firePlayerShots(): void {
+    const weapon = getWeaponProfile(this.weaponIds[this.activeWeaponSlot]);
     const target = this.findTarget();
     const origin = new THREE.Vector2(this.player.position.x, this.player.position.y + 0.75);
     const direction = target
       ? new THREE.Vector2(target.x - origin.x, target.y - origin.y).normalize()
       : new THREE.Vector2(0, 1);
-    const count = Math.min(5, 1 + Math.floor(this.pilotUpgrades.attack / 4) +
+    const count = weapon.id === "prism-laser" ? 1 : Math.min(5, 1 + Math.floor(this.pilotUpgrades.attack / 4) +
       (this.multishotTimer > 0 ? 2 : 0));
+    const geometry = weapon.id === "prism-laser" ? this.shared.laserGeometry
+      : weapon.id === "comet-homing" ? this.shared.homingGeometry
+        : weapon.id === "nova-piercer" ? this.shared.pierceGeometry : this.shared.bulletGeometry;
+    const material = weapon.id === "prism-laser" ? this.materials.laser
+      : weapon.id === "comet-homing" ? this.materials.homing
+        : weapon.id === "nova-piercer" ? this.materials.pierce : this.materials.playerBullet;
     for (let index = 0; index < count; index += 1) {
       const spread = (index - (count - 1) / 2) * 0.105;
-      const velocity = direction.clone().rotateAround(new THREE.Vector2(), spread).multiplyScalar(15.5);
-      const mesh = new THREE.Mesh(this.shared.bulletGeometry, this.materials.playerBullet);
+      const velocity = direction.clone().rotateAround(new THREE.Vector2(), spread).multiplyScalar(weapon.projectileSpeed);
+      const mesh = new THREE.Mesh(geometry, material);
       mesh.position.set(origin.x, origin.y, 0.55);
+      mesh.rotation.z = Math.atan2(-velocity.x, velocity.y);
+      if (weapon.id === "prism-laser") mesh.scale.set(1, 1.35, 1);
       this.scene.add(mesh);
       this.projectiles.push({
         mesh,
         velocity,
         owner: "player",
+        weaponId: weapon.id,
+        homing: weapon.homing,
+        pierceRemaining: weapon.pierce,
         damage: Math.max(0.1,
           ((this.overdriveTimer > 0 ? 2 : 1) + Math.floor(this.pilotUpgrades.attack / 3)) *
           this.shipProfile.attackMultiplier * this.pilotProfile.attackMultiplier *
-          this.pilotGrowth.attackMultiplier
+          this.pilotGrowth.attackMultiplier * weapon.damageMultiplier * this.eventDamageMultiplier
         ),
-        radius: 0.14
+        radius: weapon.radius
       });
     }
     if (this.projectiles.length > MAX_PROJECTILES) this.removeProjectile(0);
+  }
+
+  private findClosestTarget(x: number, y: number): THREE.Vector2 | null {
+    let selected: THREE.Vector2 | null = null;
+    let best = Infinity;
+    for (const enemy of this.enemies) {
+      const distance = (enemy.mesh.position.x - x) ** 2 + (enemy.mesh.position.y - y) ** 2;
+      if (distance < best) {
+        best = distance;
+        selected = new THREE.Vector2(enemy.mesh.position.x, enemy.mesh.position.y);
+      }
+    }
+    if (this.boss) {
+      const distance = (this.boss.mesh.position.x - x) ** 2 + (this.boss.mesh.position.y - y) ** 2;
+      if (distance < best) selected = new THREE.Vector2(this.boss.mesh.position.x, this.boss.mesh.position.y);
+    }
+    return selected;
   }
 
   private findTarget(): THREE.Vector2 | null {
@@ -727,37 +889,61 @@ export class Game {
   private updateProjectiles(dt: number): void {
     for (let index = this.projectiles.length - 1; index >= 0; index -= 1) {
       const bullet = this.projectiles[index];
-      if (bullet.homing && bullet.owner === "enemy") {
-        const speed = bullet.velocity.length();
-        const desired = new THREE.Vector2(
-          this.player.position.x - bullet.mesh.position.x,
-          this.player.position.y - bullet.mesh.position.y
-        ).normalize().multiplyScalar(speed);
-        bullet.velocity.lerp(desired, Math.min(1, dt * 1.4));
-        if (bullet.velocity.lengthSq() > 0) bullet.velocity.setLength(speed);
+      if (bullet.homing) {
+        const target = bullet.owner === "enemy"
+          ? new THREE.Vector2(this.player.position.x, this.player.position.y)
+          : this.findClosestTarget(bullet.mesh.position.x, bullet.mesh.position.y);
+        if (target) {
+          const speed = bullet.velocity.length();
+          const desired = new THREE.Vector2(
+            target.x - bullet.mesh.position.x,
+            target.y - bullet.mesh.position.y
+          ).normalize().multiplyScalar(speed);
+          bullet.velocity.lerp(desired, Math.min(1, dt * (bullet.owner === "player" ? 2.2 : 1.4)));
+          if (bullet.velocity.lengthSq() > 0) bullet.velocity.setLength(speed);
+        }
       }
-      bullet.mesh.position.x += bullet.velocity.x * dt;
-      bullet.mesh.position.y += bullet.velocity.y * dt;
+      const eventSpeed = bullet.owner === "enemy" ? this.enemyProjectileSpeedMultiplier : 1;
+      bullet.mesh.position.x += bullet.velocity.x * dt * eventSpeed;
+      bullet.mesh.position.y += bullet.velocity.y * dt * eventSpeed;
+      if (bullet.weaponId === "comet-homing" || bullet.weaponId === "prism-laser") {
+        bullet.mesh.rotation.z = Math.atan2(-bullet.velocity.x, bullet.velocity.y);
+      }
       if (bullet.mesh.position.y > WORLD_HEIGHT / 2 + 2 || bullet.mesh.position.y < -WORLD_HEIGHT / 2 - 2 ||
           Math.abs(bullet.mesh.position.x) > this.world.width / 2 + 2) {
         this.removeProjectile(index);
         continue;
       }
       if (bullet.owner === "player") {
-        let hit = false;
+        let consumed = false;
         for (let enemyIndex = this.enemies.length - 1; enemyIndex >= 0; enemyIndex -= 1) {
           const enemy = this.enemies[enemyIndex];
           if (bullet.mesh.position.distanceTo(enemy.mesh.position) < enemy.radius + bullet.radius) {
             this.damageEnemy(enemyIndex, bullet.damage);
-            hit = true;
+            if ((bullet.pierceRemaining ?? 0) > 0) {
+              bullet.pierceRemaining = (bullet.pierceRemaining ?? 0) - 1;
+              bullet.mesh.position.y += Math.sign(bullet.velocity.y || 1) * (enemy.radius + bullet.radius + 0.18);
+            } else {
+              consumed = true;
+            }
             break;
           }
         }
-        if (!hit && this.boss && bullet.mesh.position.distanceTo(this.boss.mesh.position) < 2.15) {
-          this.damageBoss(bullet.damage);
-          hit = true;
+        if (!consumed && this.boss && !bullet.bossHit) {
+          const corePosition = this.boss.core.getWorldPosition(new THREE.Vector3());
+          if (bullet.mesh.position.distanceTo(corePosition) < 0.84) {
+            this.damageBoss(bullet.damage, this.boss.weakpointOpen);
+            bullet.bossHit = true;
+            consumed = (bullet.pierceRemaining ?? 0) <= 0;
+            if (!consumed) bullet.pierceRemaining = (bullet.pierceRemaining ?? 0) - 1;
+          } else if (bullet.mesh.position.distanceTo(this.boss.mesh.position) < 2.15) {
+            this.damageBoss(bullet.damage, false);
+            bullet.bossHit = true;
+            consumed = (bullet.pierceRemaining ?? 0) <= 0;
+            if (!consumed) bullet.pierceRemaining = (bullet.pierceRemaining ?? 0) - 1;
+          }
         }
-        if (hit) this.removeProjectile(index);
+        if (consumed) this.removeProjectile(index);
       } else if (bullet.mesh.position.distanceTo(this.player.position) < 0.54 + bullet.radius) {
         this.damagePlayer(bullet.damage);
         this.removeProjectile(index);
@@ -906,9 +1092,18 @@ export class Game {
   }
 
   private spawnBoss(): void {
+    const profile = this.mode === "endless"
+      ? getEndlessBossProfile(this.bossSequence)
+      : this.planetProfile.boss;
+    this.bossSequence += 1;
     const mesh = new THREE.Group();
-    const hull = new THREE.Mesh(new THREE.OctahedronGeometry(1.75, 1), this.materials.boss);
-    hull.scale.set(1.45, 0.72, 0.65);
+    const hullGeometry = profile.id === "rift-wyrm"
+      ? new THREE.TorusKnotGeometry(1.25, 0.38, 72, 8, 2, 3)
+      : profile.id === "aegis-colossus"
+        ? new THREE.BoxGeometry(3.3, 2.0, 0.95)
+        : new THREE.OctahedronGeometry(1.75, 1);
+    const hull = new THREE.Mesh(hullGeometry, this.materials.boss);
+    hull.scale.set(profile.id === "rift-wyrm" ? 1.2 : 1.45, profile.id === "aegis-colossus" ? 1.05 : 0.72, 0.65);
     const left = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.55, 0.35), this.materials.enemyFast);
     left.position.set(-2.05, -0.12, 0);
     left.rotation.z = -0.2;
@@ -916,21 +1111,31 @@ export class Game {
     right.position.x = 2.05;
     right.rotation.z = 0.2;
     const core = new THREE.Mesh(new THREE.SphereGeometry(0.55, 18, 14), this.materials.bossCore);
-    core.position.z = 1;
+    core.position.set(0, -0.38, 1);
+    core.name = "boss-weakpoint";
     const ring = new THREE.Mesh(new THREE.TorusGeometry(2.2, 0.055, 8, 52), this.materials.glow);
     ring.rotation.x = Math.PI / 2;
     mesh.add(hull, left, right, core, ring);
+    if (profile.id === "aegis-colossus") {
+      const armor = new THREE.Mesh(new THREE.BoxGeometry(4.1, 0.38, 0.5), this.materials.enemyGuardian);
+      armor.position.y = -0.95;
+      mesh.add(armor);
+    }
     mesh.position.set(0, WORLD_HEIGHT / 2 + 3, 0.3);
     this.scene.add(mesh);
-    this.boss = { mesh, hp: 180 + this.elapsed * 0.35, maxHp: 180 + this.elapsed * 0.35, fireTimer: 2.5, age: 0, entering: true };
+    this.boss = {
+      mesh, core, profile, hp: profile.maxHp, maxHp: profile.maxHp,
+      fireTimer: 2.5, age: 0, entering: true, weakpointOpen: false
+    };
     this.spawnBurst(mesh.position, 0xff92de, 34);
+    this.callbacks.onMissionEvent(profile.name + " 接近！ コア開放の瞬間を狙って！");
   }
 
   private updateBoss(dt: number): void {
     if (!this.boss) return;
     const boss = this.boss;
     boss.age += dt;
-    boss.mesh.position.x = Math.sin(boss.age * 0.48) * Math.min(4.2, this.world.width * 0.22);
+    boss.mesh.position.x = Math.sin(boss.age * (boss.profile.id === "rift-wyrm" ? 0.72 : 0.48)) * Math.min(4.2, this.world.width * 0.22);
     if (boss.entering) {
       boss.mesh.position.y = Math.max(5.0, boss.mesh.position.y - dt * 2.6);
       if (boss.mesh.position.y <= 5.01) boss.entering = false;
@@ -938,40 +1143,65 @@ export class Game {
       boss.mesh.position.y = 5 + Math.sin(boss.age * 0.8) * 0.22;
     }
     boss.mesh.rotation.z = Math.sin(boss.age * 0.65) * 0.08;
+    const weakpointOpen = !boss.entering && (boss.age % 7) < 2.2;
+    if (weakpointOpen && !boss.weakpointOpen) this.callbacks.onMissionEvent("弱点コア開放！ 今が攻撃のチャンス！");
+    boss.weakpointOpen = weakpointOpen;
+    boss.core.scale.setScalar(weakpointOpen ? 1.22 : 0.82);
+    (boss.core.material as THREE.MeshStandardMaterial).emissiveIntensity = weakpointOpen ? 1.7 : 0.45;
     boss.fireTimer -= dt;
     const phaseTwo = boss.hp <= boss.maxHp * 0.5;
-    this.bossTelegraph.visible = !boss.entering && boss.fireTimer < 0.33;
+    this.bossTelegraph.visible = !boss.entering && boss.fireTimer < 0.62;
     if (this.bossTelegraph.visible) {
       this.bossTelegraph.position.set(boss.mesh.position.x, boss.mesh.position.y - 4.1, 0.2);
       this.bossTelegraph.rotation.z = Math.atan2(this.player.position.x - boss.mesh.position.x, boss.mesh.position.y - this.player.position.y);
+      (this.bossTelegraph.material as THREE.MeshBasicMaterial).color.setHex(
+        boss.profile.attackPattern === "seeker" ? 0xffa15e : boss.profile.attackPattern === "cross" ? 0x9b9dff : 0xff528b
+      );
     }
     if (boss.fireTimer <= 0 && !boss.entering) {
-      const shots = phaseTwo ? 7 : 3;
-      for (let index = 0; index < shots; index += 1) {
-        const angle = (index - (shots - 1) / 2) * (phaseTwo ? 0.22 : 0.3);
-        const direction = new THREE.Vector2(this.player.position.x - boss.mesh.position.x, this.player.position.y - boss.mesh.position.y)
-          .normalize()
-          .rotateAround(new THREE.Vector2(), angle);
-        this.addProjectile(boss.mesh.position.x, boss.mesh.position.y - 1, direction.multiplyScalar(phaseTwo ? 6.8 : 5.9), "enemy", 1);
+      if (boss.profile.attackPattern === "seeker") {
+        const missileCount = phaseTwo ? 2 : 1;
+        for (let index = 0; index < missileCount; index += 1) {
+          this.addProjectile(boss.mesh.position.x + (index ? 1.1 : -1.1), boss.mesh.position.y - 1,
+            new THREE.Vector2((this.player.position.x - boss.mesh.position.x) * 0.18, -7.2), "enemy", 1, true);
+        }
+      } else {
+        const shots = phaseTwo ? 7 : 3;
+        for (let index = 0; index < shots; index += 1) {
+          const angle = (index - (shots - 1) / 2) * (phaseTwo ? 0.22 : 0.3);
+          const direction = new THREE.Vector2(this.player.position.x - boss.mesh.position.x, this.player.position.y - boss.mesh.position.y)
+            .normalize().rotateAround(new THREE.Vector2(), angle);
+          this.addProjectile(boss.mesh.position.x, boss.mesh.position.y - 1, direction.multiplyScalar(phaseTwo ? 6.8 : 5.9), "enemy", 1);
+          if (boss.profile.attackPattern === "cross" && phaseTwo && index === Math.floor(shots / 2)) {
+            this.addProjectile(boss.mesh.position.x, boss.mesh.position.y - 1, new THREE.Vector2(6.5, -0.8), "enemy", 1);
+            this.addProjectile(boss.mesh.position.x, boss.mesh.position.y - 1, new THREE.Vector2(-6.5, -0.8), "enemy", 1);
+          }
+        }
       }
       boss.fireTimer = phaseTwo ? 0.95 : 1.5;
       this.bossTelegraph.visible = false;
     }
   }
 
-  private damageBoss(damage: number): void {
+  private damageBoss(damage: number, weakpoint = false): void {
     if (!this.boss) return;
-    this.boss.hp -= Math.max(0, damage);
-    this.spawnBurst(new THREE.Vector3(this.boss.mesh.position.x, this.boss.mesh.position.y - 0.4, 0.9), 0xff8bd4, 3);
-    if (this.boss.hp <= 0) {
-      const position = this.boss.mesh.position.clone();
-      this.removeSceneObject(this.boss.mesh);
+    const boss = this.boss;
+    const multiplier = weakpoint && boss.weakpointOpen ? boss.profile.weakpointMultiplier : 1;
+    boss.hp -= Math.max(0, damage) * multiplier;
+    this.triggerCameraShake(weakpoint && boss.weakpointOpen ? 0.55 : 0.16, 0.42);
+    this.spawnBurst(new THREE.Vector3(boss.mesh.position.x, boss.mesh.position.y - 0.4, 0.9),
+      weakpoint && boss.weakpointOpen ? 0xffe58e : 0xff8bd4, weakpoint && boss.weakpointOpen ? 8 : 3);
+    if (boss.hp <= 0) {
+      const position = boss.mesh.position.clone();
+      this.defeatedBosses.push(boss.profile.id);
+      this.removeSceneObject(boss.mesh);
       this.boss = null;
       this.bossTelegraph.visible = false;
-      this.score += 2500;
-      this.shards += 30;
+      this.score += boss.profile.scoreReward;
+      this.shards += boss.profile.rewardShards;
       this.kills += 1;
       this.spawnBurst(position, 0xc7a7ff, 72);
+      this.callbacks.onMissionEvent(boss.profile.name + " 撃破！ 報酬を獲得！");
       if (this.mode === "endless") {
         this.bossTimer = 32;
       } else {
@@ -981,7 +1211,7 @@ export class Game {
   }
 
   private damagePlayer(damage: number): void {
-    if (this.damageCooldown > 0) return;
+    if (this.invulnerableForTest || this.damageCooldown > 0) return;
     this.damageCooldown = 0.72;
     if (this.shieldTimer > 0) {
       this.spawnBurst(this.player.position, 0x70efff, 10);
@@ -993,6 +1223,7 @@ export class Game {
   }
 
   private spawnBurst(position: THREE.Vector3, color: number, count: number): void {
+    if (count >= 20) this.triggerCameraShake(count >= 60 ? 0.42 : 0.16, 0.38);
     const material = new THREE.MeshBasicMaterial({ color });
     const actualCount = Math.min(count, MAX_PARTICLES - this.particles.length);
     if (actualCount <= 0) {
@@ -1042,6 +1273,11 @@ export class Game {
     this.projectiles.splice(index, 1);
   }
 
+  private triggerCameraShake(strength: number, duration: number): void {
+    this.cameraShakeStrength = Math.max(this.cameraShakeStrength, strength);
+    this.cameraShakeTime = Math.max(this.cameraShakeTime, duration);
+  }
+
   private getHudState(): HudState {
     return {
       hp: this.hp,
@@ -1054,9 +1290,13 @@ export class Game {
       elapsed: this.elapsed,
       bossHp: this.boss?.hp ?? 0,
       bossMaxHp: this.boss?.maxHp ?? 0,
-      bossName: this.boss ? "NEBULA EMPRESS" : "",
+      bossName: this.boss?.profile.name ?? "",
       mode: this.mode,
-      combo: this.combo
+      combo: this.combo,
+      planetName: this.planetProfile.name,
+      weaponName: getWeaponProfile(this.weaponIds[this.activeWeaponSlot]).shortName,
+      weaponSlot: this.activeWeaponSlot,
+      bossWeakpointOpen: this.boss?.weakpointOpen ?? false
     };
   }
 
@@ -1070,7 +1310,9 @@ export class Game {
       score: this.score,
       kills: this.kills,
       shards: this.shards,
-      duration: this.elapsed
+      duration: this.elapsed,
+      planetId: this.planetProfile.id,
+      bossesDefeated: [...this.defeatedBosses]
     });
   }
 
@@ -1110,7 +1352,10 @@ export class Game {
             object.geometry !== this.shared.enemyBulletGeometry &&
             object.geometry !== this.shared.particleGeometry &&
             object.geometry !== this.shared.shardGeometry &&
-            object.geometry !== this.shared.ringGeometry) object.geometry.dispose();
+            object.geometry !== this.shared.ringGeometry &&
+            object.geometry !== this.shared.laserGeometry &&
+            object.geometry !== this.shared.homingGeometry &&
+            object.geometry !== this.shared.pierceGeometry) object.geometry.dispose();
       }
     });
     for (const layer of this.stars) {

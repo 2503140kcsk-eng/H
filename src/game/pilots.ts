@@ -16,6 +16,11 @@ export interface PilotProfile {
   specialMultiplier: number;
   accentColor: number;
   avatar: string;
+  skillType: "nova" | "aegis" | "comet";
+  skillName: string;
+  skillDescription: string;
+  storyIntro: string;
+  animationStyle: "guide" | "guardian" | "ace";
 }
 
 export const PILOT_PROFILES: Readonly<Record<PilotId, PilotProfile>> = {
@@ -34,7 +39,12 @@ export const PILOT_PROFILES: Readonly<Record<PilotId, PilotProfile>> = {
     shieldRechargeMultiplier: 1,
     specialMultiplier: 1,
     accentColor: 0xffa4d8,
-    avatar: "✦"
+    avatar: "✦",
+    skillType: "nova",
+    skillName: "スターライト・ノヴァ",
+    skillDescription: "全方位へ追加衝撃波。標準の必殺攻撃を強化する。",
+    storyIntro: "星図にない航路を見つけた新人航宙士。失われた星の記録を追う。",
+    animationStyle: "guide"
   },
   "noa-celeste": {
     id: "noa-celeste",
@@ -51,7 +61,12 @@ export const PILOT_PROFILES: Readonly<Record<PilotId, PilotProfile>> = {
     shieldRechargeMultiplier: 1.4,
     specialMultiplier: 1.25,
     accentColor: 0x74e7ff,
-    avatar: "◇"
+    avatar: "◇",
+    skillType: "aegis",
+    skillName: "セレステ・バリア",
+    skillDescription: "必殺技の発動時にシールドを35回復し、短時間の防御膜を展開。",
+    storyIntro: "航法シールドを研究する観測士。仲間を守るため、古代文明の技術を追う。",
+    animationStyle: "guardian"
   },
   "rin-vega": {
     id: "rin-vega",
@@ -68,7 +83,12 @@ export const PILOT_PROFILES: Readonly<Record<PilotId, PilotProfile>> = {
     shieldRechargeMultiplier: 0.88,
     specialMultiplier: 0.92,
     accentColor: 0xff82b7,
-    avatar: "☄"
+    avatar: "☄",
+    skillType: "comet",
+    skillName: "ヴェガ・オーバードライブ",
+    skillDescription: "必殺技の発動後、3.5秒間だけ連射速度と機動力が上昇。",
+    storyIntro: "危険な小惑星帯を走破してきたエース。最短距離で真実へ突き進む。",
+    animationStyle: "ace"
   }
 };
 
