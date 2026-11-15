@@ -43,6 +43,14 @@ Base: `feat/planetary-combat-expansion`
 - [x] Surface boss phase and remaining part counts in the HUD.
 - [ ] Create original recorded/arranged BGM and SFX with clear rights and mix/mastering.
 
+### H. Additional customization and balancing
+- [x] Add Astra-Arc as a fourth ship with a distinct resonator silhouette and stat profile.
+- [x] Add Eclipse Lance as a fifth weapon combining homing and piercing behavior.
+- [x] Add the Nebula Veil pilot outfit as a shard-unlocked cosmetic with save persistence.
+- [x] Update arsenal achievement threshold and test data for all five weapons.
+- [x] Add unit and E2E coverage for the new ship, weapon, outfit and backup round trip.
+- [ ] Balance these additions with measured playtest data rather than theory-only tuning.
+
 ### G. Persistence and device verification
 - [x] Add skill/story/reward fields to v1 save and backup payloads.
 - [x] Keep newly added fields optional for legacy v1 backup compatibility.
