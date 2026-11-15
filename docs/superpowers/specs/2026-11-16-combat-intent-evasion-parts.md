@@ -48,13 +48,13 @@ This is advisory. It does not issue input events, change player coordinates, gua
 
 ## 4. Body integrity
 
-Named modules are independently damaged and are idempotently disabled once destroyed:
+Named modules are independently damaged and are idempotently disabled once destroyed. Existing auto-fire selects a functional aim point in tactical order: weapon, active shield emitter, left/right wing, then core. The player keeps the existing touch movement controls; no separate manual aiming UI is required. This lets players suppress a hostile weapon before dismantling its defenses and mobility:
 
 | Module | Intended gameplay consequence |
 |---|---|
 | Left / right wing | Loss of lateral control and removal of the corresponding boss volley side |
 | Weapon | Stops future attacks from that target |
-| Shield emitter | Deactivates the target's shield |
+| Shield emitter | Deactivates the target's shield; for the boss, removes a 35% incoming-damage reduction |
 | Core | A damaged core becomes exposed and increases incoming damage |
 
 Part hit selection is based on target-local impact coordinates normalized by collision radius. World-space projectile impact vectors are inverse-rotated and inverse-scaled before the hit-zone function is called. This gives the game a compact deterministic hit-zone function while avoiding a heavyweight physics dependency.
