@@ -211,6 +211,15 @@ h1 span { color: var(--pink); }
 .pilot-option-copy small { overflow: hidden; color: #a8c5e9; font-size: 7px; white-space: nowrap; text-overflow: ellipsis; }
 .pilot-option-action { margin-left: auto; flex: 0 0 auto; color: #ffb4dc; font-size: 7px; }
 .pilot-option.selected .pilot-option-action { color: #8dffdc; }
+.pilot-skin-dock { margin-top: 7px; padding: 7px; border: 1px solid rgba(173,188,255,.16); border-radius: 10px; background: rgba(45,57,112,.12); }
+.pilot-skin-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.pilot-skin-option { min-width: 0; display: grid; gap: 3px; padding: 7px; border: 1px solid rgba(173,188,255,.2); border-radius: 8px; color: #e8edff; background: rgba(75,85,145,.15); text-align: left; }
+.pilot-skin-option b { font-size: 8px; }
+.pilot-skin-option small { color: #aebcdf; font-size: 7px; line-height: 1.4; }
+.pilot-skin-option span { color: #a2f4e1; font-size: 7px; }
+.pilot-skin-option.selected { border-color: rgba(139,255,214,.58); background: rgba(46,137,121,.18); }
+.pilot-skin-option:not(:disabled):not(.selected) { cursor: pointer; }
+.pilot-skin-option:disabled { opacity: .58; }
 .pilot-progression-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 8px; margin-top: 8px; }
 .pilot-skill-panel, .pilot-story-panel { min-width: 0; padding: 7px; border: 1px solid rgba(173,188,255,.16); border-radius: 10px; background: rgba(45,57,112,.12); }
 .pilot-skill-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
