@@ -20,6 +20,7 @@ import {
   createBodyIntegrity,
   damageBodyPart,
   getBodyIntegrityEffects,
+  selectAimPart,
   selectImpactPart,
   type BodyArchetype,
   type BodyIntegrity
@@ -859,6 +860,47 @@ export class Game {
     }
   }
 
+  private getModuleAimPoint(
+    mesh: THREE.Group,
+    integrity: BodyIntegrity,
+    bodyRadius: number,
+    shieldActive: boolean,
+    isBoss = false
+  ): THREE.Vector2 {
+    const part = selectAimPart(integrity, shieldActive);
+    let localX = 0;
+    let localY = 0;
+    switch (part) {
+      case "weapon":
+        localY = isBoss ? -1.1 : -Math.max(0.32, Math.min(0.58, bodyRadius * 0.75));
+        break;
+      case "shieldEmitter":
+        localY = isBoss ? 1.55 : Math.max(0.5, bodyRadius * 0.78);
+        break;
+      case "leftWing":
+        localX = -bodyRadius * 0.58;
+        localY = bodyRadius * 0.2;
+        break;
+      case "rightWing":
+        localX = bodyRadius * 0.58;
+        localY = bodyRadius * 0.2;
+        break;
+      case "core":
+        localY = bodyRadius * 0.1;
+        break;
+    }
+
+    const scale = Math.max(0.05, Math.abs(mesh.scale.x));
+    const x = localX * scale;
+    const y = localY * scale;
+    const cosine = Math.cos(mesh.rotation.z);
+    const sine = Math.sin(mesh.rotation.z);
+    return new THREE.Vector2(
+      mesh.position.x + x * cosine - y * sine,
+      mesh.position.y + x * sine + y * cosine
+    );
+  }
+
   private findTarget(): THREE.Vector2 | null {
     let selected: THREE.Vector2 | null = null;
     let best = Infinity;
@@ -869,10 +911,23 @@ export class Game {
       const distance = dx * dx + dy * dy;
       if (distance < best) {
         best = distance;
-        selected = new THREE.Vector2(enemy.mesh.position.x, enemy.mesh.position.y);
+        selected = this.getModuleAimPoint(
+          enemy.mesh,
+          enemy.integrity,
+          enemy.radius,
+          enemy.shield > 0 && getBodyIntegrityEffects(enemy.integrity).shieldActive
+        );
       }
     }
-    if (this.boss) selected = new THREE.Vector2(this.boss.mesh.position.x, this.boss.mesh.position.y);
+    if (this.boss) {
+      selected = this.getModuleAimPoint(
+        this.boss.mesh,
+        this.boss.integrity,
+        2.2,
+        getBodyIntegrityEffects(this.boss.integrity).shieldActive,
+        true
+      );
+    }
     return selected;
   }
 
@@ -1274,7 +1329,8 @@ export class Game {
     }
 
     const effects = getBodyIntegrityEffects(boss.integrity);
-    boss.hp -= Math.max(0, damage) * effects.coreDamageMultiplier;
+    const shieldDamageMultiplier = effects.shieldActive ? 0.65 : 1;
+    boss.hp -= Math.max(0, damage) * shieldDamageMultiplier * effects.coreDamageMultiplier;
     this.spawnBurst(new THREE.Vector3(boss.mesh.position.x, boss.mesh.position.y - 0.4, 0.9), 0xff8bd4, 3);
     if (boss.hp <= 0) {
       const position = boss.mesh.position.clone();
