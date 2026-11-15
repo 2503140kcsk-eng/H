@@ -1,7 +1,7 @@
 import { registerSW } from "virtual:pwa-register";
 import { PilotShowcase } from "./game/PilotShowcase";
 import { canUnlockPilotSkill, getPilotSkills, getUnspentSkillPoints } from "./game/pilot-skills";
-import { getStoryScene, hasSecretStarRoute, type StoryChoiceId } from "./game/narrative";
+import { getStoryChoiceKey, getStoryScene, hasSecretStarRoute, type StoryChoiceId } from "./game/narrative";
 import { Game, type GameMode, type HudState, type RunResult } from "./game/Game";
 import { createDefaultSave, upgradeCost, type SaveData } from "./game/core";
 import { exportBackup, importBackup } from "./persistence/backup";
@@ -387,8 +387,11 @@ function renderPilotStory(): void {
   }
   title.textContent = `${scene.title} · ${scene.speaker}`;
   prompt.textContent = scene.prompt;
-  choices.innerHTML = scene.choices.map((choice) => `<button type="button" class="pilot-story-choice ${scene.selectedChoice === choice.id ? "selected" : ""}"
-    data-story-choice="${choice.id}" ${scene.selectedChoice ? "disabled" : ""}>${choice.label}</button>`).join("");
+  choices.innerHTML = scene.choices.map((choice) => {
+    const effect = choice.id === "follow-signal" ? "弱点解析 +10%" : "耐久 +1 · シールド回復 +10%";
+    return `<button type="button" class="pilot-story-choice ${scene.selectedChoice === choice.id ? "selected" : ""}"
+      data-story-choice="${choice.id}" ${scene.selectedChoice ? "disabled" : ""}>${choice.label}<small>${effect}</small></button>`;
+  }).join("");
   response.textContent = scene.response ?? "選択後に、この判断が残す記録が表示されます。";
   const secretReady = hasSecretStarRoute(save.selectedPilot, save.storyChoices);
   secret.textContent = save.storyFlags.includes("celestial-echo")
@@ -507,6 +510,7 @@ function makeGame(): Game {
     pilotId: save.selectedPilot,
     pilotLevel: save.pilotProgress[save.selectedPilot]?.level ?? save.pilotLevel,
     pilotSkills: save.pilotSkills[save.selectedPilot] ?? [],
+    storyChoice: save.storyChoices[getStoryChoiceKey(save.selectedPilot, save.selectedPlanet)],
     planetId: save.selectedPlanet,
     weaponIds: save.equippedWeapons,
     activeWeaponSlot: save.activeWeaponSlot,
