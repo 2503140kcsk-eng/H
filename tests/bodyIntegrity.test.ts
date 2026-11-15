@@ -3,6 +3,7 @@ import {
   createBodyIntegrity,
   damageBodyPart,
   getBodyIntegrityEffects,
+  selectAimPart,
   selectImpactPart
 } from "../src/game/bodyIntegrity";
 
@@ -18,6 +19,26 @@ describe("target-local body part selection", () => {
   it("selects a guardian shield emitter from its upper central zone", () => {
     const integrity = createBodyIntegrity("guardian");
     expect(selectImpactPart(integrity, 0, 0.8, 1)).toBe("shieldEmitter");
+  });
+});
+
+describe("auto-fire module priority", () => {
+  it("suppresses weapons first, then attacks surviving wings and core", () => {
+    let integrity = createBodyIntegrity("fighter");
+    expect(selectAimPart(integrity, false)).toBe("weapon");
+    integrity = damageBodyPart(integrity, "weapon", 99).integrity;
+    expect(selectAimPart(integrity, false)).toBe("leftWing");
+    integrity = damageBodyPart(integrity, "leftWing", 99).integrity;
+    expect(selectAimPart(integrity, false)).toBe("rightWing");
+    integrity = damageBodyPart(integrity, "rightWing", 99).integrity;
+    expect(selectAimPart(integrity, false)).toBe("core");
+  });
+
+  it("only prioritizes a shield emitter while that shield is active", () => {
+    let integrity = createBodyIntegrity("guardian");
+    integrity = damageBodyPart(integrity, "weapon", 99).integrity;
+    expect(selectAimPart(integrity, true)).toBe("shieldEmitter");
+    expect(selectAimPart(integrity, false)).toBe("core");
   });
 });
 
