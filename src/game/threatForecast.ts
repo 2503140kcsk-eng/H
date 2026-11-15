@@ -146,12 +146,15 @@ function closestClearance(
   let minimum = Number.POSITIVE_INFINITY;
 
   for (const threat of threats) {
-    const delay = clamp(finite(threat.startDelaySeconds ?? 0, 0), 0, horizon);
+    const delay = clamp(finite(threat.startDelaySeconds ?? 0, 0), 0, 4);
+    // The projectile does not move during wind-up. Its launch point is fixed,
+    // while the player continues moving until the release frame.
+    if (delay > horizon) continue;
     const relativeVelocityX = finite(threat.velocity.x, 0) - playerVelocity.x;
     const relativeVelocityY = finite(threat.velocity.y, 0) - playerVelocity.y;
-    const relativeX = finite(threat.position.x, 0) + finite(threat.velocity.x, 0) * delay
+    const relativeX = finite(threat.position.x, 0)
       - (playerPosition.x + playerVelocity.x * delay);
-    const relativeY = finite(threat.position.y, 0) + finite(threat.velocity.y, 0) * delay
+    const relativeY = finite(threat.position.y, 0)
       - (playerPosition.y + playerVelocity.y * delay);
     const remainingHorizon = Math.max(0, horizon - delay);
     const speedSquared = relativeVelocityX ** 2 + relativeVelocityY ** 2;
@@ -224,15 +227,16 @@ export function assessEvasion(
     best.direction !== "hold" &&
     best.clearance > score[0].clearance + 0.08;
   const recommended = recommendationIsUseful ? best.direction : "hold";
+  const recommendedClearance = recommendationIsUseful ? best.clearance : score[0].clearance;
   const confidence = threats.length === 0
     ? 0
-    : clamp(Math.abs(best.clearance - currentClearance) / 2.5, 0, 1);
+    : clamp(Math.max(0, recommendedClearance - currentClearance) / 2.5, 0, 1);
 
   return {
     risk,
     recommended,
     currentClearance,
-    recommendedClearance: best.clearance,
+    recommendedClearance,
     confidence,
     candidates: score
   };
