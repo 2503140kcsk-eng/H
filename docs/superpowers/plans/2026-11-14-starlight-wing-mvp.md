@@ -242,6 +242,7 @@ Files: package.json, src/game/vrmFile.ts, src/game/vrmPreview.ts, src/persistenc
 
 - [x] Add the MIT-licensed `@pixiv/three-vrm` runtime at pinned version 3.5.5; retain the existing Three.js 0.186 runtime using the package's peer range (three >= 0.137).
 - [x] Load the VRM code only after the user selects a model; no VRM code is required for the initial title-screen bundle.
+- [x] Exclude the ~195 KiB VRM loader chunk from install-time Workbox precache and CacheFirst it in a dedicated 30-day, one-entry runtime cache; assert both properties in the Pages artifact verifier.
 - [x] Validate `.vrm` extension, non-empty file size and a 32 MiB import ceiling before model parsing.
 - [x] Add a separate Dexie v2 table for local per-pilot VRM blobs; existing save and recovery tables and save version 1 remain unchanged.
 - [x] Parse local file bytes with GLTFLoader + VRMLoaderPlugin, optimize redundant vertices / skeletons, fit the avatar to a compact preview and update spring-bone runtime during a 30 FPS idle loop.

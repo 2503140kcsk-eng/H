@@ -29,6 +29,22 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,webmanifest}"],
+        // The VRM loader is downloaded only after the user chooses a local model.
+        globIgnores: ["**/vrmPreview-*.js"],
+        runtimeCaching: [
+          {
+            urlPattern: /\/assets\/vrmPreview-[\w-]+\.js$/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "pilot-vrm-runtime",
+              expiration: {
+                maxEntries: 1,
+                maxAgeSeconds: 30 * 24 * 60 * 60
+              },
+              cacheableResponse: { statuses: [200] }
+            }
+          }
+        ],
         navigateFallback: withBase("index.html")
       }
     })
