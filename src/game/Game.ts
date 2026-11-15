@@ -7,6 +7,23 @@ import { PICKUP_EFFECTS, selectPickupKind, type PickupKind } from "./pickups";
 import { getShipProfile, type ShipProfile } from "./ships";
 import { createWeaponShotSpecs, getWeaponFireInterval, getWeaponProfile, registerProjectileHit, WEAPON_PROFILES, type WeaponProfile, type WeaponShotSpec } from "./weapons";
 import { getActiveFrameIntervalMs, summarizeFrameTimes, type GameDiagnosticsSnapshot } from "./diagnostics";
+import {
+  assessEvasion,
+  createAttackForecast,
+  forecastPaths,
+  type AttackForecast,
+  type AttackPattern,
+  type EvasionAssessment,
+  type ThreatPath
+} from "./threatForecast";
+import {
+  createBodyIntegrity,
+  damageBodyPart,
+  getBodyIntegrityEffects,
+  selectImpactPart,
+  type BodyArchetype,
+  type BodyIntegrity
+} from "./bodyIntegrity";
 
 export type GameMode = "story" | "stage" | "endless";
 export type RunResult = {
@@ -32,6 +49,7 @@ export type HudState = {
   bossName: string;
   mode: GameMode;
   combo: number;
+  evasion: EvasionAssessment;
 };
 
 type BulletOwner = "player" | "enemy";
@@ -57,6 +75,9 @@ type Enemy = {
   shield: number;
   score: number;
   shards: number;
+  integrity: BodyIntegrity;
+  attackForecast: AttackForecast | null;
+  warning: THREE.Mesh;
 };
 type Pickup = {
   mesh: THREE.Group;
@@ -77,6 +98,8 @@ type Boss = {
   fireTimer: number;
   age: number;
   entering: boolean;
+  integrity: BodyIntegrity;
+  attackForecast: AttackForecast | null;
 };
 
 const WORLD_HEIGHT = 16;
@@ -105,7 +128,8 @@ export class Game {
     particleGeometry: new THREE.IcosahedronGeometry(0.09, 0),
     shardGeometry: new THREE.OctahedronGeometry(0.24, 0),
     ringGeometry: new THREE.TorusGeometry(0.56, 0.045, 6, 24),
-    lanceGeometry: new THREE.CylinderGeometry(0.075, 0.12, 0.72, 6)
+    lanceGeometry: new THREE.CylinderGeometry(0.075, 0.12, 0.72, 6),
+    warningGeometry: new THREE.BoxGeometry(0.11, 7.5, 0.035)
   };
   private readonly materials = {
     player: new THREE.MeshStandardMaterial({ color: 0xf7f3ff, metalness: 0.55, roughness: 0.3, emissive: 0x251a53 }),
@@ -128,6 +152,7 @@ export class Game {
     playerBulletFan: new THREE.MeshBasicMaterial({ color: WEAPON_PROFILES["prism-fan"].tint }),
     playerBulletLance: new THREE.MeshBasicMaterial({ color: WEAPON_PROFILES["nova-lance"].tint }),
     enemyBullet: new THREE.MeshBasicMaterial({ color: 0xff72a9 }),
+    warning: new THREE.MeshBasicMaterial({ color: 0xffc16e, transparent: true, opacity: 0.5, depthWrite: false }),
     shard: new THREE.MeshStandardMaterial({ color: 0x7deeff, emissive: 0x176c91, metalness: 0.25 }),
     repair: new THREE.MeshStandardMaterial({ color: 0xffa2c8, emissive: 0x8e2758 }),
     overdrive: new THREE.MeshStandardMaterial({ color: 0xc6a3ff, emissive: 0x5b28a0 }),
@@ -612,7 +637,31 @@ export class Game {
     }[kind];
     const body = new THREE.Mesh(bodyGeometry, material);
     body.rotation.z = Math.PI;
+    body.name = "hull";
     group.add(body);
+
+    const wingGeometry = new THREE.BoxGeometry(0.54, 0.19, 0.14);
+    const leftWing = new THREE.Mesh(wingGeometry, material);
+    leftWing.position.set(-0.48, 0.2, 0.08);
+    leftWing.rotation.z = -0.18;
+    leftWing.name = "leftWing";
+    const rightWing = leftWing.clone();
+    rightWing.position.x = 0.48;
+    rightWing.rotation.z = 0.18;
+    rightWing.name = "rightWing";
+    const weaponModule = new THREE.Mesh(
+      new THREE.BoxGeometry(0.2, 0.48, 0.16),
+      this.materials.enemySniper
+    );
+    weaponModule.position.set(0, -0.52, 0.18);
+    weaponModule.name = "weapon";
+    const coreModule = new THREE.Mesh(
+      new THREE.SphereGeometry(0.16, 8, 6),
+      this.materials.bossCore
+    );
+    coreModule.position.set(0, 0.12, 0.31);
+    coreModule.name = "core";
+    group.add(leftWing, rightWing, weaponModule, coreModule);
 
     if (kind === "heavy" || kind === "elite") {
       const core = new THREE.Mesh(new THREE.SphereGeometry(kind === "elite" ? 0.28 : 0.2, 10, 8), this.materials.bossCore);
@@ -639,16 +688,24 @@ export class Game {
       tail.position.set(0, 0.66, 0);
       group.add(tail);
     }
-    if (kind === "guardian" || profile.shield > 0) {
+    const bodyArchetype: BodyArchetype = kind === "guardian"
+      ? "guardian"
+      : kind === "heavy" || kind === "bomber" || kind === "elite"
+        ? "armored"
+        : "fighter";
+    if (bodyArchetype === "guardian" || bodyArchetype === "armored") {
       const ring = new THREE.Mesh(new THREE.TorusGeometry(0.76, 0.05, 6, 20), this.materials.guardianShield);
       ring.rotation.x = Math.PI / 2;
       ring.position.z = 0.3;
-      ring.name = "guardRing";
+      ring.name = "shieldEmitter";
       group.add(ring);
     }
 
     group.position.set(x, y, 0.25);
     this.scene.add(group);
+    const warning = new THREE.Mesh(this.shared.warningGeometry, this.materials.warning);
+    warning.visible = false;
+    this.scene.add(warning);
     this.enemies.push({
       mesh: group,
       kind,
@@ -660,7 +717,10 @@ export class Game {
       radius: profile.radius,
       shield: profile.shield,
       score: profile.score,
-      shards: profile.shards
+      shards: profile.shards,
+      integrity: createBodyIntegrity(bodyArchetype),
+      attackForecast: null,
+      warning
     });
   }
 
@@ -668,10 +728,11 @@ export class Game {
     for (let index = this.enemies.length - 1; index >= 0; index -= 1) {
       const enemy = this.enemies[index];
       const profile = ENEMY_PROFILES[enemy.kind];
+      const effects = getBodyIntegrityEffects(enemy.integrity);
       enemy.age += dt;
-      const sway = profile.movement === "zigzag" ? 1.1
+      const sway = (profile.movement === "zigzag" ? 1.1
         : profile.movement === "strafe" ? 0.9
-          : profile.movement === "steady" ? 0.2 : 0.42;
+          : profile.movement === "steady" ? 0.2 : 0.42) * effects.lateralMovementMultiplier;
       const frequency = profile.movement === "zigzag" ? 4.5
         : profile.movement === "sniper" ? 1.3
           : profile.movement === "strafe" ? 3.2 : 2.2;
@@ -685,11 +746,11 @@ export class Game {
       }
       enemy.mesh.rotation.z = Math.PI + Math.sin(enemy.age * 3) * (profile.movement === "strafe" ? 0.24 : 0.14);
 
-      const guardRing = enemy.mesh.getObjectByName("guardRing");
-      if (guardRing) {
-        guardRing.rotation.z += dt * 1.5;
-        guardRing.scale.setScalar(0.95 + Math.sin(enemy.age * 3.5) * 0.06);
-        guardRing.visible = enemy.shield > 0;
+      const emitter = enemy.mesh.getObjectByName("shieldEmitter");
+      if (emitter) {
+        emitter.rotation.z += dt * 1.5;
+        emitter.scale.setScalar(0.95 + Math.sin(enemy.age * 3.5) * 0.06);
+        emitter.visible = enemy.shield > 0 && effects.shieldActive;
       }
       if (profile.movement === "sniper" && enemy.fireTimer < 0.45) {
         enemy.mesh.scale.setScalar(1.04 + Math.sin(enemy.age * 18) * 0.035);
@@ -698,13 +759,44 @@ export class Game {
       }
 
       enemy.fireTimer -= dt;
-      if (enemy.fireTimer <= 0 && enemy.mesh.position.y < WORLD_HEIGHT / 2 - 1 && profile.attack !== "none") {
-        if (profile.attack === "spread") this.fireEnemySpread(enemy.mesh.position.x, enemy.mesh.position.y, 5, 0.28, 5.1);
-        else if (profile.attack === "homing") this.fireEnemyHomingShot(enemy.mesh.position.x, enemy.mesh.position.y);
-        else if (profile.attack === "triple") this.fireEnemySpread(enemy.mesh.position.x, enemy.mesh.position.y, 3, 0.18, 6.2);
-        else this.fireEnemyShot(enemy.mesh.position.x, enemy.mesh.position.y, profile.movement === "sniper" ? 8 : 5.4);
+      if (effects.canAttack && profile.attack !== "none" &&
+          enemy.fireTimer <= 0.55 && !enemy.attackForecast) {
+        enemy.attackForecast = this.createEnemyForecast(enemy);
+      }
+
+      if (enemy.attackForecast) {
+        const direction = enemy.attackForecast.direction;
+        enemy.warning.visible = true;
+        enemy.warning.position.set(
+          enemy.mesh.position.x + direction.x * 3.75,
+          enemy.mesh.position.y + direction.y * 3.75,
+          0.18
+        );
+        enemy.warning.rotation.z = -Math.atan2(direction.x, direction.y);
+      } else {
+        enemy.warning.visible = false;
+      }
+
+      if (enemy.fireTimer <= 0) {
+        if (effects.canAttack && profile.attack !== "none") {
+          const forecast = enemy.attackForecast ?? this.createEnemyForecast(enemy);
+          const tracking = forecast.pattern === "homing";
+          for (const path of forecastPaths(forecast)) {
+            this.addProjectile(
+              enemy.mesh.position.x,
+              enemy.mesh.position.y,
+              new THREE.Vector2(path.velocity.x, path.velocity.y),
+              "enemy",
+              1,
+              tracking
+            );
+          }
+        }
+        enemy.attackForecast = null;
+        enemy.warning.visible = false;
         enemy.fireTimer = profile.fireInterval;
       }
+
       if (enemy.mesh.position.distanceTo(this.player.position) < enemy.radius + 0.4) {
         this.damagePlayer(1);
         this.removeEnemy(index, false);
@@ -714,7 +806,34 @@ export class Game {
     }
   }
 
-  private firePlayerShots(): void {
+  private createEnemyForecast(enemy: Enemy): AttackForecast {
+    const profile = ENEMY_PROFILES[enemy.kind];
+    const pattern: AttackPattern = profile.attack === "spread" || profile.attack === "triple"
+      ? "spread"
+      : profile.attack === "homing"
+        ? "homing"
+        : "aimed";
+    const projectileSpeed = profile.attack === "homing"
+      ? 4.4
+      : profile.movement === "sniper"
+        ? 8
+        : profile.attack === "triple"
+          ? 6.2
+          : profile.attack === "spread"
+            ? 5.1
+            : 5.4;
+    return createAttackForecast({
+      origin: { x: enemy.mesh.position.x, y: enemy.mesh.position.y },
+      target: { x: this.player.position.x, y: this.player.position.y },
+      pattern,
+      projectileSpeed,
+      projectileCount: profile.attack === "triple" ? 3 : profile.attack === "spread" ? 5 : 1,
+      spreadRadians: profile.attack === "triple" ? 0.18 : 0.28,
+      projectileRadius: 0.19
+    });
+  }
+
+    private firePlayerShots(): void {
     const target = this.findTarget();
     const origin = new THREE.Vector2(this.player.position.x, this.player.position.y + 0.75);
     const direction = target
@@ -835,7 +954,12 @@ export class Game {
             ? registerProjectileHit(bullet as Projectile & { hitTargets: Set<object> }, enemy)
             : "remove";
           if (decision === "duplicate") continue;
-          this.damageEnemy(enemyIndex, bullet.damage);
+          this.damageEnemy(
+            enemyIndex,
+            bullet.damage,
+            bullet.mesh.position.x - enemy.mesh.position.x,
+            bullet.mesh.position.y - enemy.mesh.position.y
+          );
           if (decision === "remove") removeAfterHit = true;
           break;
         }
@@ -845,7 +969,11 @@ export class Game {
             ? registerProjectileHit(bullet as Projectile & { hitTargets: Set<object> }, this.boss)
             : "remove";
           if (decision !== "duplicate") {
-            this.damageBoss(bullet.damage);
+            this.damageBoss(
+              bullet.damage,
+              bullet.mesh.position.x - this.boss.mesh.position.x,
+              bullet.mesh.position.y - this.boss.mesh.position.y
+            );
             if (decision === "remove") removeAfterHit = true;
           }
         }
@@ -857,29 +985,42 @@ export class Game {
     }
   }
 
-  private damageEnemy(index: number, damage: number): void {
+  private damageEnemy(index: number, damage: number, hitX = 0, hitY = 0): void {
     const enemy = this.enemies[index];
     if (!enemy) return;
+
+    const partId = selectImpactPart(enemy.integrity, hitX, hitY, enemy.radius);
+    const partDamage = damageBodyPart(enemy.integrity, partId, Math.max(0.25, damage * 0.75));
+    enemy.integrity = partDamage.integrity;
+    if (partDamage.newlyDestroyed) {
+      const visual = enemy.mesh.getObjectByName(partId);
+      if (visual) visual.visible = false;
+      if (partId === "shieldEmitter") enemy.shield = 0;
+      this.spawnBurst(enemy.mesh.position, partId === "core" ? 0xffe89a : 0x8cefff, 7);
+    }
+
+    const effects = getBodyIntegrityEffects(enemy.integrity);
     let remainingDamage = Math.max(0, damage);
-    if (enemy.shield > 0) {
+    if (enemy.shield > 0 && effects.shieldActive) {
       remainingDamage = this.drainEnemyShield(enemy, remainingDamage);
     } else if (enemy.kind !== "guardian") {
       const guardian = this.enemies.find((candidate) =>
         candidate !== enemy &&
         candidate.kind === "guardian" &&
         candidate.shield > 0 &&
+        getBodyIntegrityEffects(candidate.integrity).shieldActive &&
         candidate.mesh.position.distanceTo(enemy.mesh.position) < 3.2
       );
       if (guardian) remainingDamage = this.drainEnemyShield(guardian, remainingDamage);
     }
-    enemy.hp -= remainingDamage;
+    enemy.hp -= remainingDamage * effects.coreDamageMultiplier;
     if (enemy.hp <= 0) this.removeEnemy(index, true);
   }
 
-  private drainEnemyShield(enemy: Enemy, damage: number): number {
+    private drainEnemyShield(enemy: Enemy, damage: number): number {
     const result = absorbGuardianShield(enemy.shield, damage);
     enemy.shield = result.remainingShield;
-    const ring = enemy.mesh.getObjectByName("guardRing");
+    const ring = enemy.mesh.getObjectByName("shieldEmitter");
     if (ring && enemy.shield <= 0) ring.visible = false;
     return result.remainingDamage;
   }
@@ -901,6 +1042,8 @@ export class Game {
     const enemy = this.enemies[index];
     if (!enemy) return;
     this.removeSceneObject(enemy.mesh);
+    this.scene.remove(enemy.warning);
+    enemy.warning.visible = false;
     this.enemies.splice(index, 1);
     if (defeated) {
       this.kills += 1;
@@ -1001,20 +1144,37 @@ export class Game {
     const mesh = new THREE.Group();
     const hull = new THREE.Mesh(new THREE.OctahedronGeometry(1.75, 1), this.materials.boss);
     hull.scale.set(1.45, 0.72, 0.65);
+    hull.name = "hull";
     const left = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.55, 0.35), this.materials.enemyFast);
     left.position.set(-2.05, -0.12, 0);
     left.rotation.z = -0.2;
+    left.name = "leftWing";
     const right = left.clone();
     right.position.x = 2.05;
     right.rotation.z = 0.2;
+    right.name = "rightWing";
     const core = new THREE.Mesh(new THREE.SphereGeometry(0.55, 18, 14), this.materials.bossCore);
     core.position.z = 1;
+    core.name = "core";
+    const weapon = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.28, 0.72, 8), this.materials.enemySniper);
+    weapon.position.set(0, -1.1, 0.3);
+    weapon.name = "weapon";
     const ring = new THREE.Mesh(new THREE.TorusGeometry(2.2, 0.055, 8, 52), this.materials.glow);
     ring.rotation.x = Math.PI / 2;
-    mesh.add(hull, left, right, core, ring);
+    ring.name = "shieldEmitter";
+    mesh.add(hull, left, right, core, weapon, ring);
     mesh.position.set(0, WORLD_HEIGHT / 2 + 3, 0.3);
     this.scene.add(mesh);
-    this.boss = { mesh, hp: 180 + this.elapsed * 0.35, maxHp: 180 + this.elapsed * 0.35, fireTimer: 2.5, age: 0, entering: true };
+    this.boss = {
+      mesh,
+      hp: 180 + this.elapsed * 0.35,
+      maxHp: 180 + this.elapsed * 0.35,
+      fireTimer: 2.5,
+      age: 0,
+      entering: true,
+      integrity: createBodyIntegrity("boss"),
+      attackForecast: null
+    };
     this.spawnBurst(mesh.position, 0xff92de, 34);
   }
 
@@ -1031,33 +1191,80 @@ export class Game {
     }
     boss.mesh.rotation.z = Math.sin(boss.age * 0.65) * 0.08;
     boss.fireTimer -= dt;
+
     const phaseTwo = boss.hp <= boss.maxHp * 0.5;
-    this.bossTelegraph.visible = !boss.entering && boss.fireTimer < 0.33;
-    if (this.bossTelegraph.visible) {
-      this.bossTelegraph.position.set(boss.mesh.position.x, boss.mesh.position.y - 4.1, 0.2);
-      this.bossTelegraph.rotation.z = Math.atan2(this.player.position.x - boss.mesh.position.x, boss.mesh.position.y - this.player.position.y);
+    const effects = getBodyIntegrityEffects(boss.integrity);
+    if (!boss.entering && effects.canAttack && boss.fireTimer <= 0.55 && !boss.attackForecast) {
+      boss.attackForecast = createAttackForecast({
+        origin: { x: boss.mesh.position.x, y: boss.mesh.position.y - 1 },
+        target: { x: this.player.position.x, y: this.player.position.y },
+        pattern: "spread",
+        projectileSpeed: phaseTwo ? 6.8 : 5.9,
+        projectileCount: phaseTwo ? 7 : 3,
+        spreadRadians: phaseTwo ? 0.22 : 0.3,
+        projectileRadius: 0.19
+      });
     }
+
+    this.bossTelegraph.visible = !boss.entering && Boolean(boss.attackForecast);
+    if (boss.attackForecast) {
+      const direction = boss.attackForecast.direction;
+      this.bossTelegraph.position.set(
+        boss.mesh.position.x + direction.x * 3.8,
+        boss.mesh.position.y - 1 + direction.y * 3.8,
+        0.2
+      );
+      this.bossTelegraph.rotation.z = -Math.atan2(direction.x, direction.y);
+    }
+
     if (boss.fireTimer <= 0 && !boss.entering) {
-      const shots = phaseTwo ? 7 : 3;
-      for (let index = 0; index < shots; index += 1) {
-        const angle = (index - (shots - 1) / 2) * (phaseTwo ? 0.22 : 0.3);
-        const direction = new THREE.Vector2(this.player.position.x - boss.mesh.position.x, this.player.position.y - boss.mesh.position.y)
-          .normalize()
-          .rotateAround(new THREE.Vector2(), angle);
-        this.addProjectile(boss.mesh.position.x, boss.mesh.position.y - 1, direction.multiplyScalar(phaseTwo ? 6.8 : 5.9), "enemy", 1);
+      if (effects.canAttack) {
+        const forecast = boss.attackForecast ?? createAttackForecast({
+          origin: { x: boss.mesh.position.x, y: boss.mesh.position.y - 1 },
+          target: { x: this.player.position.x, y: this.player.position.y },
+          pattern: "spread",
+          projectileSpeed: phaseTwo ? 6.8 : 5.9,
+          projectileCount: phaseTwo ? 7 : 3,
+          spreadRadians: phaseTwo ? 0.22 : 0.3,
+          projectileRadius: 0.19
+        });
+        const releaseY = boss.mesh.position.y - 1;
+        for (const path of forecastPaths(forecast)) {
+          if (path.velocity.x < -0.05 && !effects.leftVolleyEnabled) continue;
+          if (path.velocity.x > 0.05 && !effects.rightVolleyEnabled) continue;
+          this.addProjectile(
+            boss.mesh.position.x,
+            releaseY,
+            new THREE.Vector2(path.velocity.x, path.velocity.y),
+            "enemy",
+            1
+          );
+        }
       }
       boss.fireTimer = phaseTwo ? 0.95 : 1.5;
+      boss.attackForecast = null;
       this.bossTelegraph.visible = false;
     }
   }
 
-  private damageBoss(damage: number): void {
+    private damageBoss(damage: number, hitX = 0, hitY = 0): void {
     if (!this.boss) return;
-    this.boss.hp -= Math.max(0, damage);
-    this.spawnBurst(new THREE.Vector3(this.boss.mesh.position.x, this.boss.mesh.position.y - 0.4, 0.9), 0xff8bd4, 3);
-    if (this.boss.hp <= 0) {
-      const position = this.boss.mesh.position.clone();
-      this.removeSceneObject(this.boss.mesh);
+    const boss = this.boss;
+    const partId = selectImpactPart(boss.integrity, hitX, hitY, 2.2);
+    const partDamage = damageBodyPart(boss.integrity, partId, Math.max(0.25, damage * 0.75));
+    boss.integrity = partDamage.integrity;
+    if (partDamage.newlyDestroyed) {
+      const visual = boss.mesh.getObjectByName(partId);
+      if (visual) visual.visible = false;
+      this.spawnBurst(boss.mesh.position, partId === "core" ? 0xffe89a : 0x8cefff, 14);
+    }
+
+    const effects = getBodyIntegrityEffects(boss.integrity);
+    boss.hp -= Math.max(0, damage) * effects.coreDamageMultiplier;
+    this.spawnBurst(new THREE.Vector3(boss.mesh.position.x, boss.mesh.position.y - 0.4, 0.9), 0xff8bd4, 3);
+    if (boss.hp <= 0) {
+      const position = boss.mesh.position.clone();
+      this.removeSceneObject(boss.mesh);
       this.boss = null;
       this.bossTelegraph.visible = false;
       this.score += 2500;
@@ -1072,7 +1279,7 @@ export class Game {
     }
   }
 
-  private damagePlayer(damage: number): void {
+    private damagePlayer(damage: number): void {
     if (this.damageCooldown > 0) return;
     this.damageCooldown = 0.72;
     if (this.shieldTimer > 0) {
@@ -1134,6 +1341,39 @@ export class Game {
     this.projectiles.splice(index, 1);
   }
 
+  private getEvasionAssessment(): EvasionAssessment {
+    const threats: ThreatPath[] = this.projectiles
+      .filter((projectile) => projectile.owner === "enemy")
+      .map((projectile) => ({
+        position: { x: projectile.mesh.position.x, y: projectile.mesh.position.y },
+        velocity: { x: projectile.velocity.x, y: projectile.velocity.y },
+        radius: projectile.radius,
+        source: "projectile" as const
+      }));
+
+    for (const enemy of this.enemies) {
+      if (enemy.attackForecast) threats.push(...forecastPaths(enemy.attackForecast));
+    }
+    if (this.boss?.attackForecast) threats.push(...forecastPaths(this.boss.attackForecast));
+
+    return assessEvasion(
+      { x: this.player.position.x, y: this.player.position.y },
+      { x: 0, y: 0 },
+      threats,
+      {
+        minX: -this.world.width / 2 + 0.55,
+        maxX: this.world.width / 2 - 0.55,
+        minY: -WORLD_HEIGHT / 2 + 0.55,
+        maxY: WORLD_HEIGHT / 2 - 0.55
+      },
+      {
+        candidateSpeed: 4.6 * this.shipProfile.movementMultiplier * this.pilotProfile.movementMultiplier,
+        horizonSeconds: 1.35,
+        playerRadius: 0.52
+      }
+    );
+  }
+
   private getHudState(): HudState {
     return {
       hp: this.hp,
@@ -1148,7 +1388,8 @@ export class Game {
       bossMaxHp: this.boss?.maxHp ?? 0,
       bossName: this.boss ? "NEBULA EMPRESS" : "",
       mode: this.mode,
-      combo: this.combo
+      combo: this.combo,
+      evasion: this.getEvasionAssessment()
     };
   }
 
@@ -1167,7 +1408,11 @@ export class Game {
   }
 
   private clearRunObjects(): void {
-    for (const enemy of this.enemies) this.removeSceneObject(enemy.mesh);
+    for (const enemy of this.enemies) {
+      this.removeSceneObject(enemy.mesh);
+      this.scene.remove(enemy.warning);
+      enemy.warning.visible = false;
+    }
     this.enemies.length = 0;
     for (const projectile of this.projectiles) this.scene.remove(projectile.mesh);
     this.projectiles.length = 0;
