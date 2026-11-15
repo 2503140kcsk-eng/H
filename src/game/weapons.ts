@@ -1,4 +1,4 @@
-export type WeaponId = "photon-pulse" | "prism-laser" | "comet-homing" | "nova-piercer";
+export type WeaponId = "photon-pulse" | "prism-laser" | "comet-homing" | "nova-piercer" | "eclipse-lance";
 
 export interface WeaponProfile {
   id: WeaponId;
@@ -39,6 +39,12 @@ export const WEAPON_PROFILES: Readonly<Record<WeaponId, WeaponProfile>> = {
     description: "敵編隊を抜ける重貫通弾。大型目標にも有効。", unlockCost: 420,
     damageMultiplier: 1.55, fireIntervalMultiplier: 1.72, projectileSpeed: 13.5,
     radius: 0.23, homing: false, pierce: 2, color: 0x9b9dff
+  },
+  "eclipse-lance": {
+    id: "eclipse-lance", name: "エクリプスランス", shortName: "ECLIPSE",
+    description: "軌道補正しながら一体を貫く高出力弾。発射間隔は長い。", unlockCost: 680,
+    damageMultiplier: 1.72, fireIntervalMultiplier: 1.92, projectileSpeed: 12.2,
+    radius: 0.24, homing: true, pierce: 1, color: 0xd5a5ff
   }
 };
 
