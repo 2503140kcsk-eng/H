@@ -326,7 +326,7 @@ function createLegacyCampaign(
   storyFlags: string[]
 ): CampaignSave {
   const completed = new Set(completedPlanets);
-  const chapterProgress = PLANET_ORDER.map((chapterId) => {
+  const chapterProgress: ChapterProgressSave[] = PLANET_ORDER.map((chapterId): ChapterProgressSave => {
     const cleared = completed.has(chapterId);
     return {
       chapterId,
