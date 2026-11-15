@@ -81,6 +81,8 @@ describe("save format v2", () => {
       selectedAt: 0
     });
     expect(migrated?.campaign.lastReplay).toBeNull();
+    // V1 stores choices but not run history; don't invent route-specific clears.
+    expect(migrated?.campaign.routeProgress).toEqual([]);
     expect(migrated?.campaign.chapterProgress.find((item) => item.chapterId === "aurora-prime"))
       .toMatchObject({ attempts: 1, clears: 1, bestScore: 0, lastPlayedAt: 0 });
   });

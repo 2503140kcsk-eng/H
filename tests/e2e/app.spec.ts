@@ -167,6 +167,7 @@ test("exports a backup and restores it in a fresh browser context for device mig
     const downloadPromise = sourcePage.waitForEvent("download");
     await sourcePage.locator("#export-save").click();
     const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe("starlight-wing-save-v2.json");
     const stream = await download.createReadStream();
     if (!stream) throw new Error("The exported save did not produce a readable download stream.");
     const chunks: Buffer[] = [];
@@ -236,4 +237,146 @@ test("shows pilot radio dialogue and completes the selected planet event", async
   await page.clock.runFor(7_000);
   await expect(page.locator("#comms-message")).toContainText("第二段階達成！ +900 SCORE / +18 ✦");
   expect(errors).toEqual([]);
+});
+
+
+test("upgrades both v1 IndexedDB save stores to v2 without losing progression", async ({ page }) => {
+  // Hold the application module so the test can create the exact legacy v1
+  // database before Dexie opens it during boot.
+  await page.route("**/src/main.ts", (route) =>
+    route.fulfill({ status: 200, contentType: "text/javascript", body: "export {};" })
+  );
+  await page.goto("/");
+  await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("starlight-wing", 1);
+      request.onupgradeneeded = () => {
+        const saves = request.result.createObjectStore("saves", { keyPath: "id" });
+        saves.createIndex("updatedAt", "updatedAt");
+        const recovery = request.result.createObjectStore("recovery", { keyPath: "id" });
+        recovery.createIndex("createdAt", "createdAt");
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const oldSave = {
+      version: 1,
+      shards: 1450,
+      upgrades: { attack: 2, hull: 1 },
+      bestScores: { story: 700 },
+      settings: { sensitivity: 1.1, volume: 0.6 },
+      totalRuns: 2,
+      unlockedShips: ["Lumen-01", "Aqua-Comet"],
+      selectedShip: "Aqua-Comet",
+      completedPlanets: ["aurora-prime"],
+      storyChoices: { "lumi-asteria:aurora-prime": "follow-signal" },
+      storyFlags: ["celestial-echo"]
+    };
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(["saves", "recovery"], "readwrite");
+      transaction.objectStore("saves").put({
+        id: "pilot", data: oldSave, updatedAt: 10
+      });
+      transaction.objectStore("recovery").put({
+        id: "latest", data: { ...oldSave, shards: 900 }, createdAt: 9
+      });
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error ?? new Error("Seed transaction aborted"));
+    });
+    db.close();
+  });
+
+  await page.unroute("**/src/main.ts");
+  await page.reload();
+  await expect(page.locator("#save-status")).toContainText("端末内保存");
+
+  const migrated = await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("starlight-wing");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const result = await new Promise<{
+      version: number;
+      active: { data: { version: number; shards: number; selectedShip: string; campaign?: unknown } } | undefined;
+      recovery: { data: { version: number; shards: number; campaign?: unknown } } | undefined;
+    }>((resolve, reject) => {
+      const transaction = db.transaction(["saves", "recovery"], "readonly");
+      const activeRequest = transaction.objectStore("saves").get("pilot");
+      const recoveryRequest = transaction.objectStore("recovery").get("latest");
+      transaction.oncomplete = () => resolve({
+        version: db.version,
+        active: activeRequest.result,
+        recovery: recoveryRequest.result
+      });
+      transaction.onerror = () => reject(transaction.error);
+    });
+    db.close();
+    return result;
+  });
+
+  expect(migrated.version).toBe(2);
+  expect(migrated.active?.data).toMatchObject({
+    version: 2, shards: 1450, selectedShip: "Aqua-Comet"
+  });
+  expect(migrated.active?.data.campaign).toBeTruthy();
+  expect(migrated.recovery?.data).toMatchObject({ version: 2, shards: 900 });
+  expect(migrated.recovery?.data.campaign).toBeTruthy();
+});
+
+test("a failed valid-backup restore leaves the active save and recovery store unchanged", async ({ page }) => {
+  const { createBackup, createDefaultSave } = await import("../../src/game/core");
+  const incoming = createDefaultSave();
+  incoming.unlockedShips.push("Aqua-Comet");
+  incoming.selectedShip = "Aqua-Comet";
+
+  await page.addInitScript(() => {
+    const runtime = window as Window & { __failSaveWrites?: boolean };
+    runtime.__failSaveWrites = false;
+    const originalPut = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function (value: unknown, key?: IDBValidKey) {
+      if (runtime.__failSaveWrites && this.name === "saves") {
+        throw new DOMException("Forced write failure", "QuotaExceededError");
+      }
+      return originalPut.call(this, value, key);
+    };
+  });
+  await page.goto("/");
+  await page.locator('#pilot-story-choices [data-story-choice="follow-signal"]').click();
+  await expect(page.locator('#pilot-story-choices [data-story-choice="follow-signal"]')).toHaveClass(/selected/);
+  await page.evaluate(() => {
+    (window as Window & { __failSaveWrites?: boolean }).__failSaveWrites = true;
+  });
+
+  page.on("dialog", (dialog) => dialog.accept());
+  await page.locator("#save-file").setInputFiles({
+    name: "incoming-v2.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(createBackup(incoming))
+  });
+  await expect(page.locator("#toast")).toContainText("復元を保存できませんでした");
+  await expect(page.locator('#pilot-story-choices [data-story-choice="follow-signal"]')).toHaveClass(/selected/);
+
+  await page.evaluate(() => {
+    (window as Window & { __failSaveWrites?: boolean }).__failSaveWrites = false;
+  });
+  await page.reload();
+  await expect(page.locator('#pilot-story-choices [data-story-choice="follow-signal"]')).toHaveClass(/selected/);
+  await expect(page.locator('[data-ship-id="Lumen-01"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-ship-id="Aqua-Comet"]')).toBeDisabled();
+
+  const recoveryExists = await page.evaluate(async () => new Promise<boolean>((resolve, reject) => {
+    const request = indexedDB.open("starlight-wing");
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction("recovery", "readonly");
+      const get = transaction.objectStore("recovery").get("latest");
+      get.onsuccess = () => resolve(Boolean(get.result));
+      get.onerror = () => reject(get.error);
+      transaction.oncomplete = () => db.close();
+    };
+    request.onerror = () => reject(request.error);
+  }));
+  expect(recoveryExists).toBe(false);
 });
