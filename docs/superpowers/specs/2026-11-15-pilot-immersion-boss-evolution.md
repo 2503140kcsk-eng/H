@@ -48,6 +48,21 @@ The effects are multiplied with existing ship and pilot coefficients; they are n
 - Following the signal at all three planets with the same pilot unlocks the one-time Celestial Echo route reward (+75 shards).
 - Choice selection is permanent for the current save. A future chapter system may add explicit replay/route reset mechanics; this implementation does not silently overwrite past decisions.
 
+## Multi-stage planetary events
+
+Each planet now has two timed event stages during a sortie. Stage II is selected from the pilot's saved first-act story decision:
+
+| First-act choice | Follow-up event | Gameplay effect | Reward |
+|---|---|---|---|
+| Follow the signal | Planet-specific targeting / anomaly-analysis event | 1.42× player event damage during the window | 900 score + 18 shards |
+| Protect the crew | Planet-specific escort / sanctuary event | Restore shield, grant shield protection, clear hostile projectiles and slow remaining enemy shots | 900 score + 18 shards |
+
+- Stage I remains the original planet event and retains its 650 score + 12 shard reward.
+- Stage II occurs after Stage I has had time to finish; timings are planet-specific.
+- Each branch has a unique name and dialogue lines for all three pilots.
+- The choice and branch are deterministic from the saved pilot × planet story choice. If no first-act choice exists, the safe defensive route is used.
+- Stage II is intentionally a timed combat event, not an additional save mutation. The saved branch determines the variant on every sortie.
+
 ## Boss phase and part mechanics
 
 - Phase I starts above 50% boss HP; Phase II starts at 50%; Phase III starts at 25%.
