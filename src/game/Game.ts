@@ -744,21 +744,23 @@ export class Game {
       const profile = ENEMY_PROFILES[enemy.kind];
       const effects = getBodyIntegrityEffects(enemy.integrity);
       enemy.age += dt;
-      const sway = (profile.movement === "zigzag" ? 1.1
-        : profile.movement === "strafe" ? 0.9
-          : profile.movement === "steady" ? 0.2 : 0.42) * effects.lateralMovementMultiplier;
-      const frequency = profile.movement === "zigzag" ? 4.5
-        : profile.movement === "sniper" ? 1.3
-          : profile.movement === "strafe" ? 3.2 : 2.2;
-      enemy.mesh.position.x += Math.sin(enemy.age * frequency) * sway * dt;
-      if (profile.movement === "sniper") {
-        if (enemy.age > 9 || enemy.mesh.position.y > 5.6) {
-          enemy.mesh.position.y -= enemy.speed * dt;
+      if (!enemy.attackForecast) {
+        const sway = (profile.movement === "zigzag" ? 1.1
+          : profile.movement === "strafe" ? 0.9
+            : profile.movement === "steady" ? 0.2 : 0.42) * effects.lateralMovementMultiplier;
+        const frequency = profile.movement === "zigzag" ? 4.5
+          : profile.movement === "sniper" ? 1.3
+            : profile.movement === "strafe" ? 3.2 : 2.2;
+        enemy.mesh.position.x += Math.sin(enemy.age * frequency) * sway * dt;
+        if (profile.movement === "sniper") {
+          if (enemy.age > 9 || enemy.mesh.position.y > 5.6) {
+            enemy.mesh.position.y -= enemy.speed * dt;
+          }
+        } else {
+          enemy.mesh.position.y -= enemy.speed * (1 + this.elapsed / 220) * dt;
         }
-      } else {
-        enemy.mesh.position.y -= enemy.speed * (1 + this.elapsed / 220) * dt;
+        enemy.mesh.rotation.z = Math.PI + Math.sin(enemy.age * 3) * (profile.movement === "strafe" ? 0.24 : 0.14);
       }
-      enemy.mesh.rotation.z = Math.PI + Math.sin(enemy.age * 3) * (profile.movement === "strafe" ? 0.24 : 0.14);
 
       const emitter = enemy.mesh.getObjectByName("shieldEmitter");
       if (emitter) {
@@ -1270,14 +1272,16 @@ export class Game {
     if (!this.boss) return;
     const boss = this.boss;
     boss.age += dt;
-    boss.mesh.position.x = Math.sin(boss.age * 0.48) * Math.min(4.2, this.world.width * 0.22);
-    if (boss.entering) {
-      boss.mesh.position.y = Math.max(5.0, boss.mesh.position.y - dt * 2.6);
-      if (boss.mesh.position.y <= 5.01) boss.entering = false;
-    } else {
-      boss.mesh.position.y = 5 + Math.sin(boss.age * 0.8) * 0.22;
+    if (!boss.attackForecast) {
+      boss.mesh.position.x = Math.sin(boss.age * 0.48) * Math.min(4.2, this.world.width * 0.22);
+      if (boss.entering) {
+        boss.mesh.position.y = Math.max(5.0, boss.mesh.position.y - dt * 2.6);
+        if (boss.mesh.position.y <= 5.01) boss.entering = false;
+      } else {
+        boss.mesh.position.y = 5 + Math.sin(boss.age * 0.8) * 0.22;
+      }
+      boss.mesh.rotation.z = Math.sin(boss.age * 0.65) * 0.08;
     }
-    boss.mesh.rotation.z = Math.sin(boss.age * 0.65) * 0.08;
     boss.fireTimer -= dt;
 
     const phaseTwo = boss.hp <= boss.maxHp * 0.5;
