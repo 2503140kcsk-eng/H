@@ -289,11 +289,11 @@ export class Game {
         maxViewportWidth: Number(viewport[0]),
         maxViewportHeight: Number(viewport[1]),
         contextAttributes: attributes ? {
-          alpha: attributes.alpha,
-          antialias: attributes.antialias,
-          depth: attributes.depth,
-          stencil: attributes.stencil,
-          preserveDrawingBuffer: attributes.preserveDrawingBuffer
+          alpha: attributes.alpha ?? false,
+          antialias: attributes.antialias ?? false,
+          depth: attributes.depth ?? false,
+          stencil: attributes.stencil ?? false,
+          preserveDrawingBuffer: attributes.preserveDrawingBuffer ?? false
         } : null
       };
     } catch {
