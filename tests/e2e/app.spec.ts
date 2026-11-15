@@ -16,6 +16,8 @@ test("shows the 3D pilot preview and persists a meaningful narrative branch", as
   await page.goto("/");
   await expect(page.locator("#pilot-preview-canvas")).toBeVisible();
   await expect(page.locator("#pilot-skill-list [data-skill-id]")).toHaveCount(3);
+  await expect(page.locator("#pilot-skin-list [data-pilot-skin-id]")).toHaveCount(2);
+  await expect(page.locator('[data-pilot-skin-id="nebula-veil"]')).toBeDisabled();
   await expect(page.locator("#pilot-story-choices [data-story-choice]")).toHaveCount(2);
   await page.locator('#pilot-story-choices [data-story-choice="follow-signal"]').click();
   await expect(page.locator("#pilot-story-response")).toContainText("星図の断片");
@@ -97,13 +99,14 @@ test("pauses safely on WebGL context loss and requires explicit resume after res
 });
 
 
-test("hangar shows three distinct ships and locks unaffordable ships", async ({ page }) => {
+test("hangar shows four distinct ships and locks unaffordable ships", async ({ page }) => {
   await page.goto("/");
   const options = page.locator("#ship-list [data-ship-id]");
-  await expect(options).toHaveCount(3);
+  await expect(options).toHaveCount(4);
   await expect(page.locator('[data-ship-id="Lumen-01"]')).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator('[data-ship-id="Aqua-Comet"]')).toBeDisabled();
   await expect(page.locator('[data-ship-id="Rose-Bastion"]')).toBeDisabled();
+  await expect(page.locator('[data-ship-id="Astra-Arc"]')).toBeDisabled();
   await expect(page.locator("#pilot-list [data-pilot-id]")).toHaveCount(3);
   await expect(page.locator('[data-pilot-id="lumi-asteria"]')).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator('[data-pilot-id="noa-celeste"]')).toBeDisabled();
@@ -114,7 +117,8 @@ test("hangar shows three distinct ships and locks unaffordable ships", async ({ 
 
 test("weapon lab and campaign show two slots and sequential planet availability", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator("#weapon-list [data-weapon-id]")).toHaveCount(4);
+  await expect(page.locator("#weapon-list [data-weapon-id]")).toHaveCount(5);
+  await expect(page.locator('[data-weapon-id="eclipse-lance"]')).toBeDisabled();
   await expect(page.locator("#weapon-slot-list [data-weapon-slot]")).toHaveCount(2);
   await expect(page.locator("#planet-list [data-planet-id]")).toHaveCount(3);
   await expect(page.locator('[data-planet-id="aurora-prime"]')).toBeEnabled();
@@ -137,11 +141,13 @@ test("switches the equipped weapon slot during a live sortie", async ({ page }) 
 test("exports a backup and restores it in a fresh browser context for device migration", async ({ browser }) => {
   const { createBackup, createDefaultSave } = await import("../../src/game/core");
   const seed = createDefaultSave();
-  seed.unlockedShips.push("Aqua-Comet");
+  seed.unlockedShips.push("Aqua-Comet", "Astra-Arc");
   seed.selectedShip = "Aqua-Comet";
-  seed.unlockedWeapons.push("prism-laser", "comet-homing");
+  seed.unlockedWeapons.push("prism-laser", "comet-homing", "eclipse-lance");
   seed.equippedWeapons = ["prism-laser", "comet-homing"];
   seed.activeWeaponSlot = 1;
+  seed.unlockedPilotSkins.push("nebula-veil");
+  seed.selectedPilotSkin = "nebula-veil";
   seed.completedPlanets.push("aurora-prime");
   seed.selectedPlanet = "pyra-reach";
 
@@ -179,6 +185,8 @@ test("exports a backup and restores it in a fresh browser context for device mig
       });
       await expect(destinationPage.locator("#toast")).toContainText("バックアップを復元しました");
       await expect(destinationPage.locator('[data-ship-id="Aqua-Comet"]')).toHaveAttribute("aria-pressed", "true");
+      await expect(destinationPage.locator('[data-ship-id="Astra-Arc"]')).toBeVisible();
+      await expect(destinationPage.locator('[data-pilot-skin-id="nebula-veil"]')).toHaveAttribute("aria-pressed", "true");
       await expect(destinationPage.locator('[data-planet-id="pyra-reach"]')).toHaveAttribute("aria-pressed", "true");
       await expect(destinationPage.locator("#weapon-slot-1")).toHaveText("SLOT 2 · HOMING");
       await expect(destinationPage.locator("#weapon-slot-1")).toHaveAttribute("aria-pressed", "true");
