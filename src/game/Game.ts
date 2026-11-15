@@ -10,6 +10,7 @@ import { getActiveFrameIntervalMs, summarizeFrameTimes, type GameDiagnosticsSnap
 import {
   assessEvasion,
   createAttackForecast,
+  forecastHalfAngle,
   forecastPaths,
   type AttackForecast,
   type AttackPattern,
@@ -130,7 +131,15 @@ export class Game {
     shardGeometry: new THREE.OctahedronGeometry(0.24, 0),
     ringGeometry: new THREE.TorusGeometry(0.56, 0.045, 6, 24),
     lanceGeometry: new THREE.CylinderGeometry(0.075, 0.12, 0.72, 6),
-    warningGeometry: new THREE.BoxGeometry(0.11, 7.5, 0.035)
+    warningGeometry: new THREE.BoxGeometry(0.11, 7.5, 0.035),
+    warningFanGeometry: (() => {
+      const shape = new THREE.Shape();
+      shape.moveTo(0, 0);
+      shape.lineTo(-1, 7.5);
+      shape.lineTo(1, 7.5);
+      shape.closePath();
+      return new THREE.ShapeGeometry(shape);
+    })()
   };
   private readonly materials = {
     player: new THREE.MeshStandardMaterial({ color: 0xf7f3ff, metalness: 0.55, roughness: 0.3, emissive: 0x251a53 }),
@@ -771,14 +780,23 @@ export class Game {
 
       if (!effects.canAttack && enemy.attackForecast) enemy.attackForecast = null;
       if (enemy.attackForecast) {
-        const direction = enemy.attackForecast.direction;
+        const forecast = enemy.attackForecast;
+        const direction = forecast.direction;
         enemy.warning.visible = true;
-        enemy.warning.position.set(
-          enemy.attackForecast.origin.x + direction.x * 3.75,
-          enemy.attackForecast.origin.y + direction.y * 3.75,
-          0.18
-        );
         enemy.warning.rotation.z = -Math.atan2(direction.x, direction.y);
+        if (forecast.pattern === "spread") {
+          enemy.warning.geometry = this.shared.warningFanGeometry;
+          enemy.warning.position.set(forecast.origin.x, forecast.origin.y, 0.18);
+          enemy.warning.scale.set(Math.tan(forecastHalfAngle(forecast)), 1, 1);
+        } else {
+          enemy.warning.geometry = this.shared.warningGeometry;
+          enemy.warning.position.set(
+            forecast.origin.x + direction.x * 3.75,
+            forecast.origin.y + direction.y * 3.75,
+            0.18
+          );
+          enemy.warning.scale.set(1, 1, 1);
+        }
       } else {
         enemy.warning.visible = false;
       }
@@ -1279,13 +1297,22 @@ export class Game {
 
     this.bossTelegraph.visible = !boss.entering && Boolean(boss.attackForecast);
     if (boss.attackForecast) {
-      const direction = boss.attackForecast.direction;
-      this.bossTelegraph.position.set(
-        boss.attackForecast.origin.x + direction.x * 3.8,
-        boss.attackForecast.origin.y + direction.y * 3.8,
-        0.2
-      );
+      const forecast = boss.attackForecast;
+      const direction = forecast.direction;
       this.bossTelegraph.rotation.z = -Math.atan2(direction.x, direction.y);
+      if (forecast.pattern === "spread") {
+        this.bossTelegraph.geometry = this.shared.warningFanGeometry;
+        this.bossTelegraph.position.set(forecast.origin.x, forecast.origin.y, 0.2);
+        this.bossTelegraph.scale.set(Math.tan(forecastHalfAngle(forecast)), 1, 1);
+      } else {
+        this.bossTelegraph.geometry = this.shared.warningGeometry;
+        this.bossTelegraph.position.set(
+          forecast.origin.x + direction.x * 3.8,
+          forecast.origin.y + direction.y * 3.8,
+          0.2
+        );
+        this.bossTelegraph.scale.set(1, 1, 1);
+      }
     }
 
     if (boss.fireTimer <= 0 && !boss.entering) {
@@ -1533,7 +1560,8 @@ export class Game {
             object.geometry !== this.shared.shardGeometry &&
             object.geometry !== this.shared.ringGeometry &&
             object.geometry !== this.shared.lanceGeometry &&
-            object.geometry !== this.shared.warningGeometry) object.geometry.dispose();
+            object.geometry !== this.shared.warningGeometry &&
+            object.geometry !== this.shared.warningFanGeometry) object.geometry.dispose();
       }
     });
     for (const layer of this.stars) {
