@@ -34,10 +34,17 @@ h1 span { color: var(--pink); }
 .subtitle { margin: 8px 0 17px; color: #c4c8e9; font-size: clamp(11px, 1.8vw, 13px); }
 .pilot-card { width: min(390px, 100%); display: flex; align-items: center; gap: 12px; margin: 0 auto 18px; padding: 9px 13px; border: 1px solid var(--line); border-radius: 14px; background: rgba(91, 103, 168, .13); text-align: left; }
 .pilot-avatar { width: 40px; height: 40px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 13px; background: linear-gradient(145deg, #82eaff, #b89cff 54%, #ff9bce); color: #fff; font-size: 23px; box-shadow: 0 0 18px rgba(127,216,255,.27); }
+.pilot-preview-frame { position: relative; flex: 0 0 78px; width: 78px; height: 105px; overflow: hidden; border: 1px solid rgba(171,220,255,.28); border-radius: 12px; background: radial-gradient(circle at 50% 30%, rgba(105,183,232,.22), rgba(16,23,58,.3)); }
+.pilot-preview-canvas { display: block; width: 100%; height: 100%; }
+.pilot-preview-frame .pilot-avatar { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 0; font-size: 30px; }
+.pilot-card-copy { min-width: 0; flex: 1; }
 .pilot-card strong, .pilot-card small { display: block; }
 .pilot-card strong { font-size: 13px; }
 .pilot-card small { margin-top: 2px; color: #a7b0d4; font-size: 10px; }
 .pilot-status { margin-left: auto; color: #83f4d8; font-size: 9px; letter-spacing: .16em; font-weight: 900; }
+.pilot-tools { width: min(390px, 100%); display: flex; flex-wrap: wrap; gap: 6px; margin: -10px auto 12px; }
+.pilot-tool-button { min-height: 28px; padding: 5px 9px; border: 1px solid rgba(157,207,255,.25); border-radius: 9px; color: #e6edff; background: rgba(80,95,160,.2); font-size: 9px; cursor: pointer; }
+.pilot-caption { flex-basis: 100%; min-height: 12px; margin: 0; color: #9eafd9; font-size: 8px; line-height: 1.5; }
 .mode-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
 .mode-button { min-height: 61px; display: grid; place-content: center; gap: 4px; padding: 9px 7px; border: 1px solid rgba(173,188,255,.26); border-radius: 14px; background: rgba(80, 83, 150, .18); color: #f8f5ff; cursor: pointer; transition: transform .15s, background .15s, border-color .15s; }
 .mode-button:active, .large-button:active, .action-button:active { transform: scale(.975); }
@@ -139,7 +146,12 @@ h1 span { color: var(--pink); }
   h1 { font-size: 27px; }
   .subtitle { margin: 4px 0 8px; font-size: 10px; }
   .pilot-card { margin-bottom: 8px; padding: 6px 9px; }
+  .pilot-preview-frame { flex-basis: 58px; width: 58px; height: 72px; }
   .pilot-avatar { width: 30px; height: 30px; }
+  .pilot-tools { margin-bottom: 7px; gap: 4px; }
+  .pilot-tool-button { min-height: 24px; font-size: 8px; }
+  .pilot-progression-grid { grid-template-columns: 1fr; gap: 5px; }
+  .pilot-skill-node { min-height: 63px; }
   .mode-button { min-height: 48px; }
   .hangar { margin-top: 8px; padding: 7px 10px 4px; }
   .upgrade-row { min-height: 35px; }
@@ -199,6 +211,25 @@ h1 span { color: var(--pink); }
 .pilot-option-copy small { overflow: hidden; color: #a8c5e9; font-size: 7px; white-space: nowrap; text-overflow: ellipsis; }
 .pilot-option-action { margin-left: auto; flex: 0 0 auto; color: #ffb4dc; font-size: 7px; }
 .pilot-option.selected .pilot-option-action { color: #8dffdc; }
+.pilot-progression-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 8px; margin-top: 8px; }
+.pilot-skill-panel, .pilot-story-panel { min-width: 0; padding: 7px; border: 1px solid rgba(173,188,255,.16); border-radius: 10px; background: rgba(45,57,112,.12); }
+.pilot-skill-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+.pilot-skill-node { min-width: 0; min-height: 78px; display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 6px; border: 1px solid rgba(173,188,255,.18); border-radius: 8px; color: #e8edff; background: rgba(75,85,145,.15); text-align: left; }
+.pilot-skill-node.available { border-color: rgba(121,233,255,.65); background: rgba(39,128,160,.2); cursor: pointer; }
+.pilot-skill-node.acquired { border-color: rgba(139,255,214,.45); background: rgba(46,137,121,.18); }
+.pilot-skill-node:disabled { opacity: .72; }
+.skill-node-tier { color: #90a4d7; font-size: 6px; letter-spacing: .12em; }
+.pilot-skill-node b { font-size: 8px; line-height: 1.3; }
+.pilot-skill-node small { color: #aebcdf; font-size: 7px; line-height: 1.35; }
+.pilot-skill-node em { margin-top: auto; color: #a2f4e1; font-size: 6px; font-style: normal; }
+.pilot-story-title { display: block; color: #f3e6ff; font-size: 9px; line-height: 1.4; }
+.pilot-story-prompt, .pilot-story-response { margin: 5px 0; color: #b7c4e6; font-size: 8px; line-height: 1.55; }
+.pilot-story-choices { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 5px; }
+.pilot-story-choice { min-height: 30px; padding: 5px; border: 1px solid rgba(180,197,255,.22); border-radius: 7px; color: #e9eaff; background: rgba(83,82,154,.22); font-size: 7px; cursor: pointer; }
+.pilot-story-choice.selected { border-color: rgba(142,255,220,.7); color: #9dffe2; }
+.pilot-story-choice:disabled { opacity: .76; cursor: default; }
+.pilot-story-response { color: #ffdcac; }
+.pilot-story-secret { display: block; margin-top: 4px; color: #c1aaff; font-size: 7px; line-height: 1.45; }
 @media (max-height: 500px) {
   .pilot-dock { margin-top: 5px; padding-top: 4px; }
   .pilot-options { gap: 5px; }
@@ -239,6 +270,8 @@ h1 span { color: var(--pink); }
 .local-ranking { display: grid; gap: 3px; margin: 8px 0 0; padding-left: 20px; color: #d8e2ff; font-size: 8px; }
 .local-ranking li { padding: 3px 0; }
 .local-ranking li small { margin-left: 5px; color: #8296c5; font-size: 7px; }
+.boss-parts { display: block; margin-top: 3px; color: #a9c5ff; font-size: 7px; letter-spacing: .1em; }
+.boss-parts b { color: #fff; font-variant-numeric: tabular-nums; }
 .boss-weakpoint { display: block; margin-top: 4px; color: #fff0a9; font-size: 8px; font-weight: 900; letter-spacing: .1em; text-shadow: 0 0 10px rgba(255,220,120,.75); animation: weakpoint-pulse .55s ease-in-out infinite alternate; }
 .weapon-action { border-color: rgba(255,224,146,.7); background: radial-gradient(circle at 35% 20%,rgba(255,220,133,.4),rgba(104,68,147,.7)); }
 .result-unlocks { min-height: 16px; margin: 8px 0; color: #9dffe8; font-size: 9px; line-height: 1.45; }
