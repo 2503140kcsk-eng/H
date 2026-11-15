@@ -337,7 +337,6 @@ function createLegacyCampaign(
     };
   });
   const decisions: CampaignDecisionSave[] = [];
-  const routeProgress: CampaignRouteProgressSave[] = [];
   for (const [key, choiceId] of Object.entries(storyChoices)) {
     const separator = key.indexOf(":");
     if (separator <= 0) continue;
@@ -347,18 +346,13 @@ function createLegacyCampaign(
     decisions.push({
       pilotId, chapterId, decisionId: STORY_DECISION_ID, choiceId, selectedAt: 0
     });
-    if (completed.has(chapterId)) {
-      routeProgress.push({
-        pilotId, chapterId, routeId: choiceId as StoryChoiceId,
-        attempts: 1, clears: 1, bestScore: 0, lastPlayedAt: 0
-      });
-    }
   }
 
   return {
     chapterProgress,
     decisions,
-    routeProgress,
+    // V1 has no route-run history. A saved choice is not proof that this route was cleared.
+    routeProgress: [],
     unlockedSecretRouteIds: storyFlags.includes("celestial-echo") ? ["celestial-echo"] : [],
     unlockedEndingIds: [],
     viewedEndingIds: [],

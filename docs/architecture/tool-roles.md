@@ -69,6 +69,15 @@ Canonical implementation: this GitHub repository. All usage is limited to curren
 | [georgealways/lil-gui](https://github.com/georgealways/lil-gui) | Development-only tuning controls for difficulty, damage and encounter pacing | Not exposed to players; defer until balancing parameters expand. |
 | [codecruzer/webgl-starfield](https://github.com/codecruzer/webgl-starfield) | Starfield rendering reference and alternative benchmark | Reference only; current star layers are kept bounded and original. |
 
+## Save v2 ownership and guarantees
+
+- **Save schema:** `src/game/core.ts` owns the v1 parser, explicit `migrateV1ToV2`, v2 campaign registries, deterministic sanitization and replay-stat reducer. All writes and new exports are v2.
+- **Local database:** Dexie v2 upgrades both `saves` and `recovery` rows in one schema-upgrade transaction. Restore snapshots the active in-memory save and writes recovery + imported data in one read/write transaction; the in-memory active save changes only after commit.
+- **Portable backups:** v1 checksums are verified against the original unmodified payload before migration. New backups use the v2 envelope and `starlight-wing-save-v2.json`. FNV-1a is corruption detection, not cryptographic authentication.
+- **Semantic IDs:** current chapter, pilot, decision, route and secret-route allowlists are owned by game code. No ending IDs are registered until corresponding ending content exists.
+- **Replay accounting:** story-mode clears/gameovers update chapter and selected-route counters independently. Replaying a different route does not overwrite prior route history or the canonical story decision. Legacy v1 is not assigned fabricated route history.
+- **Verification:** Vitest covers migration/preservation and route counter logic; Playwright covers IndexedDB upgrade, failed transaction rollback and cross-context backup transfer. Actual Safari/Brave on-device restore remains a manual checklist item.
+
 ## Current architecture and boundaries
 
 - **Pilot rendering:** a self-authored low-poly full-body procedural model is the offline fallback. The optional VRM loader operates on a user-selected file locally. No external character model, voice recording or face likeness is included.

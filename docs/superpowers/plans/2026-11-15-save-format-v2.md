@@ -1,6 +1,6 @@
 # Save Format v2 — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Upgrade Starlight Wing persistence to v2 while retaining v1 local-save and backup compatibility and guaranteeing that failed imports do not mutate active progress.
 
@@ -39,8 +39,8 @@
 - `SaveData.version: 2`
 - `SaveData.campaign` contains `chapterProgress`, `decisions`, `routeProgress`, `unlockedSecretRouteIds`, `unlockedEndingIds`, `viewedEndingIds`, and `lastReplay`.
 
-- [ ] Write tests for v1→v2 preservation, legacy secret-route mapping, null legacy replay metadata, v2 backup round-trip, ID rejection and per-route replay counters.
-- [ ] Commit the tests before production implementation; inspect the GitHub Actions failure to confirm the tests fail for missing v2 behavior, not malformed test code.
+- [x] Write tests for v1→v2 preservation, legacy secret-route mapping, null legacy replay metadata, v2 backup round-trip, ID rejection and per-route replay counters.
+- [x] Commit the tests before production implementation; inspect the GitHub Actions failure to confirm the tests fail for missing v2 behavior, not malformed test code.
 
 ### Task 2: Implement v2 types, schemas and deterministic migration
 
@@ -54,11 +54,11 @@
 - `recordCampaignRunResult(value, event): SaveData` updates chapter, route and last-replay metadata without erasing choices or other routes.
 - `isStoryChoiceId(value: string): value is StoryChoiceId` centralizes current choice validation.
 
-- [ ] Add tests first for deterministic migration and semantic ID filtering.
-- [ ] Add bounded Zod campaign schemas and registries for current chapters, decisions, routes, secret routes and endings.
-- [ ] Normalize legacy `storyChoices` into the v2 `planet-opening` decision records.
-- [ ] Implement the pure `recordCampaignRunResult` update API and verify the test cases.
-- [ ] Preserve the previous sanitizer's behavior for all existing v1 fields.
+- [x] Add tests first for deterministic migration and semantic ID filtering.
+- [x] Add bounded Zod campaign schemas and registries for current chapters, decisions, routes, secret routes and endings.
+- [x] Normalize legacy `storyChoices` into the v2 `planet-opening` decision records.
+- [x] Implement the pure `recordCampaignRunResult` update API and verify the test cases.
+- [x] Preserve the previous sanitizer's behavior for all existing v1 fields.
 
 ### Task 3: Version the portable backup format and guard imports
 
@@ -72,10 +72,10 @@
 - `verifyBackup(serialized)` returns normalized v2 for valid v1/v2 envelopes and null otherwise.
 - `importBackup(file)` verifies size, checksum and schema before invoking `restoreSave`.
 
-- [ ] Verify the legacy v1 checksum fixture remains accepted.
-- [ ] Verify tampered, oversized, malformed and unsupported-version files are rejected.
-- [ ] Verify invalid imports do not call `restoreSave`.
-- [ ] Change the exported filename to `starlight-wing-save-v2.json`.
+- [x] Verify the legacy v1 checksum fixture remains accepted.
+- [x] Verify tampered, oversized, malformed and unsupported-version files are rejected.
+- [x] Verify invalid imports do not call `restoreSave`.
+- [x] Change the exported filename to `starlight-wing-save-v2.json`.
 
 ### Task 4: Upgrade Dexie and make restore atomic
 
@@ -87,10 +87,10 @@
 - Database schema v2 upgrades both `saves` and `recovery` rows using `sanitizeSaveData`.
 - `restoreSave(value)` writes the previous snapshot and imported save in one read-write transaction; `memorySave` is assigned only after transaction commit.
 
-- [ ] Confirm Dexie upgrade API against current docs.
-- [ ] Implement v1→v2 data migration for both stores.
-- [ ] Move previous-save read into the restore transaction.
-- [ ] Run tests and inspect failure paths; no cloud storage is introduced.
+- [x] Confirm Dexie upgrade API against current docs.
+- [x] Implement v1→v2 data migration for both stores.
+- [x] Move previous-save read into the restore transaction.
+- [x] Run tests and inspect failure paths; no cloud storage is introduced.
 
 ### Task 5: End-to-end and documentation gate
 
@@ -99,7 +99,15 @@
 - Modify: `docs/architecture/tool-roles.md`
 - Modify: `docs/qa/iphone-field-test.md`
 
-- [ ] Add a transfer regression that accepts a v1 backup and exports a v2 backup that restores in a fresh browser context.
-- [ ] Record the division of responsibilities and free-tier limits for GitHub, Context7, Superpowers, Dexie, Zod, Vitest and Playwright; retain non-applicable visual/cloud tools as optional and disabled.
-- [ ] Run `npm test`, `npm run build`, and `npm run test:e2e` in GitHub Actions.
+- [x] Add a transfer regression that accepts a v1 backup and exports a v2 backup that restores in a fresh browser context.
+- [x] Record the division of responsibilities and free-tier limits for GitHub, Context7, Superpowers, Dexie, Zod, Vitest and Playwright; retain non-applicable visual/cloud tools as optional and disabled.
+- [x] Run `npm test`, `npm run build`, and `npm run test:e2e` in GitHub Actions.
 - [ ] Review the final diff for data loss, schema looseness, non-atomic writes and incorrect completion claims.
+
+
+## Execution Ledger — 2026-11-15
+
+- RED: CI run #239, Vitest 66/67. The added migration regression failed because v1 choices were incorrectly converted into route-specific clears.
+- Ruling: legacy v1 choices are preserved as decision records, but legacy routeProgress remains empty. A chapter completion plus a currently saved choice does not prove which route produced a clear.
+- Implemented v2 migration for both Dexie object stores, atomic read/write restore semantics, v2 export naming, and story-mode route-run recording.
+- Pending: fresh complete CI verification (unit/build/Playwright), physical iPhone transfer checks, and whole-branch adversarial review.

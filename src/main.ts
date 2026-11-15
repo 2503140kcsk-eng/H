@@ -2,9 +2,9 @@ import { registerSW } from "virtual:pwa-register";
 import { PilotShowcase } from "./game/PilotShowcase";
 import { ALL_PILOT_SKIN_IDS, PILOT_SKINS, isPilotSkinId } from "./game/pilot-skins";
 import { canUnlockPilotSkill, getPilotSkills, getUnspentSkillPoints } from "./game/pilot-skills";
-import { getStoryChoiceKey, getStoryScene, hasSecretStarRoute, type StoryChoiceId } from "./game/narrative";
+import { getStoryChoiceKey, getStoryScene, hasSecretStarRoute, isStoryChoiceId, type StoryChoiceId } from "./game/narrative";
 import { Game, type GameMode, type HudState, type RunResult } from "./game/Game";
-import { createDefaultSave, upgradeCost, type SaveData } from "./game/core";
+import { createDefaultSave, recordCampaignRunResult, upgradeCost, type SaveData } from "./game/core";
 import { exportBackup, importBackup } from "./persistence/backup";
 import { getSavePersistenceStatus, loadSave, saveProgress } from "./persistence/database";
 import { ALL_PILOT_IDS, PILOT_PROFILES, getPilotProfile, isPilotId } from "./game/pilots";
@@ -648,7 +648,8 @@ async function handleRunEnd(result: RunResult): Promise<void> {
   for (const bossId of result.bossesDefeated) {
     if (!next.bossCollection.includes(bossId)) next.bossCollection.push(bossId);
   }
-  next.highScores.push({ score: Math.floor(result.score), mode: result.mode, pilotId: next.selectedPilot, planetId: result.planetId, achievedAt: Date.now() });
+  const recordedAt = Date.now();
+  next.highScores.push({ score: Math.floor(result.score), mode: result.mode, pilotId: next.selectedPilot, planetId: result.planetId, achievedAt: recordedAt });
   next.highScores.sort((left, right) => right.score - left.score || right.achievedAt - left.achievedAt);
   next.highScores = next.highScores.slice(0, 10);
   const activePilotId = next.selectedPilot;
@@ -667,7 +668,18 @@ async function handleRunEnd(result: RunResult): Promise<void> {
     unlockedWeapons: next.unlockedWeapons as (typeof ALL_WEAPON_IDS)[number][]
   }, next.achievements);
   next.achievements = [...next.achievements, ...newlyUnlocked];
-  save = await saveProgress(next);
+  const routeCandidate = next.storyChoices[getStoryChoiceKey(next.selectedPilot, result.planetId)];
+  const campaignSave = result.mode === "story"
+    ? recordCampaignRunResult(next, {
+        pilotId: next.selectedPilot,
+        chapterId: result.planetId,
+        routeId: routeCandidate && isStoryChoiceId(routeCandidate) ? routeCandidate : null,
+        outcome: result.status,
+        score: Math.floor(result.score),
+        recordedAt
+      })
+    : next;
+  save = await saveProgress(campaignSave);
   refreshMenu();
   byId("result-kicker").textContent = result.mode.toUpperCase() + " · " + formatTime(result.duration);
   byId("result-title").textContent = result.status === "clear" ? "MISSION CLEAR!" : "FLIGHT OVER";
