@@ -769,8 +769,8 @@ export class Game {
         const direction = enemy.attackForecast.direction;
         enemy.warning.visible = true;
         enemy.warning.position.set(
-          enemy.mesh.position.x + direction.x * 3.75,
-          enemy.mesh.position.y + direction.y * 3.75,
+          enemy.attackForecast.origin.x + direction.x * 3.75,
+          enemy.attackForecast.origin.y + direction.y * 3.75,
           0.18
         );
         enemy.warning.rotation.z = -Math.atan2(direction.x, direction.y);
@@ -784,8 +784,8 @@ export class Game {
           const tracking = forecast.pattern === "homing";
           for (const path of forecastPaths(forecast)) {
             this.addProjectile(
-              enemy.mesh.position.x,
-              enemy.mesh.position.y,
+              path.position.x,
+              path.position.y,
               new THREE.Vector2(path.velocity.x, path.velocity.y),
               "enemy",
               1,
@@ -1233,8 +1233,8 @@ export class Game {
         const releaseY = boss.mesh.position.y - 1;
         for (const path of this.getBossForecastPaths(forecast)) {
           this.addProjectile(
-            boss.mesh.position.x,
-            releaseY,
+            path.position.x,
+            path.position.y,
             new THREE.Vector2(path.velocity.x, path.velocity.y),
             "enemy",
             1
