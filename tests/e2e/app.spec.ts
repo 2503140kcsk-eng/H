@@ -176,12 +176,11 @@ test("exports a backup and restores it in a fresh browser context for device mig
 
 
 test("shows pilot radio dialogue and completes the selected planet event", async ({ page }) => {
-  test.setTimeout(45_000);
+  test.setTimeout(70_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   // The game deliberately pauses when document.hidden is true. Keep this
-  // long-running deterministic test in the visible-page state even when the
-  // CI runner backgrounds parallel browser workers.
+  // test visible and actively fly instead of leaving the pilot stationary.
   await page.addInitScript(() => {
     Object.defineProperty(document, "hidden", { configurable: true, get: () => false });
     Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
@@ -193,7 +192,33 @@ test("shows pilot radio dialogue and completes the selected planet event", async
   await expect(page.locator("#comms-panel")).toBeVisible();
   await expect(page.locator("#comms-speaker")).toContainText("ルミ");
   await expect(page.locator("#comms-message")).toContainText("星の地図");
-  await expect(page.locator("#comms-message")).toContainText("星灯り共鳴", { timeout: 22_000 });
-  await expect(page.locator("#comms-message")).toContainText("達成！ +650 SCORE / +12 ✦", { timeout: 12_000 });
+
+  const canvas = page.locator("#game-canvas");
+  const bounds = await canvas.boundingBox();
+  if (!bounds) throw new Error("The play canvas has no visible bounds.");
+  const defensiveFlight = async () => {
+    await page.mouse.move(bounds.x + bounds.width * 0.5, bounds.y + bounds.height * 0.76);
+    await page.mouse.down();
+    for (let step = 0; step < 72; step += 1) {
+      const cycle = step % 16;
+      const horizontal = cycle < 8 ? 0.18 + (cycle / 7) * 0.64 : 0.82 - ((cycle - 8) / 7) * 0.64;
+      const vertical = cycle < 8 ? 0.75 : 0.84;
+      await page.mouse.move(bounds.x + bounds.width * horizontal, bounds.y + bounds.height * vertical, { steps: 2 });
+      if (step === 25 || step === 52) {
+        const shield = page.locator("#shield-button");
+        if (await shield.isEnabled()) await shield.click({ force: true });
+      }
+      await page.waitForTimeout(350);
+    }
+    await page.mouse.up();
+  };
+
+  const eventStarted = expect(page.locator("#comms-message"))
+    .toContainText("星灯り共鳴", { timeout: 42_000 });
+  await Promise.all([defensiveFlight(), eventStarted]);
+  await expect(page.locator("#pause-modal")).toBeHidden();
+  await expect(page.locator("#result-modal")).toBeHidden();
+  await expect(page.locator("#comms-message"))
+    .toContainText("達成！ +650 SCORE / +12 ✦", { timeout: 14_000 });
   expect(errors).toEqual([]);
 });
