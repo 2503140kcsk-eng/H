@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   assessEvasion,
   createAttackForecast,
+  forecastHalfAngle,
   forecastPaths,
   type ThreatPath
 } from "../src/game/threatForecast";
@@ -38,6 +39,13 @@ describe("deterministic attack forecasts", () => {
     expect(first[0].velocity.y).toBeCloseTo(first[4].velocity.y);
     expect(first[2].velocity.x).toBeCloseTo(forecast.direction.x * 5);
     expect(first[2].velocity.y).toBeCloseTo(forecast.direction.y * 5);
+    expect(forecastHalfAngle(forecast)).toBeCloseTo(0.4);
+    expect(forecastHalfAngle(createAttackForecast({
+      origin: { x: 0, y: 1 },
+      target: { x: 0, y: 0 },
+      pattern: "aimed",
+      projectileSpeed: 5
+    }))).toBe(0);
   });
 
   it("bounds malformed inputs and handles a zero-length aim vector", () => {
