@@ -838,7 +838,7 @@ export class Game {
     });
   }
 
-    private firePlayerShots(): void {
+  private firePlayerShots(): void {
     const target = this.findTarget();
     const origin = new THREE.Vector2(this.player.position.x, this.player.position.y + 0.75);
     const direction = target
@@ -1032,7 +1032,7 @@ export class Game {
     if (enemy.hp <= 0) this.removeEnemy(index, true);
   }
 
-    private drainEnemyShield(enemy: Enemy, damage: number): number {
+  private drainEnemyShield(enemy: Enemy, damage: number): number {
     const result = absorbGuardianShield(enemy.shield, damage);
     enemy.shield = result.remainingShield;
     const ring = enemy.mesh.getObjectByName("shieldEmitter");
@@ -1226,8 +1226,8 @@ export class Game {
     if (boss.attackForecast) {
       const direction = boss.attackForecast.direction;
       this.bossTelegraph.position.set(
-        boss.mesh.position.x + direction.x * 3.8,
-        boss.mesh.position.y - 1 + direction.y * 3.8,
+        boss.attackForecast.origin.x + direction.x * 3.8,
+        boss.attackForecast.origin.y + direction.y * 3.8,
         0.2
       );
       this.bossTelegraph.rotation.z = -Math.atan2(direction.x, direction.y);
@@ -1261,7 +1261,7 @@ export class Game {
     }
   }
 
-    private damageBoss(damage: number, hitX = 0, hitY = 0): void {
+  private damageBoss(damage: number, hitX = 0, hitY = 0): void {
     if (!this.boss) return;
     const boss = this.boss;
     const partId = selectImpactPart(boss.integrity, hitX, hitY, 2.2);
@@ -1476,7 +1476,8 @@ export class Game {
             object.geometry !== this.shared.particleGeometry &&
             object.geometry !== this.shared.shardGeometry &&
             object.geometry !== this.shared.ringGeometry &&
-            object.geometry !== this.shared.lanceGeometry) object.geometry.dispose();
+            object.geometry !== this.shared.lanceGeometry &&
+            object.geometry !== this.shared.warningGeometry) object.geometry.dispose();
       }
     });
     for (const layer of this.stars) {
