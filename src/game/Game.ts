@@ -536,11 +536,12 @@ export class Game {
     this.updateStars(dt);
     this.fireTimer -= dt;
     if (this.fireTimer <= 0) {
+      const weaponInterval = getWeaponProfile(this.weaponIds[this.activeWeaponSlot]).fireIntervalMultiplier;
       this.firePlayerShots();
       this.fireTimer = this.overdriveTimer > 0
-        ? 0.095 * this.shipProfile.fireIntervalMultiplier * this.pilotProfile.fireIntervalMultiplier
+        ? 0.095 * this.shipProfile.fireIntervalMultiplier * this.pilotProfile.fireIntervalMultiplier * weaponInterval
         : Math.max(0.12, 0.23 - this.pilotUpgrades.attack * 0.004) *
-          this.shipProfile.fireIntervalMultiplier * this.pilotProfile.fireIntervalMultiplier;
+          this.shipProfile.fireIntervalMultiplier * this.pilotProfile.fireIntervalMultiplier * weaponInterval;
     }
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0 && this.enemies.length < MAX_ENEMIES && !this.boss) {
