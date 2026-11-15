@@ -198,10 +198,9 @@ export function assessEvasion(
   ];
 
   const score = directions.map((candidate): DodgeCandidateScore => {
-    const velocity = {
-      x: baseVelocity.x + candidate.x * candidateSpeed,
-      y: baseVelocity.y + candidate.y * candidateSpeed
-    };
+    const velocity = candidate.direction === "hold"
+      ? baseVelocity
+      : { x: candidate.x * candidateSpeed, y: candidate.y * candidateSpeed };
     const clearance = closestClearance(playerPosition, velocity, threats, horizon, playerRadius);
     const endX = playerPosition.x + velocity.x * horizon;
     const endY = playerPosition.y + velocity.y * horizon;
