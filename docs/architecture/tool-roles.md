@@ -72,3 +72,28 @@ The Quality Gate runs once on `push` for `main` and repository-owned `feature/**
 - The no-project-permission preview route is the public StackBlitz import above. Open it from the ChatGPT message in iPhone Safari, start the Vite preview, then open the preview in its own tab.
 - This is an external development preview, not an App Store build or a certified PWA installation. iOS Safari / Brave input, GPU context recovery, storage persistence and sustained performance must still be checked on-device.
 - Do not describe Chromium Playwright tests as physical iPhone verification.
+
+## Vector Echo combat-system allocation
+
+The new combat layer is called **Vector Echo**. The three gameplay domains are implemented as dependency-free TypeScript modules; Three.js is an adapter and renderer, not the owner of the combat rules.
+
+| System | Canonical implementation | Tool / repository assignment |
+|---|---|---|
+| Attack intent and forecast | `src/game/threatForecast.ts` | Context7 verifies Three.js r186 behavior; Three.js displays warning geometry; `tween.js` is reserved for later authored wind-up motion. |
+| Evasion assessment | `assessEvasion` in `src/game/threatForecast.ts` | Vitest owns deterministic trajectory and closest-approach tests; Playwright owns HUD/browser regression; advice remains advisory and does not steer the player. |
+| Structural damage | `src/game/bodyIntegrity.ts` | Three.js named meshes visualize modules; `Rapier` is intentionally deferred because the current game uses bounded 2D hit-zone math, not a rigid-body simulation. |
+| Combat integration | `src/game/Game.ts` | Existing enemy/boss/projectile loops consume the independent rules; shared Three.js geometries/materials keep mobile resource use bounded. |
+| Warning / feedback HUD | `src/main.ts`, `src/style.css` | Figma is for review if the connected seat permits it; no paid UI kit is required. |
+
+## Starred repository decisions for Vector Echo
+
+- `mrdoob/three.js`: render warning lanes, module meshes and damage feedback; reuse resources and dispose owned objects at teardown.
+- `tweenjs/tween.js`: optional next step for telegraph wind-up, recoil, and break animations; not required for the current deterministic rules.
+- `pmndrs/postprocessing`: optional subtle bloom on warning and exposed-core highlights only after iPhone frame-time measurements pass.
+- `dimforge/rapier`: deliberately not added; the present top-down arena is more predictable and cheaper with exact swept/closest-approach math.
+- `gkjohnson/three-mesh-bvh`: not needed for the current fixed number of named body zones; revisit only if detailed mesh hit testing becomes a measured bottleneck.
+- `vitest-dev/vitest` and `microsoft/playwright`: assert pure domain rules first, then browser-level HUD and combat behavior.
+- `KilledByAPixel/ZzFX` / `Tonejs/Tone.js`: optional audio cues for lock-on, near-miss, and module break after gameplay balance; no licensed or generated audio is bundled in this milestone.
+- Asset repositories (`Hidencod/tge-assets`, `shorepine/kenney`, and Khronos sample assets) are not used by this system; the warning and module geometry are procedural and original. Per-asset license review remains mandatory before later asset adoption.
+
+No cloud database, account, analytics, paid service, external model, or paid asset is required by Vector Echo. Transient attack forecasts and damaged modules are run-local combat state: they are not persisted into version-1 progression saves, avoiding unnecessary save migration.
