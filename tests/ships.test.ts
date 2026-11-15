@@ -3,7 +3,7 @@ import { createBackup, createDefaultSave, sanitizeSaveData, verifyBackup } from 
 import { getShipProfile, normalizeSelectedShipId, normalizeUnlockedShipIds } from "../src/game/ships";
 
 describe("ship roster and save integration", () => {
-  it("defines three distinct ships with bounded, meaningful trade-offs", () => {
+  it("defines four distinct ships with bounded, meaningful trade-offs", () => {
     const fast = getShipProfile("Aqua-Comet");
     const heavy = getShipProfile("Rose-Bastion");
     expect(fast.movementMultiplier).toBeGreaterThan(1);
@@ -12,6 +12,10 @@ describe("ship roster and save integration", () => {
     expect(heavy.attackMultiplier).toBeGreaterThan(1);
     expect(heavy.movementMultiplier).toBeLessThan(1);
     expect(heavy.hullBonus).toBeGreaterThan(0);
+    const resonator = getShipProfile("Astra-Arc");
+    expect(resonator.visual).toBe("arc");
+    expect(resonator.attackMultiplier).toBeGreaterThan(1);
+    expect(resonator.shieldRechargeMultiplier).toBeLessThan(1);
   });
 
   it("filters unknown and duplicate ships and always keeps the starter ship", () => {
