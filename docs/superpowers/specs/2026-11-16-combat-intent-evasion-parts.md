@@ -23,7 +23,7 @@ The modules do not import `Game.ts`, Three.js, DOM, Dexie, or the persistence la
 
 ## 2. Telegraph contract
 
-An attack warning locks the target position at the start of its wind-up. Re-aiming on the release frame is forbidden for aimed attacks: otherwise the warning would be deceptive rather than predictive.
+An attack warning locks the target position at the start of its wind-up. Re-aiming on the release frame is forbidden for aimed attacks: otherwise the warning would be deceptive rather than predictive. Each forecast path carries the remaining wind-up delay; closest-approach evaluation begins the projectile motion at that future release time, rather than treating the warning as an already-active bullet. The released projectile uses the same locked origin and velocity as the preview.
 
 Supported forecast patterns:
 
@@ -66,6 +66,8 @@ Part hit selection is based on target-local impact coordinates normalized by col
 - A single wing loss must not immobilize an enemy; it changes behavior, not agency.
 - A core multiplier is bounded and applies only after the core has sustained damage.
 - Enemy projectile count remains subject to the existing global projectile cap.
+- A broken weapon cancels its pending forecast immediately.
+- Boss volley paths are filtered by the same surviving wing modules during preview, evasion scoring and release; destroyed-wing paths must not remain ghost threats.
 - Telegraphs and visual damage states must reuse bounded Three.js resources and be disposed with their owner.
 - No online prediction, analytics upload, account, or cloud database is needed.
 
