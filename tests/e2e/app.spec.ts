@@ -176,3 +176,70 @@ test("iPhone diagnostics capture live gameplay metrics and export local JSON and
   await expect(page.locator("#diagnostics-modal")).toBeHidden();
   expect(errors).toEqual([]);
 });
+
+
+test("weapon dock unlocks, persists, exports and equips the selected combat weapon", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/");
+  await page.evaluate(async () => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("starlight-wing", 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const data = {
+      version: 1,
+      shards: 2000,
+      upgrades: { attack: 0, hull: 0 },
+      bestScores: {},
+      settings: { sensitivity: 1, volume: 0.65 },
+      totalRuns: 0,
+      unlockedShips: ["Lumen-01"],
+      selectedShip: "Lumen-01",
+      unlockedPilots: ["lumi-asteria"],
+      selectedPilot: "lumi-asteria",
+      pilotProgress: { "lumi-asteria": { level: 1, xp: 0 } },
+      pilotLevel: 1,
+      pilotXp: 0,
+      unlockedWeapons: ["star-pulse"],
+      selectedWeapon: "star-pulse"
+    };
+    await new Promise<void>((resolve, reject) => {
+      const transaction = database.transaction("saves", "readwrite");
+      transaction.objectStore("saves").put({ id: "pilot", data, updatedAt: Date.now() });
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+    database.close();
+  });
+  await page.reload();
+
+  const options = page.locator("#weapon-list [data-weapon-id]");
+  await expect(options).toHaveCount(3);
+  await expect(page.locator('[data-weapon-id="star-pulse"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-weapon-id="prism-fan"]')).toBeEnabled();
+  await expect(page.locator('[data-weapon-id="nova-lance"]')).toBeEnabled();
+
+  await page.locator('[data-weapon-id="prism-fan"]').click();
+  await expect(page.locator('[data-weapon-id="prism-fan"]')).toHaveAttribute("aria-pressed", "true");
+  await page.locator('[data-weapon-id="nova-lance"]').click();
+  await expect(page.locator('[data-weapon-id="nova-lance"]')).toHaveAttribute("aria-pressed", "true');
+
+  await page.reload();
+  await expect(page.locator('[data-weapon-id="nova-lance"]')).toHaveAttribute("aria-pressed", "true");
+  const backupPromise = page.waitForEvent("download");
+  await page.locator("#export-save").click();
+  const backup = await backupPromise;
+  const stream = await backup.createReadStream();
+  let serialized = "";
+  for await (const chunk of stream ?? []) serialized += chunk.toString();
+  const envelope = JSON.parse(serialized) as { payload: { unlockedWeapons: string[]; selectedWeapon: string } };
+  expect(envelope.payload.unlockedWeapons).toEqual(["star-pulse", "prism-fan", "nova-lance"]);
+  expect(envelope.payload.selectedWeapon).toBe("nova-lance");
+
+  await page.locator('[data-mode="story"]').click();
+  await expect(page.locator("#weapon-label")).toHaveText("NOVA LANCE");
+  expect(errors).toEqual([]);
+});

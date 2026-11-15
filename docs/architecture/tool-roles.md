@@ -45,6 +45,7 @@ The implementation repository is authoritative. Tool usage is restricted to capa
 | vitest-dev/vitest | Unit tests for deterministic game rules, pilot/ship profiles and backward-compatible save logic | Core CI |
 | microsoft/playwright | Browser smoke tests and interaction regression tests | Core CI |
 | georgealways/lil-gui | Development-only balancing and debug controls | Dev build only; never required for players |
+| Original weapon profiles | Persistent Star Pulse / Prism Fan / Nova Lance definitions and combat shot patterns | Implemented without new runtime packages or remote assets; shared Three.js resources and the 110-projectile cap remain |
 | codecruzer/webgl-starfield | Starfield rendering reference / optional inspiration | Reimplement as small bounded layers unless its license and fit are verified |
 
 ## Current browser-preview route
@@ -56,6 +57,7 @@ The implementation repository is authoritative. Tool usage is restricted to capa
 
 ## Safety and license policy
 
+- The initial weapon collection uses original code-defined profiles and procedural projectiles; no third-party asset is copied.
 - Never bundle an asset merely because its repository is public.
 - Check the exact asset license, attribution terms, model/texture/audio provenance and redistribution rights.
 - Keep procedural MVP assets original and local.

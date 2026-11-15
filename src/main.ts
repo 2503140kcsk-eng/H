@@ -5,6 +5,7 @@ import { exportBackup, importBackup } from "./persistence/backup";
 import { getSavePersistenceStatus, loadSave, saveProgress } from "./persistence/database";
 import { ALL_PILOT_IDS, PILOT_PROFILES, getPilotProfile, isPilotId } from "./game/pilots";
 import { ALL_SHIP_IDS, SHIP_PROFILES, isShipId } from "./game/ships";
+import { ALL_WEAPON_IDS, WEAPON_PROFILES, isWeaponId } from "./game/weapons";
 import { collectDeviceDiagnostics, diagnosticsToCsv, type DeviceDiagnosticsReport, type GameDiagnosticsSnapshot } from "./game/diagnostics";
 import "./style.css";
 
@@ -55,6 +56,10 @@ uiRoot.innerHTML = `
             <div class="pilot-dock-heading"><strong>パイロット選択</strong><span>個性ごとに戦闘能力が変化</span></div>
             <div id="pilot-list" class="pilot-options" aria-label="パイロット選択"></div>
           </div>
+          <div class="weapon-dock">
+            <div class="weapon-dock-heading"><strong>兵装セレクト</strong><span>解放した兵装は永久使用OK</span></div>
+            <div id="weapon-list" class="weapon-options" aria-label="武器選択"></div>
+          </div>
         </div>
       </div>
       <div class="menu-footer">
@@ -83,7 +88,7 @@ uiRoot.innerHTML = `
       <button id="pause-button" class="icon-button" aria-label="一時停止">Ⅱ</button>
     </header>
     <div class="hud-left">
-      <div class="pilot-mini"><span id="pilot-hud-avatar">✦</span><div><strong id="pilot-label">LUMI</strong><small id="ship-label">LUMEN-01</small></div></div>
+      <div class="pilot-mini"><span id="pilot-hud-avatar">✦</span><div><strong id="pilot-label">LUMI</strong><small id="ship-label">LUMEN-01</small><small id="weapon-label">STAR PULSE</small></div></div>
       <div class="meter-label"><span>HULL</span><b id="hp-text">3 / 3</b></div>
       <div class="meter"><i id="hp-fill" class="hp-fill"></i></div>
       <div class="meter-label"><span>SHIELD</span><b id="shield-text">100%</b></div>
@@ -262,6 +267,24 @@ function renderPilotChoices(): void {
   }).join("");
 }
 
+function renderWeaponChoices(): void {
+  const list = byId<HTMLDivElement>("weapon-list");
+  list.innerHTML = ALL_WEAPON_IDS.map((id) => {
+    const weapon = WEAPON_PROFILES[id];
+    const unlocked = save.unlockedWeapons.includes(id);
+    const selected = save.selectedWeapon === id;
+    const disabled = !unlocked && save.shards < weapon.unlockCost;
+    const action = unlocked ? (selected ? "装備中" : "選択") : `解放 ${weapon.unlockCost.toLocaleString("ja-JP")} ✦`;
+    const icon = weapon.visual === "fan" ? "✣" : weapon.visual === "lance" ? "➤" : "✦";
+    return `<button type="button" class="weapon-option ${selected ? "selected" : ""} ${unlocked ? "unlocked" : "locked"}"
+      data-weapon-id="${weapon.id}" ${disabled ? "disabled" : ""} aria-pressed="${selected}" title="${weapon.description}">
+      <span class="weapon-option-icon weapon-${weapon.visual}">${icon}</span>
+      <span class="weapon-option-copy"><b>${weapon.name}</b><small>${weapon.description}</small></span>
+      <span class="weapon-option-action">${action}</span>
+    </button>`;
+  }).join("");
+}
+
 function refreshMenu(): void {
   const selectedPilot = getPilotProfile(save.selectedPilot);
   const selectedProgress = save.pilotProgress[save.selectedPilot] ?? { level: save.pilotLevel, xp: save.pilotXp };
@@ -281,6 +304,7 @@ function refreshMenu(): void {
   hullButton.disabled = hullCost === null || save.shards < hullCost;
   renderShipChoices();
   renderPilotChoices();
+  renderWeaponChoices();
   sensitivityInput.value = String(save.settings.sensitivity);
   volumeInput.value = String(save.settings.volume);
   const status = byId<HTMLParagraphElement>("save-status");
@@ -315,6 +339,7 @@ function makeGame(): Game {
     shipId: save.selectedShip,
     pilotId: save.selectedPilot,
     pilotLevel: save.pilotProgress[save.selectedPilot]?.level ?? save.pilotLevel,
+    weaponId: save.selectedWeapon,
     onHudUpdate: updateHud,
     onRunEnd: (result) => { void handleRunEnd(result); },
     onGraphicsContextLost: () => {
@@ -344,6 +369,7 @@ function startRun(mode: GameMode): void {
     byId("pilot-label").textContent = getPilotProfile(save.selectedPilot).callSign;
     byId("pilot-hud-avatar").textContent = getPilotProfile(save.selectedPilot).avatar;
     byId("ship-label").textContent = save.selectedShip;
+    byId("weapon-label").textContent = WEAPON_PROFILES[save.selectedWeapon as keyof typeof WEAPON_PROFILES].callSign;
     playTone(660, 0.16);
   } catch (error) {
     game?.dispose();
@@ -548,6 +574,33 @@ byId("ship-list").addEventListener("click", async (event) => {
   save.selectedShip = shipId;
   await persist();
   showToast(ship.name + "を解放して装備したよ！");
+  playTone(920, 0.16);
+});
+byId("weapon-list").addEventListener("click", async (event) => {
+  if (!(event.target instanceof Element)) return;
+  const button = event.target.closest<HTMLButtonElement>("[data-weapon-id]");
+  const weaponId = button?.dataset.weaponId;
+  if (!weaponId || !isWeaponId(weaponId)) return;
+  const weapon = WEAPON_PROFILES[weaponId];
+
+  if (save.unlockedWeapons.includes(weaponId)) {
+    if (save.selectedWeapon === weaponId) return;
+    save.selectedWeapon = weaponId;
+    await persist();
+    showToast(weapon.name + "を装備したよ！");
+    playTone(720, 0.11);
+    return;
+  }
+
+  if (save.shards < weapon.unlockCost) {
+    showToast("シャードが足りないよ！");
+    return;
+  }
+  save.shards -= weapon.unlockCost;
+  save.unlockedWeapons.push(weaponId);
+  save.selectedWeapon = weaponId;
+  await persist();
+  showToast(weapon.name + "を解放して装備したよ！");
   playTone(920, 0.16);
 });
 byId("pause-button").addEventListener("click", pauseGame);

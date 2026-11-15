@@ -208,14 +208,16 @@ Cost/security boundary: the Pages workflow uses GitHub Actions' hosted runner an
 
 Files: src/game/weapons.ts, src/game/core.ts, src/game/Game.ts, src/main.ts, src/style.css, tests/weapons.test.ts, tests/e2e/app.spec.ts, README.md.
 
-- [ ] Add test-first coverage for weapon profile distinctions, default selection, locked/forged IDs, old local saves, old version-1 backup imports and new backup round trips.
-- [ ] Define three original profiles: Star Pulse (single standard shot), Prism Fan (three-shot spread with reduced per-shot damage), Nova Lance (high-damage, slower, one-target piercing shot).
-- [ ] Persist unlockedWeapons and selectedWeapon as additive version-1 fields. Older local saves and backups that omit them must migrate to Star Pulse without losing other progress.
-- [ ] Add a compact three-card weapon dock with shard unlock / select actions and show the active weapon in the combat HUD.
-- [ ] Feed weapon projectile count, spread, damage, cooldown, speed, radius, tint and pierce count into the existing capped Three.js projectile loop.
-- [ ] Reuse the current shared projectile geometry and bounded projectile list; do not add runtime packages or remotely loaded assets.
-- [ ] Test that Nova Lance damages each enemy at most once per projectile and can pass through exactly one additional target.
-- [ ] Add Playwright coverage for hangar selection, combat HUD selection, save persistence and JSON export/import.
-- [ ] Update README and repository tool-role notes; record that weapon values are starting design constants and still need physical iPhone balancing.
+- [x] Add test-first coverage for weapon profile distinctions, default selection, locked/forged IDs, old local saves, old version-1 backup imports and new backup round trips.
+- [x] Define three original profiles: Star Pulse (single standard shot), Prism Fan (three-shot spread with reduced per-shot damage), Nova Lance (high-damage, slower, one-target piercing shot).
+- [x] Persist unlockedWeapons and selectedWeapon as additive version-1 fields. Older local saves and backups that omit them migrate to Star Pulse without losing other progress.
+- [x] Add a compact three-card weapon dock with shard unlock / select actions and show the active weapon in the combat HUD.
+- [x] Feed weapon projectile count, spread, damage, cooldown, speed, radius, tint and pierce count into the existing capped Three.js projectile loop.
+- [x] Reuse the current shared projectile geometry and bounded projectile list; do not add runtime packages or remotely loaded assets.
+- [x] Test that Nova Lance damages each enemy at most once per projectile and can pass through exactly one additional target.
+- [x] Add Playwright coverage for hangar selection, combat HUD selection, save persistence and JSON export/import.
+- [x] Update README and repository tool-role notes; record that weapon values are starting design constants and still need physical iPhone balancing.
 
 Cost/performance ruling: no new dependencies, network requests, physics engine, post-processing pass or asset downloads. Simple custom hit tests remain sufficient for the bounded 18-enemy / 110-projectile arena.
+
+**Starting weapon values (design constants, not measured balance):** Star Pulse = 1.00× damage / 1.00× interval; Prism Fan = 3 × 0.42× damage / 1.12× interval / 0.16 radian spacing; Nova Lance = 1.75× damage / 1.50× interval / +1 additional target. All share the capped projectile geometry pool and total projectile count remains at most 110. Physical iPhone playtests are still required to tune target acquisition, hit rate and shard costs.
