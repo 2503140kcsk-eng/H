@@ -28,7 +28,7 @@ An attack warning locks the target position at the start of its wind-up. Re-aimi
 Supported forecast patterns:
 
 - `aimed`: one line through the locked target snapshot.
-- `spread`: symmetric lanes around the locked direction.
+- `spread`: symmetric lanes around the locked direction; the HUD preview renders their bounded angular envelope as a fan rather than a misleading single line.
 - `homing`: the initial warning shows its launch direction; the active projectile may subsequently steer, so its preview is explicitly an initial-trajectory estimate, not a guaranteed future path.
 
 Projectile count, speed, radius and spread are clamped at the module boundary. The forecast uses bounded values and returns new data rather than mutating caller-owned vectors.
@@ -67,6 +67,7 @@ Part hit selection is based on target-local impact coordinates normalized by col
 - A single wing loss must not immobilize an enemy; it changes behavior, not agency.
 - A core multiplier is bounded and applies only after the core has sustained damage.
 - Enemy projectile count remains subject to the existing global projectile cap.
+- Spread-ray angle offsets are bounded to keep the rendered fan envelope and simulated lanes consistent.
 - A broken weapon cancels its pending forecast immediately.
 - Boss volley paths are filtered by the same surviving wing modules during preview, evasion scoring and release; destroyed-wing paths must not remain ghost threats.
 - Telegraphs and visual damage states must reuse bounded Three.js resources and be disposed with their owner.
