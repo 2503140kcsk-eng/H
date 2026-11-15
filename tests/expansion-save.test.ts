@@ -72,10 +72,14 @@ describe("expanded save data and legacy migration", () => {
       "lumi-asteria:noctis-archive": "follow-signal"
     };
     save.storyFlags = ["celestial-echo"];
+    save.unlockedPilotSkins = ["standard", "nebula-veil"];
+    save.selectedPilotSkin = "nebula-veil";
     const restored = verifyBackup(createBackup(save));
     expect(restored?.pilotSkills["lumi-asteria"]).toEqual(["lumi-stellar-focus", "lumi-orbit-reader"]);
     expect(restored?.storyChoices).toEqual(save.storyChoices);
     expect(restored?.storyFlags).toContain("celestial-echo");
+    expect(restored?.unlockedPilotSkins).toEqual(["standard", "nebula-veil"]);
+    expect(restored?.selectedPilotSkin).toBe("nebula-veil");
   });
 
   it("drops forged skill nodes and invalid story choice values during save sanitization", () => {
@@ -91,12 +95,16 @@ describe("expanded save data and legacy migration", () => {
         "lumi-asteria:aurora-prime": "not-a-real-choice",
         "rin-vega:noctis-archive": "protect-crew"
       },
-      storyFlags: ["celestial-echo", "forged-flag"]
+      storyFlags: ["celestial-echo", "forged-flag"],
+      unlockedPilotSkins: ["nebula-veil", "forged-skin"],
+      selectedPilotSkin: "forged-skin"
     });
     expect(clean.pilotSkills["lumi-asteria"]).toEqual(["lumi-stellar-focus", "lumi-orbit-reader"]);
     expect(clean.pilotSkills["noa-celeste"]).toBeUndefined();
     expect(clean.storyChoices).toEqual({ "rin-vega:noctis-archive": "protect-crew" });
     expect(clean.storyFlags).toEqual(["celestial-echo"]);
+    expect(clean.unlockedPilotSkins).toEqual(["standard", "nebula-veil"]);
+    expect(clean.selectedPilotSkin).toBe("standard");
   });
 
   it("filters forged profile references in local high scores", () => {
