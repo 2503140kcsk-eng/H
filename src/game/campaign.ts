@@ -174,6 +174,10 @@ export function resolveCampaignEnding(state: CampaignState): EndingId {
   if (state.choices["noctis-archive"] === "seal" && world.anomaly <= 0 && world.intel >= 3) return "quiet-orbit";
   return "fractured-ring";
 }
+export function getCampaignEnding(state: CampaignState): { id: EndingId; title: string; description: string } | null {
+  if (!state.endingId) return null;
+  return { id: state.endingId, ...CAMPAIGN_ENDINGS[state.endingId] };
+}
 export function completeCampaignMission(state: CampaignState, missionId: string, status: "clear" | "gameover"): CampaignState {
   if (!getCampaignMission(missionId)) return state;
   if (status !== "clear") return { ...state, activeMissionId: missionId };
