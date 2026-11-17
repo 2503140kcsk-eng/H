@@ -97,3 +97,41 @@ The new combat layer is called **Vector Echo**. The three gameplay domains are i
 - Asset repositories (`Hidencod/tge-assets`, `shorepine/kenney`, and Khronos sample assets) are not used by this system; the warning and module geometry are procedural and original. Per-asset license review remains mandatory before later asset adoption.
 
 No cloud database, account, analytics, paid service, external model, or paid asset is required by Vector Echo. Transient attack forecasts and damaged modules are run-local combat state: they are not persisted into version-1 progression saves, avoiding unnecessary save migration.
+
+## Echo Chronicle campaign-system allocation
+
+The branching campaign is a pure state model plus a Three.js battle adapter. It does not add a cloud dependency or a second persistence authority.
+
+| Responsibility | Canonical implementation | Assigned tools / repositories | Current boundary |
+|---|---|---|---|
+| Chapter, choice and ending rules | `src/game/campaign.ts` | GitHub owns source and review; Vitest verifies route invariants; Context7 checks any changing Three.js API | Pure TypeScript, deterministic and locally testable |
+| Save migration and backup | `src/game/core.ts`, Dexie store and existing backup codec | Dexie + Zod; GitHub Actions | Keep save format v1 and accept older payloads that have no campaign field |
+| Planet visuals and combat adaptation | `src/game/Game.ts` | Three.js core; Vitest for profiles; Playwright for menu/run smoke | Palette, spawn bias, enemy tuning, boss pattern/HP/defense and one-shot events; bounded projectile count |
+| Choice / mission UX | `src/main.ts`, `src/style.css` | Figma read-only review where available; no paid UI kit | Two authored decisions per chapter; main and side operation cards; route history and replay |
+| Release and local-first policy | Existing PWA and CI workflows | GitHub Pages / Workbox through vite-plugin-pwa; Supabase is deferred | No login, paid cloud, analytics or remote state required |
+
+### Plugin use for this milestone
+
+- **GitHub:** used for inspecting the PR, writing commits directly to `feature/starlight-wing-mvp`, and triggering the existing Quality Gate.
+- **Context7:** API-reference role for Three.js / Zod behavior; no package is added merely to satisfy a tool.
+- **Figma:** visual review and touch-layout critique only while the connected Starter seat remains View-only; implementation stays in code.
+- **Canva / Adobe:** optional promo art, title cards, audio/video polish after the visual direction is stable. No generation credit or subscription entitlement is assumed free, and neither becomes a runtime requirement.
+- **Superpowers:** test-first / implementation-plan / review discipline is recorded in these repository specs; no callable Superpowers connector is exposed in the active tool set.
+- **Vercel:** optional static preview only. The connected Hobby project creation previously returned 403, so no deployment is claimed.
+- **Supabase:** intentionally not used; accounts and cloud saves would add network, privacy and quota failure modes to a game whose requirement is local-first free distribution.
+- **Notion:** optional roadmap mirror, deferred to avoid splitting the canonical spec from GitHub.
+- **GitLab Beta:** optional independent mirror / second review. No Starlight project has been selected, so GitHub remains authoritative and no duplicate project is created.
+
+The campaign milestone activates only the already-present Three.js, Dexie, Zod, vite-plugin-pwa / Workbox, Vitest and Playwright dependencies. No new runtime package, paid asset, server function or cloud database is introduced.
+
+### Why several starred libraries stay deferred
+
+- `pmndrs/postprocessing` is held until physical iPhone frame-time measurements justify bloom; the chapter palette and procedural star tint create a visible planet identity without extra render passes.
+- `dimforge/rapier` and `gkjohnson/three-mesh-bvh` are unnecessary for the current bounded 2D flight arena and named damage zones.
+- `tweenjs/tween.js` may later drive authored cinematic transitions, but it is not required for deterministic campaign state or battle outcomes.
+- `Tonejs/Tone.js`, `howler.js` and `ZzFX` remain candidates for the adaptive score / SFX pass; this campaign slice does not bundle unlicensed music or add audio dependencies.
+- `Hidencod/tge-assets`, `shorepine/kenney` and `KhronosGroup/glTF-Sample-Assets` remain license-audited asset candidates; this implementation keeps geometry and palette procedural.
+- `glTF-Transform`, `meshoptimizer`, `Draco` and `glTF-Validator` stay in the asset pipeline role rather than the runtime campaign loop.
+- `lil-gui` stays development-only; `codecruzer/webgl-starfield` remains a reference rather than a bundled dependency.
+
+The roles above are assignments, not a claim that every connected app or every starred repository must be executed for each code change. Free quota, access level, license and mobile cost remain gates before adoption.
