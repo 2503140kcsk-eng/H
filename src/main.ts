@@ -121,7 +121,7 @@ uiRoot.innerHTML = `
       <div id="combo-label" class="combo-label" hidden>COMBO ×<b id="combo-value">0</b></div>
     </div>
     <div id="boss-panel" class="boss-panel" hidden>
-      <div class="boss-name"><span>⚠</span> NEBULA EMPRESS <small>PHASE <b id="boss-phase">I</b></small></div>
+      <div class="boss-name"><span>⚠</span> <strong id="boss-name">NEBULA EMPRESS</strong> <small>PHASE <b id="boss-phase">I</b></small></div>
       <div class="boss-meter"><i id="boss-fill"></i></div>
     </div>
     <div class="hud-bottom">
@@ -589,6 +589,7 @@ function updateHud(state: HudState): void {
   const bossPanel = byId<HTMLElement>("boss-panel");
   bossPanel.hidden = state.bossMaxHp <= 0;
   if (state.bossMaxHp > 0) {
+    byId("boss-name").textContent = state.bossName;
     byId("boss-fill").setAttribute("style", "width:" + Math.max(0, state.bossHp / state.bossMaxHp * 100) + "%");
     byId("boss-phase").textContent = state.bossHp <= state.bossMaxHp * 0.5 ? "II" : "I";
   }

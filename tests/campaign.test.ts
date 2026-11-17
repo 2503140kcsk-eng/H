@@ -55,10 +55,12 @@ describe("Echo Chronicle campaign domain", () => {
   it("selects materially different boss and battlefield profiles for different routes", () => {
     let rescued = createCampaignState();
     rescued = selectCampaignChoice(rescued, "aurora-prime", "attune");
+    rescued = completeCampaignMission(rescued, "aurora-first-contact", "clear");
     rescued = selectCampaignChoice(rescued, "pyra-reach", "rescue");
     const rescueProfile = createCampaignCombatProfile(rescued, "pyra-crossfire");
     let hunted = createCampaignState();
     hunted = selectCampaignChoice(hunted, "aurora-prime", "sever");
+    hunted = completeCampaignMission(hunted, "aurora-first-contact", "clear");
     hunted = selectCampaignChoice(hunted, "pyra-reach", "pursue");
     const pursuitProfile = createCampaignCombatProfile(hunted, "pyra-crossfire");
     expect(rescueProfile?.battleEvent).toBe("rescue-support");
