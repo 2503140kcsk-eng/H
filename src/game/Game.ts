@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { clamp } from "./core";
-import { absorbGuardianShield, ENEMY_PROFILES, selectEnemyKind, type EnemyKind } from "./enemies";
+import { absorbGuardianShield, ENEMY_PROFILES, getUnlockedEnemyKinds, selectEnemyKind, type EnemyKind } from "./enemies";
+import type { CampaignCombatProfile } from "./campaign";
 import { TouchInput } from "./input";
 import { getPilotGrowthStats, getPilotProfile, type PilotProfile } from "./pilots";
 import { PICKUP_EFFECTS, selectPickupKind, type PickupKind } from "./pickups";
@@ -193,6 +194,11 @@ export class Game {
   private bossTimer = 28;
   private boss: Boss | null = null;
   private bossTelegraph: THREE.Mesh;
+  private readonly campaignProfile: CampaignCombatProfile | null;
+  private campaignEventTriggered = false;
+  private campaignPhaseEventTriggered = false;
+  private pendingBossExposure = false;
+  private bossExposureTimer = 0;
   private readonly pilotUpgrades: { attack: number; hull: number };
   private readonly shipProfile: ShipProfile;
   private readonly pilotProfile: PilotProfile;
@@ -215,6 +221,7 @@ export class Game {
     onRunEnd: (result: RunResult) => void;
     onGraphicsContextLost: () => void;
     onGraphicsContextRestored: () => void;
+    onCampaignMessage?: (message: string) => void;
   };
   private readonly handleWebGLContextLost = (event: Event): void => {
     // Three.js also listens for this event and restores its renderer when the browser does.
@@ -236,6 +243,8 @@ export class Game {
     pilotId?: string;
     pilotLevel?: number;
     weaponId?: string;
+    campaignProfile?: CampaignCombatProfile;
+    onCampaignMessage?: (message: string) => void;
     onHudUpdate: (state: HudState) => void;
     onRunEnd: (result: RunResult) => void;
     onGraphicsContextLost: () => void;
@@ -246,8 +255,10 @@ export class Game {
       onHudUpdate: options.onHudUpdate,
       onRunEnd: options.onRunEnd,
       onGraphicsContextLost: options.onGraphicsContextLost,
-      onGraphicsContextRestored: options.onGraphicsContextRestored
+      onGraphicsContextRestored: options.onGraphicsContextRestored,
+      onCampaignMessage: options.onCampaignMessage
     };
+    this.campaignProfile = options.campaignProfile ?? null;
     this.sensitivityValue = options.sensitivity ?? 1;
     this.shipProfile = getShipProfile(options.shipId ?? "Lumen-01");
     this.pilotProfile = getPilotProfile(options.pilotId ?? "lumi-asteria");
@@ -275,11 +286,11 @@ export class Game {
     this.canvas.addEventListener("webglcontextlost", this.handleWebGLContextLost, false);
     this.canvas.addEventListener("webglcontextrestored", this.handleWebGLContextRestored, false);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
-    this.renderer.setClearColor(0x05091f, 1);
+    this.renderer.setClearColor(this.campaignProfile?.palette.background ?? 0x05091f, 1);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.scene.background = new THREE.Color(0x05091f);
-    this.scene.fog = new THREE.FogExp2(0x10133f, 0.008);
+    this.scene.background = new THREE.Color(this.campaignProfile?.palette.background ?? 0x05091f);
+    this.scene.fog = new THREE.FogExp2(this.campaignProfile?.palette.fog ?? 0x10133f, this.campaignProfile?.palette.fogDensity ?? 0.008);
     this.camera.position.set(0, 0, 32);
     this.camera.lookAt(0, 0, 0);
 
@@ -379,6 +390,10 @@ export class Game {
     this.multishotTimer = 0;
     this.speedBoostTimer = 0;
     this.bossTimer = mode === "stage" ? 30 : 38;
+    this.campaignEventTriggered = false;
+    this.campaignPhaseEventTriggered = false;
+    this.pendingBossExposure = false;
+    this.bossExposureTimer = 0;
     this.player.position.set(0, -5.8, 0.6);
     this.playerTarget.set(0, -5.8);
     this.playerVelocity.set(0, 0);
@@ -467,10 +482,11 @@ export class Game {
   }
 
   private createStarfield(): void {
+    const starTint = this.campaignProfile?.palette.star;
     const layers = [
-      { count: 170, speed: 0.7, size: 0.07, color: 0x94a9ff, depth: -8 },
-      { count: 95, speed: 1.8, size: 0.12, color: 0x84eaff, depth: -5 },
-      { count: 38, speed: 3.1, size: 0.18, color: 0xffb9ec, depth: -2 }
+      { count: 170, speed: 0.7, size: 0.07, color: starTint ?? 0x94a9ff, depth: -8 },
+      { count: 95, speed: 1.8, size: 0.12, color: starTint ?? 0x84eaff, depth: -5 },
+      { count: 38, speed: 3.1, size: 0.18, color: starTint ?? 0xffb9ec, depth: -2 }
     ];
     for (const layer of layers) {
       const positions = new Float32Array(layer.count * 3);
@@ -539,6 +555,8 @@ export class Game {
     this.comboTimer = Math.max(0, this.comboTimer - dt);
     if (this.comboTimer <= 0) this.combo = 0;
     this.shieldTimer = Math.max(0, this.shieldTimer - dt);
+    this.bossExposureTimer = Math.max(0, this.bossExposureTimer - dt);
+    this.updateCampaignBattleEvent();
     this.overdriveTimer = Math.max(0, this.overdriveTimer - dt);
     this.multishotTimer = Math.max(0, this.multishotTimer - dt);
     this.speedBoostTimer = Math.max(0, this.speedBoostTimer - dt);
@@ -573,7 +591,8 @@ export class Game {
     if (this.spawnTimer <= 0 && this.enemies.length < MAX_ENEMIES && !this.boss) {
       this.spawnEnemy();
       const difficulty = 1 + this.elapsed / 145;
-      this.spawnTimer = Math.max(0.42, (this.mode === "endless" ? 1.05 : 1.35) / difficulty);
+      this.spawnTimer = Math.max(0.42, (this.mode === "endless" ? 1.05 : 1.35) / difficulty) *
+        (this.campaignProfile?.spawnIntervalMultiplier ?? 1);
     }
     this.bossTimer -= dt;
     if (!this.boss && this.bossTimer <= 0) this.spawnBoss();
@@ -608,7 +627,11 @@ export class Game {
   }
 
   private spawnEnemy(): void {
-    const kind = selectEnemyKind(this.elapsed, Math.random());
+    const available = getUnlockedEnemyKinds(this.elapsed);
+    const priority = this.campaignProfile?.enemyPriority.filter((kind) => available.includes(kind)) ?? [];
+    const kind = priority.length > 0 && Math.random() < 0.72
+      ? priority[Math.floor(Math.random() * priority.length)]
+      : selectEnemyKind(this.elapsed, Math.random());
     const xLimit = Math.max(1, this.world.width / 2 - 1);
     const x = (Math.random() * 2 - 1) * xLimit;
     if (kind === "swarm") {
@@ -723,10 +746,10 @@ export class Game {
     this.enemies.push({
       mesh: group,
       kind,
-      hp: profile.health,
-      maxHp: profile.health,
-      speed: profile.speed,
-      fireTimer: 0.65 + Math.random() * profile.fireInterval * 0.45,
+      hp: Math.max(1, Math.ceil(profile.health * (this.campaignProfile?.enemyHealthMultiplier ?? 1))),
+      maxHp: Math.max(1, Math.ceil(profile.health * (this.campaignProfile?.enemyHealthMultiplier ?? 1))),
+      speed: profile.speed * (this.campaignProfile?.enemySpeedMultiplier ?? 1),
+      fireTimer: (0.65 + Math.random() * profile.fireInterval * 0.45) * (this.campaignProfile?.enemyFireIntervalMultiplier ?? 1),
       age: 0,
       radius: profile.radius,
       shield: profile.shield,
@@ -820,7 +843,7 @@ export class Game {
         }
         enemy.attackForecast = null;
         enemy.warning.visible = false;
-        enemy.fireTimer = profile.fireInterval;
+        enemy.fireTimer = profile.fireInterval * (this.campaignProfile?.enemyFireIntervalMultiplier ?? 1);
       }
 
       if (enemy.mesh.position.distanceTo(this.player.position) < enemy.radius + 0.4) {
@@ -1257,15 +1280,20 @@ export class Game {
     this.scene.add(mesh);
     this.boss = {
       mesh,
-      hp: 180 + this.elapsed * 0.35,
-      maxHp: 180 + this.elapsed * 0.35,
+      hp: (180 + this.elapsed * 0.35) * (this.campaignProfile?.bossHealthMultiplier ?? 1),
+      maxHp: (180 + this.elapsed * 0.35) * (this.campaignProfile?.bossHealthMultiplier ?? 1),
       fireTimer: 2.5,
       age: 0,
       entering: true,
       integrity: createBodyIntegrity("boss"),
       attackForecast: null
     };
-    this.spawnBurst(mesh.position, 0xff92de, 34);
+    this.spawnBurst(mesh.position, this.campaignProfile?.palette.star ?? 0xff92de, 34);
+    if (this.pendingBossExposure) {
+      this.pendingBossExposure = false;
+      this.bossExposureTimer = 8;
+      this.callbacks.onCampaignMessage?.("敵の中継器を解析！ボスの防壁が8秒間弱体化します。");
+    }
   }
 
   private updateBoss(dt: number): void {
@@ -1285,16 +1313,27 @@ export class Game {
     boss.fireTimer -= dt;
 
     const phaseTwo = boss.hp <= boss.maxHp * 0.5;
+    if (phaseTwo && !this.campaignPhaseEventTriggered && this.campaignProfile &&
+        (this.campaignProfile.battleEvent === "memory-reversal" || this.campaignProfile.battleEvent === "stasis-lock")) {
+      this.campaignPhaseEventTriggered = true;
+      this.clearEnemyProjectiles();
+      boss.attackForecast = null;
+      this.bossExposureTimer = this.campaignProfile.battleEvent === "memory-reversal" ? 7 : 4;
+      boss.fireTimer += this.campaignProfile.battleEvent === "memory-reversal" ? 0.9 : 1.8;
+      this.callbacks.onCampaignMessage?.(this.campaignProfile.battleEvent === "memory-reversal"
+        ? "記憶反転！過去の自分がボスの防壁を7秒間崩します。"
+        : "星環封印が作動！敵の弾幕を停止し、攻撃間隔を延長しました。");
+    }
     const effects = getBodyIntegrityEffects(boss.integrity);
     if (!effects.canAttack && boss.attackForecast) boss.attackForecast = null;
     if (!boss.entering && effects.canAttack && boss.fireTimer <= 0.55 && !boss.attackForecast) {
       boss.attackForecast = createAttackForecast({
         origin: { x: boss.mesh.position.x, y: boss.mesh.position.y - 1 },
         target: { x: this.player.position.x, y: this.player.position.y },
-        pattern: "spread",
-        projectileSpeed: phaseTwo ? 6.8 : 5.9,
-        projectileCount: phaseTwo ? 7 : 3,
-        spreadRadians: phaseTwo ? 0.22 : 0.3,
+        pattern: this.campaignProfile?.bossPattern ?? "spread",
+        projectileSpeed: (phaseTwo ? 6.8 : 5.9) * (this.campaignProfile?.bossProjectileSpeedMultiplier ?? 1),
+        projectileCount: Math.max(1, Math.min(9, (phaseTwo ? 7 : 3) + (this.campaignProfile?.bossProjectileCountBonus ?? 0))),
+        spreadRadians: (phaseTwo ? 0.22 : 0.3) * (this.campaignProfile?.bossSpreadMultiplier ?? 1),
         projectileRadius: 0.19
       });
     }
@@ -1324,10 +1363,10 @@ export class Game {
         const forecast = boss.attackForecast ?? createAttackForecast({
           origin: { x: boss.mesh.position.x, y: boss.mesh.position.y - 1 },
           target: { x: this.player.position.x, y: this.player.position.y },
-          pattern: "spread",
-          projectileSpeed: phaseTwo ? 6.8 : 5.9,
-          projectileCount: phaseTwo ? 7 : 3,
-          spreadRadians: phaseTwo ? 0.22 : 0.3,
+          pattern: this.campaignProfile?.bossPattern ?? "spread",
+          projectileSpeed: (phaseTwo ? 6.8 : 5.9) * (this.campaignProfile?.bossProjectileSpeedMultiplier ?? 1),
+          projectileCount: Math.max(1, Math.min(9, (phaseTwo ? 7 : 3) + (this.campaignProfile?.bossProjectileCountBonus ?? 0))),
+          spreadRadians: (phaseTwo ? 0.22 : 0.3) * (this.campaignProfile?.bossSpreadMultiplier ?? 1),
           projectileRadius: 0.19
         });
         const releaseY = boss.mesh.position.y - 1;
@@ -1341,7 +1380,7 @@ export class Game {
           );
         }
       }
-      boss.fireTimer = phaseTwo ? 0.95 : 1.5;
+      boss.fireTimer = (phaseTwo ? 0.95 : 1.5) * (this.campaignProfile?.bossFireIntervalMultiplier ?? 1);
       boss.attackForecast = null;
       this.bossTelegraph.visible = false;
     }
@@ -1360,7 +1399,8 @@ export class Game {
     }
 
     const effects = getBodyIntegrityEffects(boss.integrity);
-    const shieldDamageMultiplier = effects.shieldActive ? 0.65 : 1;
+    const shieldDamageMultiplier = effects.shieldActive && this.bossExposureTimer <= 0
+      ? (this.campaignProfile?.bossShieldDamageMultiplier ?? 0.65) : 1;
     boss.hp -= Math.max(0, damage) * shieldDamageMultiplier * effects.coreDamageMultiplier;
     this.spawnBurst(new THREE.Vector3(boss.mesh.position.x, boss.mesh.position.y - 0.4, 0.9), 0xff8bd4, 3);
     if (boss.hp <= 0) {
@@ -1390,6 +1430,33 @@ export class Game {
     this.hp = Math.max(0, this.hp - Math.max(1, damage));
     this.spawnBurst(this.player.position, 0xff7da8, 16);
     if (this.hp <= 0) this.finishRun("gameover");
+  }
+
+  private updateCampaignBattleEvent(): void {
+    const profile = this.campaignProfile;
+    if (!profile || this.campaignEventTriggered || this.elapsed < profile.battleEventAtSeconds ||
+        profile.battleEvent === "memory-reversal" || profile.battleEvent === "stasis-lock") return;
+    this.campaignEventTriggered = true;
+    if (profile.battleEvent === "rescue-support") {
+      this.shield = Math.min(100, this.shield + 25);
+      this.special = Math.min(100, this.special + 8);
+      this.spawnBurst(this.player.position, 0x78ffe0, 26);
+      this.callbacks.onCampaignMessage?.("救援ドローン到着！シールドと特殊ゲージを補給しました。");
+    } else if (profile.battleEvent === "echo-pulse") {
+      this.clearEnemyProjectiles();
+      this.special = Math.min(100, this.special + 14);
+      this.spawnBurst(this.player.position, 0xa7a0ff, 30);
+      this.callbacks.onCampaignMessage?.("信号共鳴パルス！敵弾を消去し、特殊ゲージを補給しました。");
+    } else if (profile.battleEvent === "signal-exposure") {
+      this.pendingBossExposure = true;
+      this.callbacks.onCampaignMessage?.("解析データを確保。ボス出現時に中継器を露出させます。");
+    }
+  }
+
+  private clearEnemyProjectiles(): void {
+    for (let index = this.projectiles.length - 1; index >= 0; index -= 1) {
+      if (this.projectiles[index]?.owner === "enemy") this.removeProjectile(index);
+    }
   }
 
   private spawnBurst(position: THREE.Vector3, color: number, count: number): void {
@@ -1501,7 +1568,7 @@ export class Game {
       elapsed: this.elapsed,
       bossHp: this.boss?.hp ?? 0,
       bossMaxHp: this.boss?.maxHp ?? 0,
-      bossName: this.boss ? "NEBULA EMPRESS" : "",
+      bossName: this.boss ? (this.campaignProfile?.bossName ?? "NEBULA EMPRESS") : "",
       mode: this.mode,
       combo: this.combo,
       evasion: this.getEvasionAssessment()
