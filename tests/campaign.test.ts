@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  activateCampaignMission, CAMPAIGN_CHAPTERS, completeCampaignMission, createCampaignCombatProfile,
+  activateCampaignMission, CAMPAIGN_CHAPTERS, completeCampaignMission, createCampaignCombatProfile, getCampaignPilotReaction,
   createCampaignState, deriveCampaignWorld, getAvailableCampaignMissions, getNextCampaignChapter,
   resolveCampaignEnding, sanitizeCampaignState, selectCampaignChoice, startNewCampaignRoute
 } from "../src/game/campaign";
@@ -67,6 +67,17 @@ describe("Echo Chronicle campaign domain", () => {
     expect(pursuitProfile?.battleEvent).toBe("signal-exposure");
     expect(rescueProfile?.enemyPriority).not.toEqual(pursuitProfile?.enemyPriority);
     expect(rescueProfile?.bossPattern).not.toBe(pursuitProfile?.bossPattern);
+    expect(rescueProfile?.formation).toBe("rescue-screen");
+    expect(pursuitProfile?.formation).toBe("cipher-pincer");
+    expect(rescueProfile?.palette).not.toEqual(pursuitProfile?.palette);
+  });
+
+  it("gives each pilot a distinct value-based reaction to the same decision", () => {
+    const lumi = getCampaignPilotReaction("aurora-prime", "attune", "lumi-asteria");
+    const noa = getCampaignPilotReaction("aurora-prime", "attune", "noa-celeste");
+    const rin = getCampaignPilotReaction("aurora-prime", "attune", "rin-vega");
+    expect(new Set([lumi, noa, rin]).size).toBe(3);
+    expect(getCampaignPilotReaction("pyra-reach", "rescue", "noa-celeste")).toContain("シールド");
   });
 
   it("archives ending history while resetting branch state for replay", () => {

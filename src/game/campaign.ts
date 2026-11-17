@@ -1,10 +1,12 @@
 import type { EnemyKind } from "./enemies";
 import type { AttackPattern } from "./threatForecast";
+import type { PilotId } from "./pilots";
 
 export type ChapterId = "aurora-prime" | "pyra-reach" | "noctis-archive";
 export type EndingId = "starborn" | "liberation" | "quiet-orbit" | "fractured-ring";
 export type CampaignEventType = "echo-pulse" | "signal-exposure" | "rescue-support" | "memory-reversal" | "stasis-lock";
 export type CampaignMissionKind = "main" | "side";
+export type CampaignFormation = "prism-escort" | "signal-hunt" | "rescue-screen" | "cipher-pincer" | "memory-mirror" | "stasis-lattice";
 export interface CampaignChoice { readonly id: string; readonly title: string; readonly description: string; readonly pilotLine: string; }
 export interface CampaignChapter {
   readonly id: ChapterId; readonly order: number; readonly planet: string; readonly title: string;
@@ -23,6 +25,7 @@ export interface CampaignCombatProfile {
   readonly missionId: string; readonly chapterId: ChapterId; readonly missionTitle: string;
   readonly palette: { readonly background: number; readonly fog: number; readonly star: number; readonly fogDensity: number };
   readonly enemyPriority: readonly EnemyKind[];
+  readonly formation: CampaignFormation;
   readonly enemyHealthMultiplier: number; readonly enemySpeedMultiplier: number;
   readonly enemyFireIntervalMultiplier: number; readonly spawnIntervalMultiplier: number;
   readonly bossName: string; readonly bossHealthMultiplier: number; readonly bossFireIntervalMultiplier: number;
@@ -63,6 +66,56 @@ export const CAMPAIGN_CHAPTERS: readonly CampaignChapter[] = [
     ]
   }
 ] as const;
+
+
+export function getCampaignPilotReaction(chapterId: ChapterId, choiceId: string, pilotId: PilotId): string {
+  const reactions: Record<PilotId, Record<ChapterId, Record<string, string>>> = {
+    "lumi-asteria": {
+      "aurora-prime": {
+        attune: "「怖くないと言ったら嘘。でも、あの声をひとりにしたくない」",
+        sever: "「助けたい。でも仲間を危険にさらす声なら、ここで止める」"
+      },
+      "pyra-reach": {
+        rescue: "「あとで後悔したくないのは、見逃した命のほうだよ」",
+        pursue: "「通信の先にいる人も助ける道があるはず。だから追う」"
+      },
+      "noctis-archive": {
+        merge: "「みんなの記憶を重ねても、今の私が消えるわけじゃない」",
+        seal: "「忘れるためじゃない。明日を誰かの記憶に決めさせないためだよ」"
+      }
+    },
+    "noa-celeste": {
+      "aurora-prime": {
+        attune: "「危険性は承知しています。それでも受信した声を切り捨てる判断はできません」",
+        sever: "「感染経路を遮断。記録を持ち帰り、危険の輪郭を先に確定します」"
+      },
+      "pyra-reach": {
+        rescue: "「座標を共有して。全員を収容するまで、私のシールドは落としません」",
+        pursue: "「敵の攻撃源を止めれば、救助艇の生存率も上げられます」"
+      },
+      "noctis-archive": {
+        merge: "「記憶を共有するなら、個人の境界を守る仕組みが必要です。私が調整します」",
+        seal: "「記録を閉じます。再発しないよう、封印状態を監視し続けます」"
+      }
+    },
+    "rin-vega": {
+      "aurora-prime": {
+        attune: "「未知でもかまわない。罠なら、その仕掛け主ごと叩き起こす！」",
+        sever: "「迷ってる暇はない。回線を切る。追ってくる奴はまとめて落とす！」"
+      },
+      "pyra-reach": {
+        rescue: "「通信は逃げない。救難艇を最短で拾ってから追いつく！」",
+        pursue: "「敵の通信塔を落とせば、救助ルートも作れる。先に追跡する！」"
+      },
+      "noctis-archive": {
+        merge: "「過去の自分が敵なら倒すつもりだった。でも同じ空を見てたなら話は別ね」",
+        seal: "「未来は自分で切り拓く。過去にハンドルを渡す気はない！」"
+      }
+    }
+  };
+  return reactions[pilotId]?.[chapterId]?.[choiceId] ?? "選んだ未来を、自分の責任で引き受ける。";
+}
+
 
 export const CAMPAIGN_MISSIONS: readonly CampaignMission[] = [
   { id: "aurora-first-contact", chapterId: "aurora-prime", kind: "main", title: "第一接触：氷晶観測都市", description: "信号源を守る無人防衛機を突破し、観測核へ到達する", reward: 30 },
@@ -208,14 +261,30 @@ export function createCampaignCombatProfile(state: CampaignState, missionId: str
     : mission.chapterId === "pyra-reach"
       ? state.choices["pyra-reach"] === "rescue" ? "rescue-support" : "signal-exposure"
       : state.choices["noctis-archive"] === "merge" ? "memory-reversal" : "stasis-lock";
+  const anomalyFog = Math.max(-2, Math.min(4, world.anomaly)) * 0.00035;
   const palette = mission.chapterId === "aurora-prime"
-    ? { background: 0x07152b, fog: 0x14284b, star: 0x9feaff, fogDensity: 0.009 }
+    ? state.choices["aurora-prime"] === "attune"
+      ? { background: 0x061d30, fog: 0x16445d, star: 0x8df5ff, fogDensity: Math.max(0.007, Math.min(0.014, 0.0085 + anomalyFog)) }
+      : { background: 0x0c1028, fog: 0x252b50, star: 0x98a8ff, fogDensity: Math.max(0.007, Math.min(0.014, 0.0095 + anomalyFog)) }
     : mission.chapterId === "pyra-reach"
-      ? { background: 0x230e1d, fog: 0x56233b, star: 0xffb77f, fogDensity: 0.011 }
-      : { background: 0x100e2c, fog: 0x29215a, star: 0xc9a8ff, fogDensity: 0.0085 };
-  const bossName = mission.chapterId === "aurora-prime" ? "PRISM WARDEN" : mission.chapterId === "pyra-reach" ? "CINDER BAILIFF" : secret ? "THE STARBORN ARCHIVE" : "NOCTIS REGISTRAR";
+      ? state.choices["pyra-reach"] === "rescue"
+        ? { background: 0x211326, fog: 0x5a3540, star: 0xffd08e, fogDensity: Math.max(0.007, Math.min(0.014, 0.0105 + anomalyFog)) }
+        : { background: 0x2b0d1d, fog: 0x67253d, star: 0xff8c80, fogDensity: Math.max(0.007, Math.min(0.014, 0.0115 + anomalyFog)) }
+      : state.choices["noctis-archive"] === "merge"
+        ? { background: 0x19102e, fog: 0x4a3670, star: 0xe1aaff, fogDensity: Math.max(0.007, Math.min(0.014, 0.008 + anomalyFog)) }
+        : { background: 0x0d172b, fog: 0x293e5a, star: 0xa8e7ff, fogDensity: Math.max(0.007, Math.min(0.014, 0.0075 + anomalyFog)) };
+  const formation: CampaignFormation = mission.chapterId === "aurora-prime"
+    ? state.choices["aurora-prime"] === "attune" ? "prism-escort" : "signal-hunt"
+    : mission.chapterId === "pyra-reach"
+      ? state.choices["pyra-reach"] === "rescue" ? "rescue-screen" : "cipher-pincer"
+      : state.choices["noctis-archive"] === "merge" ? "memory-mirror" : "stasis-lattice";
+  const bossName = mission.chapterId === "aurora-prime"
+    ? state.choices["aurora-prime"] === "attune" ? "PRISM WARDEN" : "SIGNAL HUNTER"
+    : mission.chapterId === "pyra-reach"
+      ? state.choices["pyra-reach"] === "rescue" ? "CINDER BAILIFF" : "CIPHER LANCER"
+      : secret ? "THE STARBORN ARCHIVE" : state.choices["noctis-archive"] === "merge" ? "MEMORY WRAITH" : "NOCTIS REGISTRAR";
   return {
-    missionId, chapterId: mission.chapterId, missionTitle: mission.title, palette, enemyPriority,
+    missionId, chapterId: mission.chapterId, missionTitle: mission.title, palette, enemyPriority, formation,
     enemyHealthMultiplier: Math.max(0.88, Math.min(1.28, 1 + pressure)),
     enemySpeedMultiplier: Math.max(0.9, Math.min(1.2, 1 + world.anomaly * 0.035)),
     enemyFireIntervalMultiplier: Math.max(0.78, Math.min(1.08, 1 - world.intel * 0.025 + world.trust * 0.018)),

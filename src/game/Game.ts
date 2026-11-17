@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { clamp } from "./core";
 import { absorbGuardianShield, ENEMY_PROFILES, getUnlockedEnemyKinds, selectEnemyKind, type EnemyKind } from "./enemies";
-import type { CampaignCombatProfile } from "./campaign";
+import type { CampaignCombatProfile, CampaignFormation } from "./campaign";
 import { TouchInput } from "./input";
 import { getPilotGrowthStats, getPilotProfile, type PilotProfile } from "./pilots";
 import { PICKUP_EFFECTS, selectPickupKind, type PickupKind } from "./pickups";
@@ -634,6 +634,10 @@ export class Game {
       : selectEnemyKind(this.elapsed, Math.random());
     const xLimit = Math.max(1, this.world.width / 2 - 1);
     const x = (Math.random() * 2 - 1) * xLimit;
+    if (this.campaignProfile) {
+      this.spawnCampaignFormation(this.campaignProfile.formation, kind, x, xLimit, available);
+      return;
+    }
     if (kind === "swarm") {
       const count = Math.min(3, MAX_ENEMIES - this.enemies.length);
       for (let index = 0; index < count; index += 1) {
@@ -642,6 +646,77 @@ export class Game {
       return;
     }
     this.createEnemy(kind, x, WORLD_HEIGHT / 2 + 1);
+  }
+
+  private spawnCampaignFormation(
+    formation: CampaignFormation,
+    fallback: EnemyKind,
+    centerX: number,
+    xLimit: number,
+    unlocked: readonly EnemyKind[]
+  ): void {
+    const profile = this.campaignProfile;
+    if (!profile) {
+      this.createEnemy(fallback, centerX, WORLD_HEIGHT / 2 + 1);
+      return;
+    }
+    const choose = (preferred: readonly EnemyKind[]): EnemyKind =>
+      preferred.find((kind) => unlocked.includes(kind)) ??
+      profile.enemyPriority.find((kind) => unlocked.includes(kind)) ??
+      fallback;
+    const slots: Array<{ kind: EnemyKind; dx: number; dy: number }> = [];
+    switch (formation) {
+      case "prism-escort":
+        slots.push(
+          { kind: choose(["guardian", "heavy", "scout"]), dx: 0, dy: 0.25 },
+          { kind: choose(["interceptor", "scout"]), dx: -1.45, dy: 1.2 },
+          { kind: choose(["interceptor", "scout"]), dx: 1.45, dy: 1.2 }
+        );
+        break;
+      case "signal-hunt":
+        slots.push(
+          { kind: choose(["sniper", "missile", "interceptor"]), dx: -1.5, dy: 0.8 },
+          { kind: choose(["sniper", "missile", "interceptor"]), dx: 1.5, dy: 0.8 },
+          { kind: choose(["missile", "interceptor", "scout"]), dx: 0, dy: 1.65 }
+        );
+        break;
+      case "rescue-screen":
+        slots.push(
+          { kind: choose(["guardian", "heavy", "scout"]), dx: 0, dy: 0.15 },
+          { kind: choose(["swarm", "interceptor", "scout"]), dx: -1.35, dy: 1.3 },
+          { kind: choose(["swarm", "interceptor", "scout"]), dx: 1.35, dy: 1.3 }
+        );
+        break;
+      case "cipher-pincer":
+        slots.push(
+          { kind: choose(["sniper", "interceptor", "scout"]), dx: -1.6, dy: 1.1 },
+          { kind: choose(["missile", "interceptor", "scout"]), dx: 0, dy: 0.1 },
+          { kind: choose(["sniper", "interceptor", "scout"]), dx: 1.6, dy: 1.1 }
+        );
+        break;
+      case "memory-mirror":
+        slots.push(
+          { kind: choose(["elite", "heavy", "guardian"]), dx: -1.25, dy: 0.45 },
+          { kind: choose(["guardian", "heavy", "elite"]), dx: 1.25, dy: 0.45 },
+          { kind: choose(["sniper", "interceptor", "scout"]), dx: 0, dy: 1.7 }
+        );
+        break;
+      case "stasis-lattice":
+        slots.push(
+          { kind: choose(["guardian", "heavy"]), dx: -1.45, dy: 0.45 },
+          { kind: choose(["elite", "heavy", "guardian"]), dx: 0, dy: 1.5 },
+          { kind: choose(["guardian", "heavy"]), dx: 1.45, dy: 0.45 }
+        );
+        break;
+    }
+    const remaining = Math.max(0, MAX_ENEMIES - this.enemies.length);
+    for (const slot of slots.slice(0, remaining)) {
+      this.createEnemy(
+        slot.kind,
+        clamp(centerX + slot.dx, -xLimit, xLimit),
+        WORLD_HEIGHT / 2 + 1 + slot.dy
+      );
+    }
   }
 
   private createEnemy(kind: EnemyKind, x: number, y: number): void {

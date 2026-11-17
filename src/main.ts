@@ -10,7 +10,7 @@ import { validateVrmFile } from "./game/vrmFile";
 import { collectDeviceDiagnostics, diagnosticsToCsv, type DeviceDiagnosticsReport, type GameDiagnosticsSnapshot } from "./game/diagnostics";
 import {
   activateCampaignMission, CAMPAIGN_CHAPTERS, completeCampaignMission, createCampaignCombatProfile,
-  getAvailableCampaignMissions, getCampaignEnding, getCampaignMission, getCampaignProgress,
+  getAvailableCampaignMissions, getCampaignEnding, getCampaignMission, getCampaignPilotReaction, getCampaignProgress,
   getNextCampaignChapter, selectCampaignChoice, startNewCampaignRoute, type ChapterId
 } from "./game/campaign";
 import "./style.css";
@@ -417,7 +417,7 @@ function renderCampaignPanel(): void {
         <b>${choice.title}</b><small>${choice.description}</small>
       </button>`).join("");
     byId("campaign-branch-summary").textContent = selected
-      ? selected.pilotLine
+      ? getCampaignPilotReaction(chapter.id, selected.id, save.selectedPilot)
       : "出撃前に決断してください。選択は会話・敵編成・戦闘イベント・ボス特性へ反映されます。";
     replay.hidden = true;
   } else {
