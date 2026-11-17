@@ -15,6 +15,7 @@ type CoreApi = {
     version: number;
     shards: number;
     upgrades: { attack: number; hull: number };
+    campaign: { version: number; completedMissionIds: string[] };
   };
   createBackup(value: unknown): string;
   verifyBackup(serialized: string): unknown | null;

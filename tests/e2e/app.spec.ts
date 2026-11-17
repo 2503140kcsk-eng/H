@@ -5,7 +5,7 @@ test("title screen fits a landscape iPhone viewport", async ({ page }) => {
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await expect(page.getByRole("heading", { name: /STARLIGHT/ })).toBeVisible();
-  await expect(page.locator('undefined')).toBeVisible();
+  await expect(page.locator('[data-mode="stage"]')).toBeVisible();
   await expect(page.getByText("NO ADS · NO GACHA · NO PAY-TO-WIN")).toBeVisible();
   expect(errors).toEqual([]);
 });
@@ -32,7 +32,7 @@ test("starts a 3D run and supports pause and resume", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
-  await page.locator('undefined').click();
+  await page.locator('[data-mode="stage"]').click();
   await expect(page.locator("#game-hud")).toBeVisible();
   await expect(page.locator("#pilot-label")).toHaveText("LUMI");
   await expect(page.locator("#ship-label")).toHaveText("Lumen-01");
@@ -59,7 +59,7 @@ test("returns to the hangar and can launch another run without page errors", asy
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
-  await page.locator('undefined').click();
+  await page.locator('[data-mode="stage"]').click();
   await expect(page.locator("#game-hud")).toBeVisible();
   await page.locator("#pause-button").click();
   await expect(page.locator("#pause-modal")).toBeVisible();
@@ -84,7 +84,7 @@ test("pauses safely on WebGL context loss and requires explicit resume after res
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
-  await page.locator('undefined').click();
+  await page.locator('[data-mode="stage"]').click();
 
   const canvas = page.locator("#game-canvas");
   await canvas.dispatchEvent("webglcontextlost", { cancelable: true });
@@ -120,7 +120,7 @@ test("iPhone diagnostics capture live gameplay metrics and export local JSON and
   await page.goto("/");
 
   // Capture metrics from a real gameplay session, then return to the hangar.
-  await page.locator('undefined').click();
+  await page.locator('[data-mode="stage"]').click();
   await expect(page.locator("#game-hud")).toBeVisible();
   await page.waitForTimeout(1200);
   await page.locator("#pause-button").click();
@@ -257,7 +257,7 @@ test("weapon dock unlocks, persists, exports and equips the selected combat weap
   expect(envelope.payload.unlockedWeapons).toEqual(["star-pulse", "prism-fan", "nova-lance"]);
   expect(envelope.payload.selectedWeapon).toBe("nova-lance");
 
-  await page.locator('undefined').click();
+  await page.locator('[data-mode="stage"]').click();
   await expect(page.locator("#weapon-label")).toHaveText("NOVA LANCE");
   expect(errors).toEqual([]);
 });
