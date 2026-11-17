@@ -8,6 +8,11 @@ import { ALL_SHIP_IDS, SHIP_PROFILES, isShipId } from "./game/ships";
 import { ALL_WEAPON_IDS, WEAPON_PROFILES, isWeaponId } from "./game/weapons";
 import { validateVrmFile } from "./game/vrmFile";
 import { collectDeviceDiagnostics, diagnosticsToCsv, type DeviceDiagnosticsReport, type GameDiagnosticsSnapshot } from "./game/diagnostics";
+import {
+  activateCampaignMission, CAMPAIGN_CHAPTERS, completeCampaignMission, createCampaignCombatProfile,
+  getAvailableCampaignMissions, getCampaignEnding, getCampaignMission, getCampaignProgress,
+  getNextCampaignChapter, selectCampaignChoice, startNewCampaignRoute, type ChapterId
+} from "./game/campaign";
 import "./style.css";
 
 registerSW({ immediate: true });
@@ -44,8 +49,18 @@ uiRoot.innerHTML = `
         <input id="pilot-vrm-file" type="file" accept=".vrm,model/gltf-binary" hidden />
         <small id="pilot-vrm-status" role="status" aria-live="polite">最大32 MiB · この端末内だけに保存</small>
       </div>
+      <section id="campaign-panel" class="campaign-panel" aria-live="polite">
+        <div class="campaign-panel-head"><span>✦ ECHO CHRONICLE</span><b id="campaign-progress">0 / 3 CHAPTERS</b></div>
+        <h2 id="campaign-title">Aurora Prime · 星の異常信号</h2>
+        <p id="campaign-briefing" class="campaign-briefing">星から届いた異常信号を追う。</p>
+        <div id="campaign-choice-list" class="campaign-choice-list"></div>
+        <p id="campaign-branch-summary" class="campaign-branch-summary">選択が惑星と敵の行動を変化させる。</p>
+        <div id="campaign-mission-list" class="campaign-mission-list"></div>
+        <p id="campaign-history" class="campaign-history"></p>
+        <button id="campaign-replay" class="sub-button campaign-replay" type="button" hidden>別ルートで最初から再航行</button>
+      </section>
       <div class="mode-grid">
-        <button class="mode-button primary" data-mode="story"><span>STORY</span><small>星域の謎を追う</small></button>
+        <button class="mode-button primary" data-mode="story"><span>CHRONICLE</span><small>3惑星・選択が世界を変える</small></button>
         <button class="mode-button" data-mode="stage"><span>STAGE</span><small>ボスを撃破せよ</small></button>
         <button class="mode-button" data-mode="endless"><span>ENDLESS</span><small>限界まで生き残れ</small></button>
       </div>
@@ -140,6 +155,7 @@ uiRoot.innerHTML = `
         <div><small>獲得シャード</small><b id="result-shards">0 ✦</b></div>
         <div><small>飛行時間</small><b id="result-time">00:00</b></div>
       </div>
+      <p id="result-epilogue" class="result-epilogue" hidden></p>
       <button id="retry-button" class="large-button">もう一度出撃！</button>
       <button id="result-menu-button" class="sub-button">ハンガーへ戻る</button>
     </div>
@@ -193,6 +209,7 @@ const pilotAvatar = byId<HTMLElement>("pilot-avatar");
 let save: SaveData = createDefaultSave();
 let game: Game | null = null;
 let currentMode: GameMode = "story";
+let currentCampaignMissionId: string | null = null;
 let runActive = false;
 let paused = false;
 let audioContext: AudioContext | null = null;
@@ -381,6 +398,60 @@ function renderWeaponChoices(): void {
   }).join("");
 }
 
+function renderCampaignPanel(): void {
+  const progress = getCampaignProgress(save.campaign);
+  const chapter = getNextCampaignChapter(save.campaign);
+  const ending = getCampaignEnding(save.campaign);
+  const choices = byId<HTMLDivElement>("campaign-choice-list");
+  const missions = byId<HTMLDivElement>("campaign-mission-list");
+  const replay = byId<HTMLButtonElement>("campaign-replay");
+  byId("campaign-progress").textContent = `${progress.completed} / ${progress.total} CHAPTERS · ROUTE ${save.campaign.replayCount + 1}`;
+
+  if (chapter) {
+    byId("campaign-title").textContent = `${chapter.planet} · ${chapter.title}`;
+    byId("campaign-briefing").textContent = chapter.briefing;
+    const selected = chapter.choices.find((choice) => choice.id === save.campaign.choices[chapter.id]);
+    choices.innerHTML = chapter.choices.map((choice) => `
+      <button type="button" class="campaign-choice ${selected?.id === choice.id ? "selected" : ""}"
+        data-campaign-chapter="${chapter.id}" data-campaign-choice="${choice.id}">
+        <b>${choice.title}</b><small>${choice.description}</small>
+      </button>`).join("");
+    byId("campaign-branch-summary").textContent = selected
+      ? selected.pilotLine
+      : "出撃前に決断してください。選択は会話・敵編成・戦闘イベント・ボス特性へ反映されます。";
+    replay.hidden = true;
+  } else {
+    byId("campaign-title").textContent = ending?.title ?? "星環の航海を完了";
+    byId("campaign-briefing").textContent = ending?.description ?? "三つの惑星の章をクリアしました。";
+    choices.innerHTML = "";
+    byId("campaign-branch-summary").textContent = "章の大筋は合流しましたが、あなたが残した因果は惑星と星環に残り続けます。";
+    replay.hidden = !save.campaign.endingId;
+  }
+
+  const available = getAvailableCampaignMissions(save.campaign);
+  missions.innerHTML = available.length
+    ? available.map((mission) => `
+      <button type="button" class="campaign-mission ${mission.kind === "main" ? "main-mission" : "side-mission"}"
+        data-campaign-mission="${mission.id}">
+        <span class="campaign-mission-kind">${mission.kind === "main" ? "MAIN OPERATION" : "SIDE OPERATION"}</span>
+        <b>${mission.title}</b><small>${mission.description}</small>
+        <em>出撃 · 報酬 +${mission.reward} ✦</em>
+      </button>`).join("")
+    : '<p class="campaign-finished">選択を決めると作戦が解放されます。</p>';
+  if (!chapter && !available.length) {
+    missions.innerHTML = '<p class="campaign-finished">全作戦を完了しました。別ルートでは新しい敵編成と結末が待っています。</p>';
+  }
+
+  const route = [
+    save.campaign.choices["aurora-prime"] ? "Aurora:" + save.campaign.choices["aurora-prime"] : "Aurora:未決",
+    save.campaign.choices["pyra-reach"] ? "Pyra:" + save.campaign.choices["pyra-reach"] : "Pyra:未決",
+    save.campaign.choices["noctis-archive"] ? "Noctis:" + save.campaign.choices["noctis-archive"] : "Noctis:未決"
+  ];
+  byId<HTMLParagraphElement>("campaign-history").textContent =
+    `記録 ${progress.completed}/3 · ${route.join(" / ")}` +
+    (save.campaign.endingHistory.length ? ` · 過去の結末 ${save.campaign.endingHistory.length}回` : "");
+}
+
 function refreshMenu(): void {
   const selectedPilot = getPilotProfile(save.selectedPilot);
   const selectedProgress = save.pilotProgress[save.selectedPilot] ?? { level: save.pilotLevel, xp: save.pilotXp };
@@ -401,6 +472,7 @@ function refreshMenu(): void {
   renderShipChoices();
   renderPilotChoices();
   renderWeaponChoices();
+  renderCampaignPanel();
   sensitivityInput.value = String(save.settings.sensitivity);
   volumeInput.value = String(save.settings.volume);
   const status = byId<HTMLParagraphElement>("save-status");
@@ -427,7 +499,7 @@ function retainGameDiagnostics(): void {
   }
 }
 
-function makeGame(): Game {
+function makeGame(campaignMissionId: string | null = null): Game {
   return new Game({
     canvas: gameCanvas,
     sensitivity: save.settings.sensitivity,
@@ -436,6 +508,8 @@ function makeGame(): Game {
     pilotId: save.selectedPilot,
     pilotLevel: save.pilotProgress[save.selectedPilot]?.level ?? save.pilotLevel,
     weaponId: save.selectedWeapon,
+    campaignProfile: campaignMissionId ? createCampaignCombatProfile(save.campaign, campaignMissionId) ?? undefined : undefined,
+    onCampaignMessage: showToast,
     onHudUpdate: updateHud,
     onRunEnd: (result) => { void handleRunEnd(result); },
     onGraphicsContextLost: () => {
@@ -448,13 +522,14 @@ function makeGame(): Game {
   });
 }
 
-function startRun(mode: GameMode): void {
+function startRun(mode: GameMode, campaignMissionId: string | null = null): void {
   try {
     retainGameDiagnostics();
     disposePilotPreview();
     game?.dispose();
-    game = makeGame();
     currentMode = mode;
+    currentCampaignMissionId = campaignMissionId;
+    game = makeGame(campaignMissionId);
     game.start(mode);
     menuScreen.hidden = true;
     pauseModal.hidden = true;
@@ -462,7 +537,7 @@ function startRun(mode: GameMode): void {
     gameHud.hidden = false;
     runActive = true;
     paused = false;
-    byId("mode-label").textContent = mode.toUpperCase();
+    byId("mode-label").textContent = campaignMissionId ? "CHRONICLE" : mode.toUpperCase();
     byId("pilot-label").textContent = getPilotProfile(save.selectedPilot).callSign;
     byId("pilot-hud-avatar").textContent = getPilotProfile(save.selectedPilot).avatar;
     byId("ship-label").textContent = save.selectedShip;
@@ -475,6 +550,30 @@ function startRun(mode: GameMode): void {
     showToast("3D描画を開始できませんでした。WebGL対応ブラウザで開いてね。");
     console.error("Unable to initialize WebGL game:", detail);
   }
+}
+
+async function launchCampaignMission(missionId: string): Promise<void> {
+  const mission = getCampaignMission(missionId);
+  if (!mission || !getAvailableCampaignMissions(save.campaign).some((entry) => entry.id === missionId)) {
+    showToast("このミッションはまだ解放されていません。");
+    return;
+  }
+  save.campaign = activateCampaignMission(save.campaign, missionId);
+  await persist();
+  startRun("story", missionId);
+}
+
+function launchNextCampaignChapter(): void {
+  const chapter = getNextCampaignChapter(save.campaign);
+  if (!chapter) {
+    showToast("全3章クリア！ 別ルートで再航行できます。");
+    return;
+  }
+  if (!save.campaign.choices[chapter.id]) {
+    showToast("まず " + chapter.planet + " の作戦選択を決めてね。");
+    return;
+  }
+  void launchCampaignMission(chapter.mainMissionId);
 }
 
 function updateHud(state: HudState): void {
@@ -521,11 +620,15 @@ async function handleRunEnd(result: RunResult): Promise<void> {
   paused = false;
   gameHud.hidden = true;
   pauseModal.hidden = true;
-  const reward = result.shards + (result.status === "clear" ? 20 : Math.floor(result.duration / 45));
+  const campaignMissionId = currentCampaignMissionId;
+  const mission = campaignMissionId ? getCampaignMission(campaignMissionId) : null;
+  const campaignReward = result.status === "clear" ? (mission?.reward ?? 0) : 0;
+  const ordinaryReward = result.shards + (result.status === "clear" ? 20 : Math.floor(result.duration / 45));
   const next = structuredClone(save);
-  next.shards = Math.min(100_000_000, next.shards + reward);
+  next.shards = Math.min(100_000_000, next.shards + ordinaryReward + campaignReward);
   next.totalRuns += 1;
   next.bestScores[result.mode] = Math.max(next.bestScores[result.mode] ?? 0, result.score);
+  if (campaignMissionId) next.campaign = completeCampaignMission(next.campaign, campaignMissionId, result.status);
   const activePilotId = next.selectedPilot;
   const activeProgress = next.pilotProgress[activePilotId] ?? { level: next.pilotLevel, xp: next.pilotXp };
   activeProgress.xp += result.kills * 12 + (result.status === "clear" ? 100 : 0);
@@ -538,12 +641,26 @@ async function handleRunEnd(result: RunResult): Promise<void> {
   next.pilotXp = activeProgress.xp;
   save = await saveProgress(next);
   refreshMenu();
-  byId("result-kicker").textContent = result.mode.toUpperCase() + " · " + formatTime(result.duration);
-  byId("result-title").textContent = result.status === "clear" ? "MISSION CLEAR!" : "FLIGHT OVER";
+  byId("result-kicker").textContent = campaignMissionId
+    ? "ECHO CHRONICLE · " + (mission?.chapterId ?? "").toUpperCase()
+    : result.mode.toUpperCase() + " · " + formatTime(result.duration);
+  const epilogue = byId<HTMLParagraphElement>("result-epilogue");
+  const ending = getCampaignEnding(save.campaign);
+  epilogue.hidden = !campaignMissionId;
+  epilogue.textContent = campaignMissionId
+    ? result.status === "clear"
+      ? (ending?.description ?? ((mission?.description ?? "作戦") + " · 選択の結果が星域へ刻まれた。"))
+      : "作戦は未完了です。選択と惑星の状態は保持されています。再出撃して続きを進められます。"
+    : "";
+  byId("result-title").textContent = result.status === "clear"
+    ? (campaignMissionId && ending ? ending.title : campaignMissionId && mission ? mission.title + " CLEAR!" : "MISSION CLEAR!")
+    : "FLIGHT OVER";
   byId("result-score").textContent = Math.floor(result.score).toLocaleString("en-US");
   byId("result-kills").textContent = String(result.kills);
-  byId("result-shards").textContent = "+" + reward + " ✦";
+  byId("result-shards").textContent = "+" + (ordinaryReward + campaignReward) + " ✦";
   byId("result-time").textContent = formatTime(result.duration);
+  byId<HTMLButtonElement>("retry-button").hidden = Boolean(campaignMissionId && result.status === "clear");
+  if (campaignMissionId && result.status === "clear") currentCampaignMissionId = null;
   resultModal.hidden = false;
   playTone(result.status === "clear" ? 880 : 260, 0.24);
 }
@@ -621,7 +738,37 @@ async function initialize(): Promise<void> {
 }
 
 document.querySelectorAll<HTMLButtonElement>("[data-mode]").forEach((button) => {
-  button.addEventListener("click", () => startRun(button.dataset.mode as GameMode));
+  button.addEventListener("click", () => {
+    if (button.dataset.mode === "story") launchNextCampaignChapter();
+    else startRun(button.dataset.mode as GameMode);
+  });
+});
+byId("campaign-choice-list").addEventListener("click", async (event) => {
+  if (!(event.target instanceof Element)) return;
+  const button = event.target.closest<HTMLButtonElement>("[data-campaign-choice]");
+  const chapterId = button?.dataset.campaignChapter as ChapterId | undefined;
+  const choiceId = button?.dataset.campaignChoice;
+  if (!chapterId || !choiceId || !CAMPAIGN_CHAPTERS.some((chapter) => chapter.id === chapterId)) return;
+  const selected = selectCampaignChoice(save.campaign, chapterId, choiceId);
+  if (selected === save.campaign) return;
+  save.campaign = selected;
+  await persist();
+  const choice = CAMPAIGN_CHAPTERS.find((chapter) => chapter.id === chapterId)?.choices.find((entry) => entry.id === choiceId);
+  showToast(choice?.title + " · 星域の因果を記録しました。");
+  playTone(760, 0.12);
+});
+byId("campaign-mission-list").addEventListener("click", (event) => {
+  if (!(event.target instanceof Element)) return;
+  const button = event.target.closest<HTMLButtonElement>("[data-campaign-mission]");
+  const missionId = button?.dataset.campaignMission;
+  if (missionId) void launchCampaignMission(missionId);
+});
+byId("campaign-replay").addEventListener("click", async () => {
+  if (!save.campaign.endingId) return;
+  save.campaign = startNewCampaignRoute(save.campaign);
+  await persist();
+  showToast("新しい航路を開始。過去の結末は記録庫に残っています。");
+  playTone(820, 0.16);
 });
 byId("upgrade-attack").addEventListener("click", () => { void buyUpgrade("attack"); });
 byId("upgrade-hull").addEventListener("click", () => { void buyUpgrade("hull"); });
@@ -732,7 +879,7 @@ byId("pause-button").addEventListener("click", pauseGame);
 byId("resume-button").addEventListener("click", resumeGame);
 byId("pause-menu-button").addEventListener("click", showMenu);
 byId("result-menu-button").addEventListener("click", showMenu);
-byId("retry-button").addEventListener("click", () => startRun(currentMode));
+byId("retry-button").addEventListener("click", () => startRun(currentMode, currentCampaignMissionId));
 byId("special-button").addEventListener("click", () => {
   game?.specialAttack();
   playTone(1040, 0.12);
