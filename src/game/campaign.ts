@@ -1,6 +1,6 @@
 import type { EnemyKind } from "./enemies";
 import type { AttackPattern } from "./threatForecast";
-import type { PilotId } from "./pilots";
+import { isPilotId, type PilotId } from "./pilots";
 
 export type ChapterId = "aurora-prime" | "pyra-reach" | "noctis-archive";
 export type EndingId = "starborn" | "liberation" | "quiet-orbit" | "fractured-ring";
@@ -68,7 +68,7 @@ export const CAMPAIGN_CHAPTERS: readonly CampaignChapter[] = [
 ] as const;
 
 
-export function getCampaignPilotReaction(chapterId: ChapterId, choiceId: string, pilotId: PilotId): string {
+export function getCampaignPilotReaction(chapterId: ChapterId, choiceId: string, pilotId: string): string {
   const reactions: Record<PilotId, Record<ChapterId, Record<string, string>>> = {
     "lumi-asteria": {
       "aurora-prime": {
@@ -113,7 +113,8 @@ export function getCampaignPilotReaction(chapterId: ChapterId, choiceId: string,
       }
     }
   };
-  return reactions[pilotId]?.[chapterId]?.[choiceId] ?? "選んだ未来を、自分の責任で引き受ける。";
+  const safePilotId: PilotId = isPilotId(pilotId) ? pilotId : "lumi-asteria";
+  return reactions[safePilotId][chapterId]?.[choiceId] ?? "選んだ未来を、自分の責任で引き受ける。";
 }
 
 
@@ -238,7 +239,10 @@ export function completeCampaignMission(state: CampaignState, missionId: string,
   let next: CampaignState = { ...state, completedMissionIds, activeMissionId: null };
   if (CAMPAIGN_CHAPTERS.every((chapter) => completedMissionIds.includes(chapter.mainMissionId))) {
     const endingId = resolveCampaignEnding(next);
-    next = { ...next, endingId, endingHistory: [...next.endingHistory, endingId].slice(-8) };
+    const endingHistory = next.endingId === endingId
+      ? next.endingHistory
+      : [...next.endingHistory, endingId].slice(-8);
+    next = { ...next, endingId, endingHistory };
   }
   return next;
 }

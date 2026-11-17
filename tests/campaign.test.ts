@@ -78,6 +78,7 @@ describe("Echo Chronicle campaign domain", () => {
     const rin = getCampaignPilotReaction("aurora-prime", "attune", "rin-vega");
     expect(new Set([lumi, noa, rin]).size).toBe(3);
     expect(getCampaignPilotReaction("pyra-reach", "rescue", "noa-celeste")).toContain("シールド");
+    expect(getCampaignPilotReaction("aurora-prime", "attune", "unknown-pilot")).toBe(lumi);
   });
 
   it("archives ending history while resetting branch state for replay", () => {
@@ -88,6 +89,19 @@ describe("Echo Chronicle campaign domain", () => {
     expect(replay.endingHistory).toEqual(["liberation"]);
     expect(replay.choices["aurora-prime"]).toBeNull();
     expect(replay.completedMissionIds).toEqual([]);
+  });
+
+  it("does not append the same ending twice when another side operation clears", () => {
+    let state = createCampaignState();
+    state = {
+      ...state,
+      choices: { "aurora-prime": "sever", "pyra-reach": "pursue", "noctis-archive": "seal" },
+      completedMissionIds: ["aurora-first-contact", "pyra-crossfire", "noctis-the-last-record"],
+      endingId: "quiet-orbit",
+      endingHistory: ["quiet-orbit"]
+    };
+    const repeated = completeCampaignMission(state, "noctis-the-last-record", "clear");
+    expect(repeated.endingHistory).toEqual(["quiet-orbit"]);
   });
 
   it("sanitizes unknown mission ids, invalid choices and unbounded replay counters", () => {
