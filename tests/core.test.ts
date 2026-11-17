@@ -54,6 +54,8 @@ describe("combat and progression core", () => {
     expect(clean.version).toBe(1);
     expect(clean.shards).toBe(0);
     expect(clean.upgrades).toEqual({ attack: 20, hull: 0 });
+    expect(clean.campaign.version).toBe(1);
+    expect(clean.campaign.completedMissionIds).toEqual([]);
   });
 
   it("rejects a tampered backup rather than returning its payload", () => {

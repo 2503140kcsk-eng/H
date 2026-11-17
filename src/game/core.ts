@@ -2,6 +2,7 @@ import { normalizeSelectedPilotId, normalizeUnlockedPilotIds } from "./pilots";
 import { normalizeSelectedShipId, normalizeUnlockedShipIds } from "./ships";
 import { DEFAULT_WEAPON_ID, normalizeSelectedWeaponId, normalizeUnlockedWeaponIds } from "./weapons";
 import { z } from "zod";
+import { createCampaignState, sanitizeCampaignState, type CampaignState } from "./campaign";
 
 export interface SaveData {
   version: 1;
@@ -19,6 +20,7 @@ export interface SaveData {
   pilotXp: number;
   unlockedWeapons: string[];
   selectedWeapon: string;
+  campaign: CampaignState;
 }
 
 const DEFAULT_SAVE: SaveData = {
@@ -36,7 +38,8 @@ const DEFAULT_SAVE: SaveData = {
   pilotLevel: 1,
   pilotXp: 0,
   unlockedWeapons: [DEFAULT_WEAPON_ID],
-  selectedWeapon: DEFAULT_WEAPON_ID
+  selectedWeapon: DEFAULT_WEAPON_ID,
+  campaign: createCampaignState()
 };
 
 const SaveSchema = z.object({
@@ -66,7 +69,8 @@ const SaveSchema = z.object({
   pilotLevel: z.number().int().min(1).max(100).catch(1),
   pilotXp: z.number().int().min(0).max(1_000_000_000).catch(0),
   unlockedWeapons: z.array(z.string().min(1).max(48)).max(8).catch([DEFAULT_WEAPON_ID]),
-  selectedWeapon: z.string().min(1).max(48).catch(DEFAULT_WEAPON_ID)
+  selectedWeapon: z.string().min(1).max(48).catch(DEFAULT_WEAPON_ID),
+  campaign: z.unknown().optional()
 });
 
 const BackupPayloadSchema = z.object({
@@ -96,7 +100,8 @@ const BackupPayloadSchema = z.object({
   pilotLevel: z.number().int().min(1).max(100),
   pilotXp: z.number().int().min(0).max(1_000_000_000),
   unlockedWeapons: z.array(z.string().min(1).max(48)).max(8).optional().default([DEFAULT_WEAPON_ID]),
-  selectedWeapon: z.string().min(1).max(48).optional().default(DEFAULT_WEAPON_ID)
+  selectedWeapon: z.string().min(1).max(48).optional().default(DEFAULT_WEAPON_ID),
+  campaign: z.unknown().optional()
 }).strict();
 
 export function clamp(value: number, min: number, max: number): number {
@@ -181,7 +186,8 @@ export function sanitizeSaveData(value: unknown): SaveData {
     pilotProgress,
     totalRuns: clamp(data.totalRuns, 0, 1_000_000),
     pilotLevel: activePilotProgress.level,
-    pilotXp: activePilotProgress.xp
+    pilotXp: activePilotProgress.xp,
+    campaign: sanitizeCampaignState(data.campaign)
   };
 }
 
