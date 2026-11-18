@@ -43,7 +43,7 @@ Those dimensions are not shown as a morality score. The player sees the recorded
 - choice-reactive scene background, fog and starfield palette (the same planet changes its sky according to the route);
 - weighted enemy kind selection constrained by the existing elapsed-time unlock schedule plus six authored formation layouts;
 - bounded enemy health, speed and fire interval changes; 3-enemy formations use an approximately 2.8× wave interval (bounded 2.4–3.5×) to keep per-enemy arrival density close to the original single-enemy waves;
-- boss title, health, shot pattern, projectile count/speed/spread, fire interval and shield damage changes;
+- seven route-specific procedural boss silhouettes (prism / spear / armored polyhedra / knotwork), using cloned materials with explicit disposal on boss removal; boss title, health, shot pattern, projectile count/speed/spread, fire interval and shield damage changes;
 - pilot-specific value-based dialogue reactions, six route-specific formations, and one-shot campaign event at 18 seconds for Aurora / Pyra and a once-per-boss phase transition event in Noctis.
 
 The adapter preserves Vector Echo's locked attack forecasts and the existing named body-part integrity model. It does not auto-steer the player's ship.

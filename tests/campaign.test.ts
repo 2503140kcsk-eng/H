@@ -50,6 +50,7 @@ describe("Echo Chronicle campaign domain", () => {
     expect(getAvailableCampaignMissions(state).map((mission) => mission.id)).toContain("noctis-memory-vault");
     state = completeCampaignMission(state, "noctis-memory-vault", "clear");
     expect(resolveCampaignEnding(state)).toBe("starborn");
+    expect(createCampaignCombatProfile(state, "noctis-the-last-record")?.bossVisual).toBe("starborn-archive");
   });
 
   it("selects materially different boss and battlefield profiles for different routes", () => {
@@ -130,7 +131,9 @@ describe("Echo Chronicle campaign domain", () => {
     expect(mergeProfile?.battleEvent).toBe("memory-reversal");
     expect(sealProfile?.battleEvent).toBe("stasis-lock");
     expect(mergeProfile?.bossPattern).toBe("homing");
+    expect(mergeProfile?.bossVisual).toBe("memory-wraith");
     expect(sealProfile?.bossPattern).toBe("spread");
+    expect(sealProfile?.bossVisual).toBe("noctis-registrar");
     expect(mergeProfile?.bossName).not.toBe(sealProfile?.bossName);
   });
 
