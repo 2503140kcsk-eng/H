@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   activateCampaignMission, CAMPAIGN_CHAPTERS, completeCampaignMission, createCampaignCombatProfile, getCampaignPilotReaction,
-  createCampaignState, deriveCampaignWorld, getAvailableCampaignMissions, getNextCampaignChapter,
+  createCampaignState, deriveCampaignWorld, getAvailableCampaignMissions, getCampaignFormationSlots, getNextCampaignChapter,
   resolveCampaignEnding, sanitizeCampaignState, selectCampaignChoice, startNewCampaignRoute
 } from "../src/game/campaign";
 
@@ -70,6 +70,24 @@ describe("Echo Chronicle campaign domain", () => {
     expect(rescueProfile?.formation).toBe("rescue-screen");
     expect(pursuitProfile?.formation).toBe("cipher-pincer");
     expect(rescueProfile?.palette).not.toEqual(pursuitProfile?.palette);
+  });
+
+  it("keeps all six authored formation layouts distinct and respects unlock gates", () => {
+    const formations = [
+      "prism-escort", "signal-hunt", "rescue-screen",
+      "cipher-pincer", "memory-mirror", "stasis-lattice"
+    ] as const;
+    const unlocked = ["scout", "interceptor", "heavy"] as const;
+    const signatures = formations.map((formation) => {
+      const slots = getCampaignFormationSlots(formation, ["sniper", "guardian"], unlocked, "scout");
+      expect(slots).toHaveLength(3);
+      expect(slots.every((slot) => unlocked.includes(slot.kind as typeof unlocked[number]))).toBe(true);
+      expect(slots.every((slot) => Number.isFinite(slot.dx) && Number.isFinite(slot.dy))).toBe(true);
+      return slots.map((slot) => `${slot.kind}:${slot.dx}:${slot.dy}`).join("|");
+    });
+    expect(new Set(signatures).size).toBe(6);
+    const fallback = getCampaignFormationSlots("memory-mirror", [], ["scout"], "scout");
+    expect(fallback.every((slot) => slot.kind === "scout")).toBe(true);
   });
 
   it("gives each pilot a distinct value-based reaction to the same decision", () => {
