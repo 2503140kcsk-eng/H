@@ -1,0 +1,53 @@
+name: Quality Gate
+
+on:
+  # A single push check covers main and repository-owned PR head branches.
+  push:
+    branches: [main, "feature/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+
+      - name: Upgrade npm to avoid the npm 10 dependency-tree resolver crash
+        run: npm install --global npm@11.21.2
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Build production PWA
+        run: npm run build
+
+      - name: Build GitHub Pages repository subpath
+        run: npm run build
+        env:
+          GITHUB_PAGES: "true"
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
+      - name: Verify GitHub Pages artifact paths
+        run: npm run verify:pages
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run iPhone-sized browser smoke tests
+        run: npm run test:e2e
