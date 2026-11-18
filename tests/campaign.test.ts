@@ -26,6 +26,8 @@ describe("Echo Chronicle campaign domain", () => {
     const profile = createCampaignCombatProfile(state, "aurora-first-contact");
     expect(profile?.battleEvent).toBe("signal-exposure");
     expect(profile?.enemyPriority).toContain("sniper");
+    expect(profile?.bossPattern).toBe("aimed");
+    expect(profile?.bossVisual).toBe("signal-hunter");
   });
 
   it("unlocks only the side mission matching the completed chapter choice", () => {

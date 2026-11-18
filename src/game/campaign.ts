@@ -364,7 +364,8 @@ export function createCampaignCombatProfile(state: CampaignState, missionId: str
     bossProjectileCountBonus: Math.max(-1, Math.min(2, Math.floor((world.intel + world.anomaly) / 3) - (world.survivors >= 3 ? 1 : 0))),
     bossSpreadMultiplier: Math.max(0.8, Math.min(1.25, 1 + world.resonance * 0.02 - world.intel * 0.012)),
     bossPattern: mission.chapterId === "noctis-archive" && state.choices["noctis-archive"] === "merge" ? "homing"
-      : mission.chapterId === "pyra-reach" && state.choices["pyra-reach"] === "pursue" ? "aimed" : "spread",
+      : (mission.chapterId === "pyra-reach" && state.choices["pyra-reach"] === "pursue") ||
+        (mission.chapterId === "aurora-prime" && state.choices["aurora-prime"] === "sever") ? "aimed" : "spread",
     bossShieldDamageMultiplier: Math.max(0.48, Math.min(0.72, 0.65 - world.intel * 0.018)),
     battleEvent, battleEventAtSeconds: 18
   };
