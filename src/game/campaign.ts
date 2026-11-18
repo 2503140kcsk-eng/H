@@ -348,7 +348,7 @@ export function createCampaignCombatProfile(state: CampaignState, missionId: str
     enemyHealthMultiplier: Math.max(0.88, Math.min(1.28, 1 + pressure)),
     enemySpeedMultiplier: Math.max(0.9, Math.min(1.2, 1 + world.anomaly * 0.035)),
     enemyFireIntervalMultiplier: Math.max(0.78, Math.min(1.08, 1 - world.intel * 0.025 + world.trust * 0.018)),
-    spawnIntervalMultiplier: Math.max(0.78, Math.min(1.18, 1 + world.survivors * 0.025 - world.anomaly * 0.025)),
+    spawnIntervalMultiplier: Math.max(2.4, Math.min(3.5, 2.8 + world.survivors * 0.06 - world.anomaly * 0.05 + world.trust * 0.02)),
     bossName,
     bossHealthMultiplier: Math.max(0.82, Math.min(1.35, 1 + world.intel * 0.04 + world.anomaly * 0.035 - world.survivors * 0.025)),
     bossFireIntervalMultiplier: Math.max(0.76, Math.min(1.16, 1 + world.trust * 0.03 - world.anomaly * 0.025)),

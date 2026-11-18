@@ -70,6 +70,8 @@ describe("Echo Chronicle campaign domain", () => {
     expect(rescueProfile?.formation).toBe("rescue-screen");
     expect(pursuitProfile?.formation).toBe("cipher-pincer");
     expect(rescueProfile?.palette).not.toEqual(pursuitProfile?.palette);
+    expect(rescueProfile?.spawnIntervalMultiplier).toBeGreaterThanOrEqual(2.4);
+    expect(pursuitProfile?.spawnIntervalMultiplier).toBeLessThanOrEqual(3.5);
   });
 
   it("keeps all six authored formation layouts distinct and respects unlock gates", () => {
