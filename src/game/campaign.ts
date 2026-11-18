@@ -7,6 +7,7 @@ export type EndingId = "starborn" | "liberation" | "quiet-orbit" | "fractured-ri
 export type CampaignEventType = "echo-pulse" | "signal-exposure" | "rescue-support" | "memory-reversal" | "stasis-lock";
 export type CampaignMissionKind = "main" | "side";
 export type CampaignFormation = "prism-escort" | "signal-hunt" | "rescue-screen" | "cipher-pincer" | "memory-mirror" | "stasis-lattice";
+export type CampaignBossVisual = "prism-warden" | "signal-hunter" | "cinder-bailiff" | "cipher-lancer" | "memory-wraith" | "noctis-registrar" | "starborn-archive";
 export interface CampaignChoice { readonly id: string; readonly title: string; readonly description: string; readonly pilotLine: string; }
 export interface CampaignChapter {
   readonly id: ChapterId; readonly order: number; readonly planet: string; readonly title: string;
@@ -28,7 +29,7 @@ export interface CampaignCombatProfile {
   readonly formation: CampaignFormation;
   readonly enemyHealthMultiplier: number; readonly enemySpeedMultiplier: number;
   readonly enemyFireIntervalMultiplier: number; readonly spawnIntervalMultiplier: number;
-  readonly bossName: string; readonly bossHealthMultiplier: number; readonly bossFireIntervalMultiplier: number;
+  readonly bossName: string; readonly bossVisual: CampaignBossVisual; readonly bossHealthMultiplier: number; readonly bossFireIntervalMultiplier: number;
   readonly bossProjectileSpeedMultiplier: number; readonly bossProjectileCountBonus: number;
   readonly bossSpreadMultiplier: number; readonly bossPattern: AttackPattern;
   readonly bossShieldDamageMultiplier: number; readonly battleEvent: CampaignEventType; readonly battleEventAtSeconds: number;
@@ -338,11 +339,17 @@ export function createCampaignCombatProfile(state: CampaignState, missionId: str
     : mission.chapterId === "pyra-reach"
       ? state.choices["pyra-reach"] === "rescue" ? "rescue-screen" : "cipher-pincer"
       : state.choices["noctis-archive"] === "merge" ? "memory-mirror" : "stasis-lattice";
-  const bossName = mission.chapterId === "aurora-prime"
-    ? state.choices["aurora-prime"] === "attune" ? "PRISM WARDEN" : "SIGNAL HUNTER"
+  const bossVisual: CampaignBossVisual = mission.chapterId === "aurora-prime"
+    ? state.choices["aurora-prime"] === "attune" ? "prism-warden" : "signal-hunter"
     : mission.chapterId === "pyra-reach"
-      ? state.choices["pyra-reach"] === "rescue" ? "CINDER BAILIFF" : "CIPHER LANCER"
-      : secret ? "THE STARBORN ARCHIVE" : state.choices["noctis-archive"] === "merge" ? "MEMORY WRAITH" : "NOCTIS REGISTRAR";
+      ? state.choices["pyra-reach"] === "rescue" ? "cinder-bailiff" : "cipher-lancer"
+      : secret ? "starborn-archive" : state.choices["noctis-archive"] === "merge" ? "memory-wraith" : "noctis-registrar";
+  const bossName = bossVisual === "prism-warden" ? "PRISM WARDEN"
+    : bossVisual === "signal-hunter" ? "SIGNAL HUNTER"
+      : bossVisual === "cinder-bailiff" ? "CINDER BAILIFF"
+        : bossVisual === "cipher-lancer" ? "CIPHER LANCER"
+          : bossVisual === "memory-wraith" ? "MEMORY WRAITH"
+            : bossVisual === "starborn-archive" ? "THE STARBORN ARCHIVE" : "NOCTIS REGISTRAR";
   return {
     missionId, chapterId: mission.chapterId, missionTitle: mission.title, palette, enemyPriority, formation,
     enemyHealthMultiplier: Math.max(0.88, Math.min(1.28, 1 + pressure)),
@@ -350,6 +357,7 @@ export function createCampaignCombatProfile(state: CampaignState, missionId: str
     enemyFireIntervalMultiplier: Math.max(0.78, Math.min(1.08, 1 - world.intel * 0.025 + world.trust * 0.018)),
     spawnIntervalMultiplier: Math.max(2.4, Math.min(3.5, 2.8 + world.survivors * 0.06 - world.anomaly * 0.05 + world.trust * 0.02)),
     bossName,
+    bossVisual,
     bossHealthMultiplier: Math.max(0.82, Math.min(1.35, 1 + world.intel * 0.04 + world.anomaly * 0.035 - world.survivors * 0.025)),
     bossFireIntervalMultiplier: Math.max(0.76, Math.min(1.16, 1 + world.trust * 0.03 - world.anomaly * 0.025)),
     bossProjectileSpeedMultiplier: Math.max(0.9, Math.min(1.2, 1 + world.anomaly * 0.03)),

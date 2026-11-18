@@ -67,6 +67,8 @@ describe("Echo Chronicle campaign domain", () => {
     expect(pursuitProfile?.battleEvent).toBe("signal-exposure");
     expect(rescueProfile?.enemyPriority).not.toEqual(pursuitProfile?.enemyPriority);
     expect(rescueProfile?.bossPattern).not.toBe(pursuitProfile?.bossPattern);
+    expect(rescueProfile?.bossVisual).toBe("cinder-bailiff");
+    expect(pursuitProfile?.bossVisual).toBe("cipher-lancer");
     expect(rescueProfile?.formation).toBe("rescue-screen");
     expect(pursuitProfile?.formation).toBe("cipher-pincer");
     expect(rescueProfile?.palette).not.toEqual(pursuitProfile?.palette);
@@ -99,6 +101,13 @@ describe("Echo Chronicle campaign domain", () => {
     expect(new Set([lumi, noa, rin]).size).toBe(3);
     expect(getCampaignPilotReaction("pyra-reach", "rescue", "noa-celeste")).toContain("シールド");
     expect(getCampaignPilotReaction("aurora-prime", "attune", "unknown-pilot")).toBe(lumi);
+  });
+
+  it("assigns distinct authored boss silhouettes to each first-chapter route", () => {
+    let state = createCampaignState();
+    expect(createCampaignCombatProfile(selectCampaignChoice(state, "aurora-prime", "attune"), "aurora-first-contact")?.bossVisual).toBe("prism-warden");
+    state = selectCampaignChoice(state, "aurora-prime", "sever");
+    expect(createCampaignCombatProfile(state, "aurora-first-contact")?.bossVisual).toBe("signal-hunter");
   });
 
   it("maps Noctis choices to a memory reversal or a true stasis lock event", () => {

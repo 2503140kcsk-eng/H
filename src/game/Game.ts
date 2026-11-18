@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { clamp } from "./core";
 import { absorbGuardianShield, ENEMY_PROFILES, getUnlockedEnemyKinds, selectEnemyKind, type EnemyKind } from "./enemies";
-import { getCampaignFormationSlots, type CampaignCombatProfile, type CampaignFormation } from "./campaign";
+import { getCampaignFormationSlots, type CampaignBossVisual, type CampaignCombatProfile, type CampaignFormation } from "./campaign";
 import { TouchInput } from "./input";
 import { getPilotGrowthStats, getPilotProfile, type PilotProfile } from "./pilots";
 import { PICKUP_EFFECTS, selectPickupKind, type PickupKind } from "./pickups";
@@ -103,6 +103,7 @@ type Boss = {
   entering: boolean;
   integrity: BodyIntegrity;
   attackForecast: AttackForecast | null;
+  ownedMaterials: THREE.Material[];
 };
 
 const WORLD_HEIGHT = 16;
@@ -1285,10 +1286,88 @@ export class Game {
 
   private spawnBoss(): void {
     const mesh = new THREE.Group();
-    const hull = new THREE.Mesh(new THREE.OctahedronGeometry(1.75, 1), this.materials.boss);
+    const visual: CampaignBossVisual = this.campaignProfile?.bossVisual ?? "noctis-registrar";
+    const accent = this.campaignProfile?.palette.star ?? 0xff92de;
+    const secondary = this.campaignProfile?.palette.fog ?? 0x4c477a;
+    const hullMaterial = this.materials.boss.clone();
+    hullMaterial.color.setHex(secondary);
+    hullMaterial.emissive.setHex(accent);
+    hullMaterial.emissiveIntensity = 0.22;
+    const wingMaterial = this.materials.enemyFast.clone();
+    wingMaterial.color.setHex(accent);
+    wingMaterial.emissive.setHex(secondary);
+    const coreMaterial = this.materials.bossCore.clone();
+    coreMaterial.color.setHex(accent);
+    coreMaterial.emissive.setHex(accent);
+    coreMaterial.emissiveIntensity = 0.5;
+    const weaponMaterial = this.materials.enemySniper.clone();
+    weaponMaterial.color.setHex(secondary);
+    weaponMaterial.emissive.setHex(accent);
+    const ringMaterial = this.materials.glow.clone();
+    ringMaterial.color.setHex(accent);
+    const ownedMaterials: THREE.Material[] = [hullMaterial, wingMaterial, coreMaterial, weaponMaterial, ringMaterial];
+
+    let hullGeometry: THREE.BufferGeometry;
+    let wingGeometry: THREE.BufferGeometry;
+    let coreGeometry: THREE.BufferGeometry;
+    let weaponGeometry: THREE.BufferGeometry;
+    let emitterGeometry: THREE.BufferGeometry;
+    switch (visual) {
+      case "prism-warden":
+        hullGeometry = new THREE.OctahedronGeometry(1.75, 1);
+        wingGeometry = new THREE.BoxGeometry(1.9, 0.55, 0.35);
+        coreGeometry = new THREE.OctahedronGeometry(0.58, 1);
+        weaponGeometry = new THREE.CylinderGeometry(0.2, 0.28, 0.72, 8);
+        emitterGeometry = new THREE.TorusGeometry(2.2, 0.055, 8, 52);
+        break;
+      case "signal-hunter":
+        hullGeometry = new THREE.ConeGeometry(1.55, 2.2, 6, 1);
+        wingGeometry = new THREE.ConeGeometry(0.55, 1.8, 5, 1);
+        coreGeometry = new THREE.TetrahedronGeometry(0.62, 0);
+        weaponGeometry = new THREE.ConeGeometry(0.3, 0.9, 6, 1);
+        emitterGeometry = new THREE.TorusGeometry(2.05, 0.09, 6, 42);
+        break;
+      case "cinder-bailiff":
+        hullGeometry = new THREE.DodecahedronGeometry(1.72, 0);
+        wingGeometry = new THREE.DodecahedronGeometry(0.72, 0);
+        coreGeometry = new THREE.IcosahedronGeometry(0.58, 1);
+        weaponGeometry = new THREE.CylinderGeometry(0.3, 0.17, 0.85, 6);
+        emitterGeometry = new THREE.TorusKnotGeometry(1.9, 0.065, 64, 7, 2, 3);
+        break;
+      case "cipher-lancer":
+        hullGeometry = new THREE.TetrahedronGeometry(1.9, 1);
+        wingGeometry = new THREE.ConeGeometry(0.48, 1.9, 4, 1);
+        coreGeometry = new THREE.DodecahedronGeometry(0.58, 0);
+        weaponGeometry = new THREE.ConeGeometry(0.22, 1.05, 5, 1);
+        emitterGeometry = new THREE.TorusGeometry(2.25, 0.04, 5, 48);
+        break;
+      case "memory-wraith":
+        hullGeometry = new THREE.IcosahedronGeometry(1.7, 1);
+        wingGeometry = new THREE.OctahedronGeometry(0.78, 1);
+        coreGeometry = new THREE.SphereGeometry(0.55, 18, 14);
+        weaponGeometry = new THREE.CylinderGeometry(0.16, 0.34, 0.9, 5);
+        emitterGeometry = new THREE.TorusKnotGeometry(2.05, 0.055, 72, 8, 2, 5);
+        break;
+      case "starborn-archive":
+        hullGeometry = new THREE.TorusKnotGeometry(1.0, 0.48, 88, 9, 3, 5);
+        wingGeometry = new THREE.TorusGeometry(0.82, 0.16, 7, 22);
+        coreGeometry = new THREE.TorusKnotGeometry(0.42, 0.14, 48, 7, 2, 3);
+        weaponGeometry = new THREE.OctahedronGeometry(0.42, 1);
+        emitterGeometry = new THREE.TorusKnotGeometry(2.05, 0.07, 96, 9, 3, 5);
+        break;
+      case "noctis-registrar":
+        hullGeometry = new THREE.TorusKnotGeometry(1.1, 0.42, 72, 8, 2, 3);
+        wingGeometry = new THREE.BoxGeometry(1.65, 0.32, 0.48);
+        coreGeometry = new THREE.SphereGeometry(0.55, 18, 14);
+        weaponGeometry = new THREE.CylinderGeometry(0.2, 0.28, 0.72, 8);
+        emitterGeometry = new THREE.TorusGeometry(2.15, 0.055, 8, 52);
+        break;
+    }
+
+    const hull = new THREE.Mesh(hullGeometry, hullMaterial);
     hull.scale.set(1.45, 0.72, 0.65);
     hull.name = "hull";
-    const left = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.55, 0.35), this.materials.enemyFast);
+    const left = new THREE.Mesh(wingGeometry, wingMaterial);
     left.position.set(-2.05, -0.12, 0);
     left.rotation.z = -0.2;
     left.name = "leftWing";
@@ -1296,13 +1375,13 @@ export class Game {
     right.position.x = 2.05;
     right.rotation.z = 0.2;
     right.name = "rightWing";
-    const core = new THREE.Mesh(new THREE.SphereGeometry(0.55, 18, 14), this.materials.bossCore);
+    const core = new THREE.Mesh(coreGeometry, coreMaterial);
     core.position.z = 1;
     core.name = "core";
-    const weapon = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.28, 0.72, 8), this.materials.enemySniper);
+    const weapon = new THREE.Mesh(weaponGeometry, weaponMaterial);
     weapon.position.set(0, -1.1, 0.3);
     weapon.name = "weapon";
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(2.2, 0.055, 8, 52), this.materials.glow);
+    const ring = new THREE.Mesh(emitterGeometry, ringMaterial);
     ring.rotation.x = Math.PI / 2;
     ring.name = "shieldEmitter";
     mesh.add(hull, left, right, core, weapon, ring);
@@ -1316,7 +1395,8 @@ export class Game {
       age: 0,
       entering: true,
       integrity: createBodyIntegrity("boss"),
-      attackForecast: null
+      attackForecast: null,
+      ownedMaterials
     };
     this.spawnBurst(mesh.position, this.campaignProfile?.palette.star ?? 0xff92de, 34);
     if (this.pendingBossExposure) {
@@ -1324,6 +1404,12 @@ export class Game {
       this.bossExposureTimer = 8;
       this.callbacks.onCampaignMessage?.("敵の中継器を解析！ボスの防壁が8秒間弱体化します。");
     }
+  }
+
+  private removeBossObject(boss: Boss): void {
+    this.removeSceneObject(boss.mesh);
+    for (const material of boss.ownedMaterials) material.dispose();
+    boss.ownedMaterials.length = 0;
   }
 
   private updateBoss(dt: number): void {
@@ -1440,7 +1526,7 @@ export class Game {
     this.spawnBurst(new THREE.Vector3(boss.mesh.position.x, boss.mesh.position.y - 0.4, 0.9), 0xff8bd4, 3);
     if (boss.hp <= 0) {
       const position = boss.mesh.position.clone();
-      this.removeSceneObject(boss.mesh);
+      this.removeBossObject(boss);
       this.boss = null;
       this.bossTelegraph.visible = false;
       this.score += 2500;
@@ -1643,7 +1729,7 @@ export class Game {
     }
     for (const material of particleMaterials) material.dispose();
     this.particles.length = 0;
-    if (this.boss) this.removeSceneObject(this.boss.mesh);
+    if (this.boss) this.removeBossObject(this.boss);
     this.boss = null;
     this.bossTelegraph.visible = false;
   }
