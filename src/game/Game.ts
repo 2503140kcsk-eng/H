@@ -199,6 +199,7 @@ export class Game {
   private campaignPhaseEventTriggered = false;
   private pendingBossExposure = false;
   private bossExposureTimer = 0;
+  private bossStasisTimer = 0;
   private readonly pilotUpgrades: { attack: number; hull: number };
   private readonly shipProfile: ShipProfile;
   private readonly pilotProfile: PilotProfile;
@@ -394,6 +395,7 @@ export class Game {
     this.campaignPhaseEventTriggered = false;
     this.pendingBossExposure = false;
     this.bossExposureTimer = 0;
+    this.bossStasisTimer = 0;
     this.player.position.set(0, -5.8, 0.6);
     this.playerTarget.set(0, -5.8);
     this.playerVelocity.set(0, 0);
@@ -556,6 +558,7 @@ export class Game {
     if (this.comboTimer <= 0) this.combo = 0;
     this.shieldTimer = Math.max(0, this.shieldTimer - dt);
     this.bossExposureTimer = Math.max(0, this.bossExposureTimer - dt);
+    this.bossStasisTimer = Math.max(0, this.bossStasisTimer - dt);
     this.updateCampaignBattleEvent();
     this.overdriveTimer = Math.max(0, this.overdriveTimer - dt);
     this.multishotTimer = Math.max(0, this.multishotTimer - dt);
@@ -1385,7 +1388,7 @@ export class Game {
       }
       boss.mesh.rotation.z = Math.sin(boss.age * 0.65) * 0.08;
     }
-    boss.fireTimer -= dt;
+    if (this.bossStasisTimer <= 0) boss.fireTimer -= dt;
 
     const phaseTwo = boss.hp <= boss.maxHp * 0.5;
     if (phaseTwo && !this.campaignPhaseEventTriggered && this.campaignProfile &&
@@ -1393,15 +1396,20 @@ export class Game {
       this.campaignPhaseEventTriggered = true;
       this.clearEnemyProjectiles();
       boss.attackForecast = null;
-      this.bossExposureTimer = this.campaignProfile.battleEvent === "memory-reversal" ? 7 : 4;
-      boss.fireTimer += this.campaignProfile.battleEvent === "memory-reversal" ? 0.9 : 1.8;
+      if (this.campaignProfile.battleEvent === "memory-reversal") {
+        this.bossExposureTimer = 7;
+        boss.fireTimer = Math.max(boss.fireTimer, 0.9);
+      } else {
+        this.bossStasisTimer = 4;
+        boss.fireTimer = Math.max(boss.fireTimer, 1.2);
+      }
       this.callbacks.onCampaignMessage?.(this.campaignProfile.battleEvent === "memory-reversal"
         ? "記憶反転！過去の自分がボスの防壁を7秒間崩します。"
         : "星環封印が作動！敵の弾幕を停止し、攻撃間隔を延長しました。");
     }
     const effects = getBodyIntegrityEffects(boss.integrity);
     if (!effects.canAttack && boss.attackForecast) boss.attackForecast = null;
-    if (!boss.entering && effects.canAttack && boss.fireTimer <= 0.55 && !boss.attackForecast) {
+    if (this.bossStasisTimer <= 0 && !boss.entering && effects.canAttack && boss.fireTimer <= 0.55 && !boss.attackForecast) {
       boss.attackForecast = createAttackForecast({
         origin: { x: boss.mesh.position.x, y: boss.mesh.position.y - 1 },
         target: { x: this.player.position.x, y: this.player.position.y },
@@ -1413,7 +1421,7 @@ export class Game {
       });
     }
 
-    this.bossTelegraph.visible = !boss.entering && Boolean(boss.attackForecast);
+    this.bossTelegraph.visible = this.bossStasisTimer <= 0 && !boss.entering && Boolean(boss.attackForecast);
     if (boss.attackForecast) {
       const forecast = boss.attackForecast;
       const direction = forecast.direction;
@@ -1433,7 +1441,7 @@ export class Game {
       }
     }
 
-    if (boss.fireTimer <= 0 && !boss.entering) {
+    if (this.bossStasisTimer <= 0 && boss.fireTimer <= 0 && !boss.entering) {
       if (effects.canAttack) {
         const forecast = boss.attackForecast ?? createAttackForecast({
           origin: { x: boss.mesh.position.x, y: boss.mesh.position.y - 1 },

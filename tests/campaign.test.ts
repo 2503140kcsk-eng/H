@@ -81,6 +81,30 @@ describe("Echo Chronicle campaign domain", () => {
     expect(getCampaignPilotReaction("aurora-prime", "attune", "unknown-pilot")).toBe(lumi);
   });
 
+  it("maps Noctis choices to a memory reversal or a true stasis lock event", () => {
+    let merged = createCampaignState();
+    merged = selectCampaignChoice(merged, "aurora-prime", "attune");
+    merged = completeCampaignMission(merged, "aurora-first-contact", "clear");
+    merged = selectCampaignChoice(merged, "pyra-reach", "rescue");
+    merged = completeCampaignMission(merged, "pyra-crossfire", "clear");
+    merged = selectCampaignChoice(merged, "noctis-archive", "merge");
+    const mergeProfile = createCampaignCombatProfile(merged, "noctis-the-last-record");
+
+    let sealed = createCampaignState();
+    sealed = selectCampaignChoice(sealed, "aurora-prime", "sever");
+    sealed = completeCampaignMission(sealed, "aurora-first-contact", "clear");
+    sealed = selectCampaignChoice(sealed, "pyra-reach", "pursue");
+    sealed = completeCampaignMission(sealed, "pyra-crossfire", "clear");
+    sealed = selectCampaignChoice(sealed, "noctis-archive", "seal");
+    const sealProfile = createCampaignCombatProfile(sealed, "noctis-the-last-record");
+
+    expect(mergeProfile?.battleEvent).toBe("memory-reversal");
+    expect(sealProfile?.battleEvent).toBe("stasis-lock");
+    expect(mergeProfile?.bossPattern).toBe("homing");
+    expect(sealProfile?.bossPattern).toBe("spread");
+    expect(mergeProfile?.bossName).not.toBe(sealProfile?.bossName);
+  });
+
   it("archives ending history while resetting branch state for replay", () => {
     let state = createCampaignState();
     state = { ...state, endingHistory: ["liberation"], replayCount: 0, endingId: "liberation" };
