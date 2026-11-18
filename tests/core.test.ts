@@ -60,6 +60,28 @@ describe("combat and progression core", () => {
     expect(clean.campaign.completedMissionIds).toEqual([]);
   });
 
+  it("round-trips campaign decisions and mission progress through the checked backup", () => {
+    const payload = {
+      ...core.createDefaultSave(),
+      campaign: {
+        version: 1,
+        choices: { "aurora-prime": "attune", "pyra-reach": null, "noctis-archive": null },
+        completedMissionIds: ["aurora-first-contact"],
+        activeMissionId: "aurora-prism-vault",
+        endingId: null,
+        endingHistory: [],
+        replayCount: 2
+      }
+    };
+    const restored = core.verifyBackup(core.createBackup(payload)) as {
+      campaign: { choices: Record<string, string | null>; completedMissionIds: string[]; activeMissionId: string | null; replayCount: number }
+    } | null;
+    expect(restored?.campaign.choices["aurora-prime"]).toBe("attune");
+    expect(restored?.campaign.completedMissionIds).toEqual(["aurora-first-contact"]);
+    expect(restored?.campaign.activeMissionId).toBe("aurora-prism-vault");
+    expect(restored?.campaign.replayCount).toBe(2);
+  });
+
   it("rejects a tampered backup rather than returning its payload", () => {
     expect(typeof core.createBackup).toBe("function");
     expect(typeof core.verifyBackup).toBe("function");

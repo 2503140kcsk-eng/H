@@ -105,6 +105,28 @@ describe("Echo Chronicle campaign domain", () => {
     expect(mergeProfile?.bossName).not.toBe(sealProfile?.bossName);
   });
 
+  it("distinguishes Liberation, Quiet Orbit and Fractured Ring from route evidence", () => {
+    const mainMissions = ["aurora-first-contact", "pyra-crossfire", "noctis-the-last-record"];
+    const liberated = {
+      ...createCampaignState(),
+      choices: { "aurora-prime": "sever", "pyra-reach": "rescue", "noctis-archive": "merge" },
+      completedMissionIds: [...mainMissions, "pyra-lifeline"]
+    };
+    const quiet = {
+      ...createCampaignState(),
+      choices: { "aurora-prime": "sever", "pyra-reach": "pursue", "noctis-archive": "seal" },
+      completedMissionIds: mainMissions
+    };
+    const fractured = {
+      ...createCampaignState(),
+      choices: { "aurora-prime": "attune", "pyra-reach": "rescue", "noctis-archive": "merge" },
+      completedMissionIds: mainMissions
+    };
+    expect(resolveCampaignEnding(liberated)).toBe("liberation");
+    expect(resolveCampaignEnding(quiet)).toBe("quiet-orbit");
+    expect(resolveCampaignEnding(fractured)).toBe("fractured-ring");
+  });
+
   it("archives ending history while resetting branch state for replay", () => {
     let state = createCampaignState();
     state = { ...state, endingHistory: ["liberation"], replayCount: 0, endingId: "liberation" };
